@@ -16,18 +16,19 @@ The spec implemented end to end. Terminal driver, all checks green, 10 commits o
 
 Known gap to keep an eye on: governments lean too stable (median survival = full term). Tune `params.py` if playtests feel calm.
 
-## Phase 2 — See the simulation (next)
+## Phase 2 — See the simulation (built)
 
-The terminal prints text; the game *thinks* in geometry and networks. This phase makes the invisible visible. Driver-only work — the sim core is untouched (that was the point of the architecture).
+The terminal prints text; the game *thinks* in geometry and networks. This phase made the invisible visible. Driver-only work — the sim core is untouched (that was the point of the architecture).
 
-- [ ] **Textual TUI driver** — a real game HUD in the terminal: event feed, poll ticker, your stats panel, action menu as buttons. The `tick() -> events` contract already supports this; Textual is a second driver, not a rewrite.
-- [ ] **Hemicycle seat chart** — parliament rendered as an arc of colored dots by party. Coalition blocs, rebels, and empty seats (dissolved parties) readable at a glance.
-- [ ] **Ideology map** — the [-1,1]^2 space with party platforms, MP positions, and your marker. Watch parties drift and schisms form spatially instead of reading about it.
-- [ ] **District map** — 12x10 grid of your country, colored by seat holder, margins shown as intensity. Your district highlighted; constituency work visibly changes it.
-- [ ] **Hybrid time presentation** — weeks auto-advance on a timer with the polls ticking live; hard pause on interrupt events (confidence lost, scandal, election). The event types and `INTERRUPTS` set already exist — this is presentation polish, not new sim logic.
-- [ ] **Event chronicle** — scrollable history of the game so far, filterable by type. "What happened while I wasn't watching" becomes answerable.
+- [x] **Pygame driver** (`driver/pyg.py` + `pyg_render.py`) — real window, replacing the planned Textual step: we went straight to graphics.
+- [x] **Hemicycle seat chart** — parliament as an arc of colored dots, parties sorted left-to-right by platform, coalition members tagged, player ringed, PM crowned.
+- [x] **Ideology map** — sampled voter point cloud, party platform markers, MP dots; Tab to toggle.
+- [x] **District map** — 12x10 grid colored by seat holder, brightness = margin, player district ringed.
+- [x] **Hybrid time** — auto-run weeks (1.5s, speeds 0.5–4x), interrupt banners hard-pause, weekly action panel with click-to-target MPs, click any seat to inspect, `why?` overlay explains the last vote term-by-term.
+- [x] **Election reveal** — districts resolve one by one on the map when an election lands.
+- [ ] **Event chronicle** — scrollable full history, filterable by type. Not yet — feed shows last 9.
 
-Done when: you can watch a coalition collapse *happen* on screen and understand why without reading a scrollback.
+Done when met: a coalition collapse is *watchable* — vote cascade, banner pause, party colors rearranging.
 
 ## Phase 3 — Richer politics
 
