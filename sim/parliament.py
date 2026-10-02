@@ -30,18 +30,23 @@ def district_opinion(state: GameState, district: int, bill: Bill) -> float:
     return dist(centroid, gov_mean) - dist(centroid, bill.pos)
 
 
-def vote_utility(state: GameState, mp: MP, bill: Bill) -> float:
-    """u > 0 votes yes. Policy distance, whip, government ties, district exposure."""
+def vote_terms(state: GameState, mp: MP, bill: Bill) -> dict[str, float]:
+    """Named utility components — the inspector reads these to explain votes."""
     in_gov = mp.party in state.government.parties
     whip = whip_direction(state, mp.party, bill) if mp.party is not None else 0
-    rel = mp.relationships.get(state.government.pm or -1, 0.0) if in_gov else 0.0
-    district = district_opinion(state, mp.district, bill)
-    return (-p.W_POLICY * dist(mp.pos, bill.pos)
-            + p.W_WHIP * whip * mp.loyalty
-            + p.W_GOV * in_gov
-            + p.W_REL * rel
-            + p.W_SAFETY * (1 - mp.seat_safety) * district
-            + state.rng.gauss(0, p.VOTE_NOISE))
+    return {
+        "policy": -p.W_POLICY * dist(mp.pos, bill.pos),
+        "whip": p.W_WHIP * whip * mp.loyalty,
+        "gov": p.W_GOV * in_gov,
+        "rel": p.W_REL * (mp.relationships.get(state.government.pm or -1, 0.0) if in_gov else 0.0),
+        "district": p.W_SAFETY * (1 - mp.seat_safety) * district_opinion(state, mp.district, bill),
+        "noise": state.rng.gauss(0, p.VOTE_NOISE),
+    }
+
+
+def vote_utility(state: GameState, mp: MP, bill: Bill) -> float:
+    """u > 0 votes yes."""
+    return sum(vote_terms(state, mp, bill).values())
 
 
 def table_bill(state: GameState) -> Bill:
@@ -60,8 +65,9 @@ def resolve_vote(state: GameState, bill: Bill, player_vote: int | None = None) -
     """Every MP votes; player_vote (+1/-1/0) overrides the player's utility."""
     yes, no, detail = 0, 0, {}
     for mp in state.mps.values():
-        u = player_vote if (mp.id == state.player_id and player_vote is not None) else vote_utility(state, mp, bill)
-        detail[mp.id] = u
+        terms = vote_terms(state, mp, bill)
+        u = player_vote if (mp.id == state.player_id and player_vote is not None) else sum(terms.values())
+        detail[mp.id] = {"u": u, "terms": terms}
         yes += u > 0
         no += u <= 0
     passed = yes > no
