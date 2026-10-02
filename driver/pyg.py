@@ -13,9 +13,8 @@ from sim.career import final_score
 from sim.tick import tick
 from sim.worldgen import new_game
 
-from driver.pyg_render import INTERRUPTS, draw
+from driver.pyg_render import H, INTERRUPTS, W, draw
 
-W, H = 1280, 720
 BASE_WEEK_SECONDS = 1.5
 
 SPEEDS = [0.5, 1.0, 2.0, 4.0]
@@ -41,6 +40,10 @@ class Driver:
         self.week_timer = 0.0
         self.banner = None          # interrupt event text awaiting dismiss
         self.events = []            # events from latest tick, for animation
+        self.view = "parliament"    # or "map" (Tab)
+        self.vote_flash = {}        # mp_id -> "yes"/"no" during vote cascade
+        self.seat_rects = {}        # mp_id -> Rect, rebuilt each draw for hit tests
+        self.inspect_mp = None      # mp_id shown in inspect card
 
     def advance(self, actions: list | None = None) -> None:
         """One week forward; collects events for animation and interrupts."""
