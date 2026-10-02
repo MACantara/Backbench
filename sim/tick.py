@@ -41,6 +41,9 @@ def tick(state: GameState, actions: list | None = None) -> list[Event]:
             state.phase = "campaign"
             state.weeks_to_election = 8
 
+    from .parties import party_lifecycle
+    if state.phase != "over":
+        party_lifecycle(state)
     _drift(state)
     return state.log[base:]
 
