@@ -13,7 +13,7 @@ from sim.career import final_score
 from sim.tick import tick
 from sim.worldgen import new_game
 
-from driver.pyg_render import H, INTERRUPTS, W, draw
+from driver.pyg_render import H, INTERRUPTS, W, draw, seat_positions
 
 BASE_WEEK_SECONDS = 1.5
 
@@ -42,6 +42,7 @@ class Driver:
         self.events = []            # events from latest tick, for animation
         self.view = "parliament"    # or "map" (Tab)
         self.vote_flash = {}        # mp_id -> "yes"/"no" during vote cascade
+        self.vote_anim = None       # {"order": [...], "votes": {...}, "t": seconds}
         self.seat_rects = {}        # mp_id -> Rect, rebuilt each draw for hit tests
         self.inspect_mp = None      # mp_id shown in inspect card
 
@@ -52,13 +53,28 @@ class Driver:
             self.paused = True
             return
         self.events = tick(self.state, actions or [])
+        vote = next((e for e in self.events if e.type == "VoteResult"), None)
+        if vote and "detail" in vote.data:
+            pos = seat_positions(self.state)
+            order = sorted(vote.data["detail"], key=lambda m: pos.get(m, (0, 0))[0])
+            self.vote_anim = {"order": order, "t": 0.0,
+                              "votes": {m: ("yes" if d["u"] > 0 else "no")
+                                        for m, d in vote.data["detail"].items()}}
         hit = next((e for e in self.events if e.type in INTERRUPTS), None)
         if hit:
             self.banner = hit.text
             self.paused = True
 
     def step(self, dt: float) -> None:
-        """Advance the auto-run clock; pause/banner blocks progress."""
+        """Advance animations and the auto-run clock; pause/banner blocks progress."""
+        if self.vote_anim:
+            self.vote_anim["t"] += dt
+            k = int(self.vote_anim["t"] / 0.007)
+            if self.vote_anim["t"] > 2.0:
+                self.vote_anim, self.vote_flash = None, {}
+            else:
+                self.vote_flash = {m: self.vote_anim["votes"][m]
+                                   for m in self.vote_anim["order"][:k]}
         if self.paused or self.banner:
             return
         self.week_timer += dt * SPEEDS[self.speed_i]
