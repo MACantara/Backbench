@@ -1,6 +1,7 @@
 """Pygame driver: watch the parliament work. Second driver over the same sim."""
 from __future__ import annotations
 
+import random
 import sys
 from pathlib import Path
 
@@ -13,7 +14,8 @@ from sim.career import final_score
 from sim.tick import tick
 from sim.worldgen import new_game
 
-from driver.pyg_render import H, INTERRUPTS, W, draw, seat_positions
+from driver.pyg_render import (H, INTERRUPTS, W, district_owners, draw,
+                               seat_positions)
 
 BASE_WEEK_SECONDS = 1.5
 
@@ -51,6 +53,9 @@ class Driver:
         self.need_target = None     # action kind awaiting a seat click
         self.need_axis = None       # action kind awaiting an axis button
         self.why_text = None        # explain_vote output while paused
+        self.viz_rng = random.Random(1)  # visuals only — never touches sim rng
+        self.district_prev = {}     # district -> party before the latest tick
+        self.reveal = None          # {"order": [districts], "t": s} election reveal
 
     def advance(self, actions: list | None = None) -> None:
         """One week forward; collects events for animation and interrupts."""
@@ -58,7 +63,13 @@ class Driver:
             self.banner = f"Game over — score {final_score(self.state)}"
             self.paused = True
             return
+        self.district_prev = district_owners(self.state)
         self.events = tick(self.state, actions or [])
+        if any(e.type == "ElectionResult" for e in self.events):
+            order = list(self.district_prev)
+            self.viz_rng.shuffle(order)
+            self.reveal = {"order": order, "t": 0.0}
+            self.view = "map"
         vote = next((e for e in self.events if e.type == "VoteResult"), None)
         if vote and "detail" in vote.data:
             pos = seat_positions(self.state)
@@ -66,13 +77,19 @@ class Driver:
             self.vote_anim = {"order": order, "t": 0.0,
                               "votes": {m: ("yes" if d["u"] > 0 else "no")
                                         for m, d in vote.data["detail"].items()}}
-        hit = next((e for e in self.events if e.type in INTERRUPTS), None)
+        # ElectionResult gets the map reveal instead of a text banner
+        hit = next((e for e in self.events
+                    if e.type in INTERRUPTS and e.type != "ElectionResult"), None)
         if hit:
             self.banner = hit.text
             self.paused = True
 
     def step(self, dt: float) -> None:
         """Advance animations and the auto-run clock; pause/banner blocks progress."""
+        if self.reveal:
+            self.reveal["t"] += dt
+            if self.reveal["t"] > 4.5:
+                self.reveal = None
         if self.vote_anim:
             self.vote_anim["t"] += dt
             k = int(self.vote_anim["t"] / 0.007)

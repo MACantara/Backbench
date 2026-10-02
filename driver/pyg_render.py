@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import math
 
+import numpy as np
 import pygame
 
 W, H = 1280, 720
@@ -53,6 +54,60 @@ def seat_positions(state) -> dict[int, tuple[float, float]]:
             pos[mps[i].id] = (CX + r * math.cos(theta), CY - r * math.sin(theta))
             i += 1
     return pos
+
+
+def district_owners(state) -> dict[int, int | None]:
+    return {m.district: m.party for m in state.mps.values()}
+
+
+def draw_map(drv) -> None:
+    s, v = drv.state, drv.state.voters
+    gx, gy = 12, 10
+    cell, ox, oy = 44, 40, 60
+    owners = district_owners(s)
+    shown = None
+    if drv.reveal:
+        k = int(drv.reveal["t"] / 3.0 * len(drv.reveal["order"]))
+        shown = set(drv.reveal["order"][:k])
+    for m in s.mps.values():
+        mask = v.district == m.district
+        if not mask.any():
+            continue
+        cent = v.pos[mask].mean(axis=0)
+        col = int(np.clip((cent[0] + 1) / 2 * gx, 0, gx - 1))
+        row = int(np.clip((cent[1] + 1) / 2 * gy, 0, gy - 1))
+        pid = owners[m.district]
+        if shown is not None and m.district not in shown:
+            pid = drv.district_prev.get(m.district, pid)  # pre-election holder
+        bright = 0.4 + 0.6 * m.seat_safety
+        c = tuple(int(x * bright) for x in party_color(s, pid))
+        r = pygame.Rect(ox + col * (cell + 2), oy + row * (cell + 2), cell, cell)
+        pygame.draw.rect(drv.screen, c, r)
+        if m.id == s.player_id:
+            pygame.draw.rect(drv.screen, WHITE, r, 2)
+    _text(drv, "Districts (FPTP)", (ox, oy - 28), DIM)
+
+    sx, sy, sz = 560, 60, 420
+    pygame.draw.rect(drv.screen, PANEL, (sx - 12, sy - 12, sz + 24, sz + 24))
+    pygame.draw.rect(drv.screen, DIM, (sx - 12, sy - 12, sz + 24, sz + 24), 1)
+    for x_, y_ in v.pos[::7]:                    # ~1400 sampled voters
+        px = int(sx + (x_ + 1) / 2 * sz)
+        py = int(sy + (1 - (y_ + 1) / 2) * sz)
+        drv.screen.set_at((px, py), (95, 95, 108))
+    for pt in s.parties.values():
+        if not pt.members:
+            continue
+        px = int(sx + (pt.platform[0] + 1) / 2 * sz)
+        py = int(sy + (1 - (pt.platform[1] + 1) / 2) * sz)
+        pygame.draw.circle(drv.screen, party_color(s, pt.id), (px, py), 10)
+        _text(drv, pt.name[:2].upper(), (px - 7, py - 6), BG)
+    for m in s.mps.values():
+        px = int(sx + (m.pos[0] + 1) / 2 * sz)
+        py = int(sy + (1 - (m.pos[1] + 1) / 2) * sz)
+        pygame.draw.circle(drv.screen, party_color(s, m.party), (px, py), 3)
+        if m.id == s.player_id:
+            pygame.draw.circle(drv.screen, WHITE, (px, py), 6, 1)
+    _text(drv, "Ideology space  (voters dim, MPs solid, parties lettered)", (sx, sy - 28), DIM)
 
 
 def _text(drv, s, xy, color=FG, font=None) -> None:
@@ -145,7 +200,7 @@ def draw_action_panel(drv) -> None:
             w = 8 + 9 * len(kind) + 16
             _button(drv, f"act:{kind}", kind, pygame.Rect(x, H - 110, w, 30))
             x += w + 8
-    _button(drv, "continue", "continue ▸", pygame.Rect(34, H - 50, 110, 28))
+    _button(drv, "continue", "continue >>", pygame.Rect(34, H - 50, 110, 28))
     _button(drv, "why", "why?", pygame.Rect(154, H - 50, 70, 28))
 
 
@@ -186,9 +241,14 @@ def draw(drv) -> None:
     """Whole frame. drv: .screen .font .big .state .banner .paused .speed_i .vote_flash .view"""
     drv.screen.fill(BG)
     drv.buttons = {}
-    pos = seat_positions(drv.state)
-    drv.seat_rects = {m: pygame.Rect(int(x) - 9, int(y) - 9, 18, 18) for m, (x, y) in pos.items()}
-    draw_parliament(drv, pos)
+    drv.seat_rects = {}
+    if drv.view == "map":
+        draw_map(drv)
+    else:
+        pos = seat_positions(drv.state)
+        drv.seat_rects = {m: pygame.Rect(int(x) - 9, int(y) - 9, 18, 18)
+                          for m, (x, y) in pos.items()}
+        draw_parliament(drv, pos)
     draw_panel(drv)
     draw_inspect(drv)
     if drv.action_pause:
