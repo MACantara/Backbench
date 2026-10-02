@@ -139,7 +139,7 @@ def draw_parliament(drv, pos) -> None:
 
 
 def draw_panel(drv) -> None:
-    s, f = drv.state, drv.font
+    s = drv.state
     pygame.draw.rect(drv.screen, PANEL, (PANEL_X, 0, W - PANEL_X, H))
     x, y = PANEL_X + 16, 14
     _text(drv, f"Week {s.week}   {s.phase}", (x, y), font=drv.big)

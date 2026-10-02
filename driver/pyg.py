@@ -9,7 +9,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 import pygame
 
-from sim.actions import Action, available_actions
+from sim.actions import Action
 from sim.career import final_score
 from sim.tick import tick
 from sim.worldgen import new_game
@@ -153,6 +153,9 @@ class Driver:
                 self.speed_i = min(self.speed_i + 1, len(SPEEDS) - 1)
             elif e.key == pygame.K_MINUS:
                 self.speed_i = max(self.speed_i - 1, 0)
+            elif e.key == pygame.K_F12:
+                Path("shots").mkdir(exist_ok=True)
+                pygame.image.save(self.screen, f"shots/week{self.state.week}.png")
         elif e.type == pygame.MOUSEBUTTONDOWN:
             self.on_click(e.pos)
 
