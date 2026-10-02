@@ -31,10 +31,11 @@ MP_STAT_SD = 0.20            # ambition/loyalty/competence/integrity spread arou
 MP_STAT_MEANS = {"ambition": 0.5, "loyalty": 0.5, "competence": 0.5, "integrity": 0.5}
 
 # --- voting in parliament ---
-W_POLICY = 1.0     # weight on policy distance (higher = more ideological voting)
+W_POLICY = 0.7     # weight on policy distance (higher = more ideological voting)
 W_WHIP = 0.8       # weight on party whip instruction
 W_REL = 0.4        # weight on relationship with the government/leader
 W_SAFETY = 0.6     # weight on district opinion exposure (unsafe seats vote locally)
+W_GOV = 0.35       # solidarity bonus for coalition MPs backing their own government's bill
 VOTE_NOISE = 0.05  # per-MP ballot noise
 
 # --- government ---

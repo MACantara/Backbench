@@ -63,8 +63,11 @@ def new_game(seed: int) -> GameState:
     names = _names(rng, n_districts)
     centroids = np.array([voters.pos[voters.district == d].mean(axis=0) for d in range(n_districts)])
     for d in range(n_districts):
-        pos = tuple(np.clip(centroids[d] + np_rng.normal(0, p.MP_POS_JITTER, 2), -1, 1))
-        party = min(parties.values(), key=lambda pt: dist(pos, pt.platform))
+        centroid = tuple(np.clip(centroids[d] + np_rng.normal(0, p.MP_POS_JITTER, 2), -1, 1))
+        party = min(parties.values(), key=lambda pt: dist(centroid, pt.platform))
+        # an MP blends party platform with district character
+        pos = tuple(np.clip(0.65 * np.asarray(party.platform) + 0.35 * np.asarray(centroid)
+                            + np_rng.normal(0, p.MP_POS_JITTER / 2, 2), -1, 1))
         stat = lambda k: min(1, max(0, rng.gauss(p.MP_STAT_MEANS[k], p.MP_STAT_SD)))
         mps[d] = MP(
             id=d, name=names[d], pos=pos,
