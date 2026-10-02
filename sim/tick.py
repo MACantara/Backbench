@@ -4,29 +4,40 @@ from __future__ import annotations
 import numpy as np
 
 from . import params as p
+from .actions import apply_action, evaluate_promises
+from .career import assign_portfolios, check_expulsion, leadership_challenge, update_score
 from .election import poll, resolve_election
 from .government import confidence_vote, form_government
 from .parliament import resolve_vote, table_bill
+from .parties import party_lifecycle
 from .state import Event, GameState
 
 
 def tick(state: GameState, actions: list | None = None) -> list[Event]:
     """One week. Player actions already applied by caller; this drives the world."""
-    actions = actions or []
     base = len(state.log)
     state.week += 1
+
+    for action in (actions or []):
+        apply_action(state, action)
+    check_expulsion(state)
+    if state.phase == "over":
+        return state.log[base:]
 
     if state.phase == "campaign":
         state.weeks_to_election -= 1
         state.emit("PollShift", "Weekly poll.", shares=poll(state))
         if state.weeks_to_election <= 0:
             state.phase = "election"
+            evaluate_promises(state)
             resolve_election(state)
             if state.phase != "over":
+                update_score(state)
                 state.phase = "formation"
 
     elif state.phase == "formation":
         form_government(state)
+        assign_portfolios(state)
         state.phase = "governing"
         state.emit("PollShift", "Post-formation poll.", shares=poll(state))
 
@@ -41,9 +52,9 @@ def tick(state: GameState, actions: list | None = None) -> list[Event]:
             state.phase = "campaign"
             state.weeks_to_election = 8
 
-    from .parties import party_lifecycle
     if state.phase != "over":
         party_lifecycle(state)
+        leadership_challenge(state)
     _drift(state)
     return state.log[base:]
 
