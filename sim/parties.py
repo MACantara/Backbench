@@ -63,13 +63,14 @@ def party_lifecycle(state: GameState) -> None:
     for pt in list(state.parties.values()):
         if len(pt.members) < 4 or pt.schism_cooldown > 0 or pt.cohesion >= p.PARTY_COHESION_SPLIT:
             continue
-        positions = np.array([state.mps[m].pos for m in pt.members])
+        members = list(pt.members)
+        positions = np.array([state.mps[m].pos for m in members])
         spread = float(np.linalg.norm(positions - positions.mean(axis=0), axis=1).max())
         if spread < p.PARTY_SPREAD_SPLIT:
             continue
         # the farthest member leads a schism, taking nearby members
         idx = int(np.argmax(np.linalg.norm(positions - positions.mean(axis=0), axis=1)))
-        rebel = sorted(pt.members)[idx]
+        rebel = members[idx]
         followers = [m for m in pt.members
                      if m != rebel and dist(state.mps[m].pos, state.mps[rebel].pos) < 0.4]
         if followers:
