@@ -120,6 +120,59 @@ def draw_panel(drv) -> None:
         y += 18
 
 
+def _button(drv, bid: str, label: str, rect) -> None:
+    pygame.draw.rect(drv.screen, (50, 55, 70), rect)
+    pygame.draw.rect(drv.screen, DIM, rect, 1)
+    _text(drv, label, (rect.x + 8, rect.y + 6))
+    drv.buttons[bid] = rect
+
+
+def draw_action_panel(drv) -> None:
+    from sim.actions import available_actions
+    pygame.draw.rect(drv.screen, PANEL, (20, H - 150, 940, 130))
+    pygame.draw.rect(drv.screen, DIM, (20, H - 150, 940, 130), 1)
+    _text(drv, f"Actions — pick {2 - len(drv.picks)} more "
+               f"(or continue): {[a.kind for a in drv.picks]}", (34, H - 140))
+    if drv.need_target:
+        _text(drv, f"{drv.need_target}: click an MP's seat to target", (34, H - 114), GOLD)
+    elif drv.need_axis:
+        _text(drv, f"{drv.need_axis}: pick an axis", (34, H - 114), GOLD)
+        _button(drv, "axis:0", "economic", pygame.Rect(34, H - 88, 110, 28))
+        _button(drv, "axis:1", "social", pygame.Rect(154, H - 88, 110, 28))
+    else:
+        x = 34
+        for kind in available_actions(drv.state):
+            w = 8 + 9 * len(kind) + 16
+            _button(drv, f"act:{kind}", kind, pygame.Rect(x, H - 110, w, 30))
+            x += w + 8
+    _button(drv, "continue", "continue ▸", pygame.Rect(34, H - 50, 110, 28))
+    _button(drv, "why", "why?", pygame.Rect(154, H - 50, 70, 28))
+
+
+def draw_inspect(drv) -> None:
+    from sim.inspect import explain_mp
+    if drv.inspect_mp is None or drv.inspect_mp not in drv.state.mps:
+        return
+    lines = explain_mp(drv.state, drv.inspect_mp).split("\n")
+    pygame.draw.rect(drv.screen, PANEL, (700, 40, 260, 30 + 20 * len(lines)))
+    pygame.draw.rect(drv.screen, GOLD, (700, 40, 260, 30 + 20 * len(lines)), 1)
+    for i, line in enumerate(lines):
+        _text(drv, line.strip()[:34], (712, 50 + 20 * i))
+
+
+def draw_why(drv) -> None:
+    if not drv.why_text:
+        return
+    lines = drv.why_text.split("\n")
+    pygame.draw.rect(drv.screen, PANEL, (40, 40, 900, 640))
+    pygame.draw.rect(drv.screen, GOLD, (40, 40, 900, 640), 1)
+    small = pygame.font.Font(None, 15)
+    for i, line in enumerate(lines[1:118]):
+        col, row = divmod(i, 59)
+        drv.screen.blit(small.render(line[:64], True, FG), (56 + col * 440, 50 + row * 11))
+    _text(drv, lines[0][:80], (56, 662), GOLD)
+
+
 def draw_banner(drv) -> None:
     if not drv.banner:
         return
@@ -132,8 +185,13 @@ def draw_banner(drv) -> None:
 def draw(drv) -> None:
     """Whole frame. drv: .screen .font .big .state .banner .paused .speed_i .vote_flash .view"""
     drv.screen.fill(BG)
+    drv.buttons = {}
     pos = seat_positions(drv.state)
     drv.seat_rects = {m: pygame.Rect(int(x) - 9, int(y) - 9, 18, 18) for m, (x, y) in pos.items()}
     draw_parliament(drv, pos)
     draw_panel(drv)
+    draw_inspect(drv)
+    if drv.action_pause:
+        draw_action_panel(drv)
+    draw_why(drv)
     draw_banner(drv)
