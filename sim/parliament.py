@@ -9,6 +9,8 @@ from .state import Bill, GameState, MP, dist
 
 def whip_direction(state: GameState, party_id: int, bill: Bill) -> int:
     """Party leader's line on a bill: +1 whip yes, -1 whip no, 0 free vote."""
+    if bill.confidence and party_id in state.government.parties:
+        return 1  # survival votes: the coalition always whips yes
     pt = state.parties[party_id]
     d = dist(pt.platform, bill.pos)
     # coalition partners lean yes — the government made this bill

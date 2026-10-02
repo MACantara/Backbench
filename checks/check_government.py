@@ -1,0 +1,44 @@
+"""Runnable check: governments form, a full cycle completes headless."""
+import sys
+from pathlib import Path
+
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
+
+from collections import Counter
+
+from sim.tick import tick
+from sim.worldgen import new_game
+
+
+def run_cycle(seed: int, max_weeks: int = 200) -> tuple:
+    s = new_game(seed)
+    for _ in range(max_weeks):
+        tick(s)
+        if s.phase == "over":
+            break
+        if s.week > 60 and s.phase == "campaign":  # completed a full term
+            return s, True
+    return s, False
+
+
+def main() -> None:
+    formed, cycles = 0, 0
+    for seed in range(5):
+        s, completed = run_cycle(seed)
+        gov_events = [e for e in s.log if e.type == "CoalitionFormed"]
+        formed += bool(gov_events)
+        cycles += completed
+    assert formed == 5, "a government should always form (minority fallback)"
+    assert cycles >= 3, f"only {cycles}/5 runs completed a full term"
+
+    # structure check on one run: phases occurred in order
+    s, _ = run_cycle(0)
+    types = [e.type for e in s.log]
+    assert types.index("ElectionResult") < types.index("CoalitionFormed") < len(types)
+    assert "VoteResult" in types and "PollShift" in types
+    print(f"government ok: {formed}/5 formed, {cycles}/5 completed a term, "
+          f"{len(s.log)} events logged in seed 0")
+
+
+if __name__ == "__main__":
+    main()

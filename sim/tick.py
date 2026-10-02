@@ -1,0 +1,58 @@
+"""The weekly pipeline. tick(state, actions) -> events for the week."""
+from __future__ import annotations
+
+import numpy as np
+
+from . import params as p
+from .election import poll, resolve_election
+from .government import confidence_vote, form_government
+from .parliament import resolve_vote, table_bill
+from .state import Event, GameState
+
+
+def tick(state: GameState, actions: list | None = None) -> list[Event]:
+    """One week. Player actions already applied by caller; this drives the world."""
+    actions = actions or []
+    base = len(state.log)
+    state.week += 1
+
+    if state.phase == "campaign":
+        state.weeks_to_election -= 1
+        state.emit("PollShift", "Weekly poll.", shares=poll(state))
+        if state.weeks_to_election <= 0:
+            state.phase = "election"
+            resolve_election(state)
+            if state.phase != "over":
+                state.phase = "formation"
+
+    elif state.phase == "formation":
+        form_government(state)
+        state.phase = "governing"
+        state.emit("PollShift", "Post-formation poll.", shares=poll(state))
+
+    elif state.phase == "governing":
+        state.government.weeks_in_office += 1
+        bill = table_bill(state)
+        resolve_vote(state, bill)
+        if state.week % p.BUDGET_EVERY_WEEKS == 0:
+            confidence_vote(state)
+        if state.phase != "over" and state.government.weeks_in_office >= p.GOVERNING_WEEKS_PER_TERM:
+            state.emit("ElectionCalled", "Term ends — election called.")
+            state.phase = "campaign"
+            state.weeks_to_election = 8
+
+    _drift(state)
+    return state.log[base:]
+
+
+def _drift(state: GameState) -> None:
+    """Weekly environment drift: voters wander, brands and relationships decay."""
+    rng = np.random.default_rng(int(state.rng.random() * 2**63))
+    state.voters.pos += rng.normal(0, p.VOTER_DRIFT_SD, state.voters.pos.shape)
+    np.clip(state.voters.pos, -1, 1, out=state.voters.pos)
+    for pt in state.parties.values():
+        pt.brand *= p.BRAND_DECAY
+        pt.schism_cooldown = max(0, pt.schism_cooldown - 1)
+    for mp in state.mps.values():
+        for k in mp.relationships:
+            mp.relationships[k] *= p.REL_DECAY

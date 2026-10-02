@@ -39,6 +39,7 @@ W_GOV = 0.35       # solidarity bonus for coalition MPs backing their own govern
 VOTE_NOISE = 0.05  # per-MP ballot noise
 
 # --- government ---
+COALITION_MAX_DIST = 1.0         # partners won't join a coalition beyond this platform distance
 CONFIDENCE_THRESHOLD = 0.5       # fraction of parliament needed
 MINORITY_GOVT_PENALTY = 0.15     # utility discount on bills under minority government
 BUDGET_EVERY_WEEKS = 12          # budget votes double as confidence votes
