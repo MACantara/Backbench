@@ -7,16 +7,20 @@ Every other actor in the game is a classical algorithm: ~10,000 voter agents in 
 ## Requirements
 
 - Python 3.12+
-- NumPy (`pip install numpy`) — the only dependency
+- `pip install numpy pygame` — pygame only needed for the graphical driver
 
 ## Run the game
 
 ```bash
-python driver/terminal.py          # default seed
-python driver/terminal.py 42       # seeded run (same world every time)
+python driver/pyg.py              # graphical driver (recommended)
+python driver/pyg.py 42           # seeded run
+python driver/terminal.py         # plain terminal driver
+python driver/terminal.py 42
 ```
 
-Each week you pick **2 actions** from the menu (campaign, speech, lobby, media, scheme, dig dirt, promise). Before committing you can:
+In the graphical driver: weeks auto-run (Space pauses, +/- speed), interrupt events pause with a banner. Click a seat to inspect its MP.
+
+In the terminal driver each week you pick **2 actions** from the menu (campaign, speech, lobby, media, scheme, dig dirt, promise). Before committing you can:
 
 - `inspect <mp_id>` — an MP's stats, relationships, seat safety
 - `why` — breakdown of the last vote: who voted yes/no and which utility terms drove it
