@@ -5,6 +5,7 @@ import sys
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
+sys.stdout.reconfigure(encoding="utf-8", errors="replace")  # cp1252 consoles
 
 from sim.actions import Action, available_actions
 from sim.career import final_score
@@ -22,7 +23,10 @@ def prompt_actions(state) -> list[Action]:
     while len(picks) < 2:
         print("\nActions (pick 2):", ", ".join(f"{i}:{a}" for i, a in enumerate(menu)),
               "| inspect <mp_id> | why")
-        raw = input(f"action {len(picks) + 1}/2 > ").strip()
+        try:
+            raw = input(f"action {len(picks) + 1}/2 > ").strip()
+        except EOFError:
+            return picks + [Action("nothing")] * (2 - len(picks))
         if raw == "why":
             print(explain_vote(state))
             continue
@@ -55,16 +59,16 @@ def show_poll(state) -> None:
 
 def run(seed: int = 0) -> None:
     state = new_game(seed)
-    print(f"=== BACKBENCH — seed {seed} ===")
+    print(f"=== BACKBENCH - seed {seed} ===")
     print(f"You are {state.mps[state.player_id].name}, MP for district {state.mps[state.player_id].district}.")
     while state.phase != "over":
-        print(f"\n── Week {state.week} · {state.phase} ──────────────────")
+        print(f"\n-- Week {state.week} [{state.phase}] {'-' * 40}")
         show_poll(state)
         actions = prompt_actions(state)
         for e in tick(state, actions):
             mark = "***" if e.type in INTERRUPTS else "   "
             print(f" {mark} {e.text}")
-    print(f"\n=== Game over — score {final_score(state)} ===")
+    print(f"\n=== Game over - score {final_score(state)} ===")
     print(explain_mp(state, state.player_id) if state.player_id in state.mps else "You are out of parliament.")
 
 
