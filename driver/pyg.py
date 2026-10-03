@@ -56,6 +56,8 @@ class Driver:
         self.viz_rng = random.Random(1)  # visuals only — never touches sim rng
         self.district_prev = {}     # district -> party before the latest tick
         self.reveal = None          # {"order": [districts], "t": s} election reveal
+        self.chronicle = {"open": False, "scroll": 0, "filter": None}
+        self.auto_play = False      # skip the weekly action pause
 
     def advance(self, actions: list | None = None) -> None:
         """One week forward; collects events for animation and interrupts."""
@@ -128,6 +130,11 @@ class Driver:
             self.advance(picks)
         elif bid == "why":
             self.why_text = explain_vote(self.state)
+        elif bid == "auto":
+            self.auto_play = not self.auto_play
+        elif bid.startswith("flt:"):
+            f = bid[4:]
+            self.chronicle["filter"] = None if f == "all" or f == self.chronicle["filter"] else f
 
     def _after_pick(self) -> None:
         if len(self.picks) >= 2:
@@ -137,8 +144,24 @@ class Driver:
         if e.type == pygame.QUIT:
             self.running = False
         elif e.type == pygame.KEYDOWN:
-            if e.key in (pygame.K_ESCAPE, pygame.K_q):
+            if e.key == pygame.K_ESCAPE:
+                if self.chronicle["open"]:
+                    self.chronicle["open"] = False
+                else:
+                    self.running = False
+            elif e.key == pygame.K_q and not self.chronicle["open"]:
                 self.running = False
+            elif e.key in (pygame.K_c, pygame.K_l):
+                c = self.chronicle
+                c["open"] = not c["open"]
+                if c["open"]:
+                    c["scroll"] = 10 ** 9      # pin to latest; draw clamps
+            elif e.key == pygame.K_a:
+                self.auto_play = not self.auto_play
+            elif e.key == pygame.K_PAGEUP and self.chronicle["open"]:
+                self.chronicle["scroll"] += 20
+            elif e.key == pygame.K_PAGEDOWN and self.chronicle["open"]:
+                self.chronicle["scroll"] -= 20
             elif e.key == pygame.K_SPACE:
                 if self.banner:
                     self.banner = None
@@ -156,6 +179,8 @@ class Driver:
             elif e.key == pygame.K_F12:
                 Path("shots").mkdir(exist_ok=True)
                 pygame.image.save(self.screen, f"shots/week{self.state.week}.png")
+        elif e.type == pygame.MOUSEWHEEL and self.chronicle["open"]:
+            self.chronicle["scroll"] += e.y * 3
         elif e.type == pygame.MOUSEBUTTONDOWN:
             self.on_click(e.pos)
 
@@ -167,6 +192,8 @@ class Driver:
             if rect.collidepoint(pos):
                 self.on_button(bid)
                 return
+        if self.chronicle["open"]:
+            return  # overlay swallows seat clicks
         hit = next((m for m, r in self.seat_rects.items() if r.collidepoint(pos)), None)
         if hit is not None and self.need_target:
             self.picks.append(Action(self.need_target, target=hit))

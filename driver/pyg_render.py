@@ -228,6 +228,38 @@ def draw_why(drv) -> None:
     _text(drv, lines[0][:80], (56, 662), GOLD)
 
 
+def draw_chronicle(drv) -> None:
+    c = drv.chronicle
+    if not c["open"]:
+        return
+    s = drv.state
+    pygame.draw.rect(drv.screen, BG, (16, 16, PANEL_X - 32, H - 32))
+    pygame.draw.rect(drv.screen, DIM, (16, 16, PANEL_X - 32, H - 32), 1)
+    _text(drv, "Chronicle — wheel/pgup/pgdn scroll, c/esc close", (28, 24), DIM)
+    types = sorted({e.type for e in s.log})
+    x = 28
+    _button(drv, "flt:all", "all", pygame.Rect(x, 46, 50, 24))
+    x += 56
+    for t in types:
+        w = 9 * len(t) + 22
+        _button(drv, f"flt:{t}", t.lower(), pygame.Rect(x, 46, w, 24))
+        if c["filter"] == t:
+            pygame.draw.rect(drv.screen, GOLD, (x, 46, w, 24), 2)
+        x += w + 6
+        if x > PANEL_X - 140:
+            break                        # out of room — types beyond this stay unfilterable
+    events = s.log if c["filter"] is None else [e for e in s.log if e.type == c["filter"]]
+    visible = (H - 110) // 17
+    c["scroll"] = max(0, min(c["scroll"], max(0, len(events) - visible)))
+    start = max(0, len(events) - visible - c["scroll"])
+    y = 80
+    for e in events[start:start + visible]:
+        col = RED if e.type in INTERRUPTS else FG
+        _text(drv, f"w{e.data.get('week', '?'):>3} [{e.type:<16}] {e.text[:62]}", (28, y), col)
+        y += 17
+    _text(drv, f"{len(events)} events — scroll {c['scroll']} back", (28, H - 30), DIM)
+
+
 def draw_banner(drv) -> None:
     if not drv.banner:
         return
@@ -251,7 +283,8 @@ def draw(drv) -> None:
         draw_parliament(drv, pos)
     draw_panel(drv)
     draw_inspect(drv)
-    if drv.action_pause:
+    if drv.action_pause and not drv.chronicle["open"]:
         draw_action_panel(drv)
     draw_why(drv)
+    draw_chronicle(drv)
     draw_banner(drv)
