@@ -108,6 +108,28 @@ class Bill:
 
 
 @dataclass
+class Law:
+    """A passed bill in force: leaves a persistent mark on the country."""
+    name: str
+    pos: Vec
+    beneficiary_axis: int
+    cost: float
+    passed_week: int
+    margin: float                   # vote share margin it passed by
+    effect: dict[str, float]        # weekly indicator nudges while in force
+
+
+@dataclass
+class Conditions:
+    """The country's objective state — what retrospective voters judge."""
+    growth: float = 0.0             # -1 contraction .. 1 boom
+    unemployment: float = 0.5       # 0..1
+    inflation: float = 0.3          # 0..1
+    services: float = 0.5           # 0..1, public-service capacity (slow)
+    crime: float = 0.3              # 0..1
+
+
+@dataclass
 class Event:
     type: str                       # PollShift, VoteResult, Scandal, Defection, ...
     text: str
@@ -133,6 +155,8 @@ class GameState:
     player_id: int
     hopefuls: list[Hopeful] = field(default_factory=list)
     outlets: list[Outlet] = field(default_factory=list)
+    conditions: Conditions = field(default_factory=Conditions)
+    laws: list[Law] = field(default_factory=list)  # registry of laws in force
     press_subject: int | None = None  # party id of last week's lead story
     press_weeks: int = 0              # consecutive weeks that subject has led
     government: Government = field(default_factory=Government)

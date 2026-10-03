@@ -117,6 +117,24 @@ PRESS_CYCLE_WEEKS = 3            # headline streak that triggers a frenzy
 MEDIA_APPEAR_BRAND = 0.05        # player media appearance → brand
 MEDIA_APPEAR_PUBPOS = 0.05       # player media appearance → pub_pos toward center
 
+# --- country conditions ---
+COND_BASE = {"growth": 0.0, "unemployment": 0.5, "inflation": 0.3,
+             "services": 0.5, "crime": 0.3}     # mean-reversion baselines
+COND_REVERT = 0.02           # weekly pull toward baseline
+COND_NOISE_SD = 0.01         # weekly indicator noise
+COUPLE_GROWTH_UE = 0.03      # growth↑ → unemployment↓
+COUPLE_UE_CRIME = 0.02       # unemployment↑ → crime↑
+COUPLE_SVC_CRIME = 0.01      # services↑ → crime↓ (slow)
+SHOCK_P = 1 / 80             # weekly shock probability (~one per term)
+SHOCK_MAG = (0.15, 0.35)     # jump magnitude range
+SHOCK_INTERRUPT = 0.25       # shocks at least this big interrupt auto-play
+LAW_EFFECT_SCALE = 0.01      # weekly indicator push per unit of axis extremity
+MOOD_W = {"growth": 0.4, "services": 0.2, "unemployment": 0.3,
+          "inflation": 0.2, "crime": 0.15}      # positive signs on the good ones
+RETRO_WEIGHT = 0.5           # voter-scoring weight on mood × responsibility
+RETRO_PM_SHARE = 0.6         # the PM's party takes this share of credit/blame
+W_RETRO_CONF = 0.3           # confidence-vote term: coalition MPs feel the slump
+
 # --- drift ---
 VOTER_DRIFT_SD = 0.004           # weekly position noise
 SALIENCE_REVERT = 0.02           # weekly pull of salience back toward base
