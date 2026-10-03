@@ -76,11 +76,27 @@ class Party:
     name: str
     platform: Vec
     brand: float = 0.0              # public reputation, decays
+    pub_pos: Vec | None = None      # media-constructed perceived position
     members: set[int] = field(default_factory=set)
     leader: int | None = None
     cohesion: float = 1.0           # derived: mean member-platform alignment
     schism_cooldown: int = 0
     factions: list[Faction] = field(default_factory=list)
+
+    def __post_init__(self) -> None:
+        if self.pub_pos is None:
+            self.pub_pos = self.platform
+
+
+@dataclass
+class Outlet:
+    """A media outlet: editorial slant, audience reach, story preferences."""
+    id: int
+    name: str
+    slant: Vec
+    reach: float
+    sensationalism: float       # 0 policy broadsheet .. 1 scandal tabloid
+    focus_axis: int             # the axis it harps on (agenda-setting)
 
 
 @dataclass
@@ -116,6 +132,9 @@ class GameState:
     parties: dict[int, Party]
     player_id: int
     hopefuls: list[Hopeful] = field(default_factory=list)
+    outlets: list[Outlet] = field(default_factory=list)
+    press_subject: int | None = None  # party id of last week's lead story
+    press_weeks: int = 0              # consecutive weeks that subject has led
     government: Government = field(default_factory=Government)
     current_bill: Bill | None = None
     weeks_to_election: int = 0

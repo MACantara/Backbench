@@ -99,6 +99,20 @@ SCANDAL_BETRAYAL = 0.05          # weekly district betrayal while a scandal burn
 WEATHERED_BURN = 0.5             # dossier fraction spent on surviving a scandal
 WEATHERED_BRAND_SCAR = 0.05      # permanent party brand cost of a weathered scandal
 
+# --- media layer ---
+OUTLET_COUNT = (3, 4)            # outlets per worldgen
+OUTLET_REACH = (0.25, 0.55)      # audience fraction range
+OUTLET_SLANT_JITTER = 0.15       # noise on editorial positions
+OUTLET_CENTRIST = True           # guarantee one centrist outlet
+COVERAGE_BRAND_W = 0.03          # brand shift per covering outlet-week
+COVERAGE_PUBPOS_W = 0.02         # pub_pos pull per covering outlet-week
+AGENDA_SALIENCE_W = 0.02         # salience nudge for in-audience voters
+AUDIENCE_AFFINITY_SD = 0.5       # ideological sd of an outlet's audience
+BRAND_WEIGHT = 0.4               # voter-scoring weight on party brand
+PUB_POS_MIX = 0.5                # candidate-vs-perceived-label blend in scoring
+PUB_POS_REVERT = 0.02            # weekly pull of pub_pos back to platform
+PRESS_CYCLE_WEEKS = 3            # headline streak that triggers a frenzy
+
 # --- drift ---
 VOTER_DRIFT_SD = 0.004           # weekly position noise
 BRAND_DECAY = 0.98               # weekly brand multiplier

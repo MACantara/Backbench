@@ -6,10 +6,12 @@ import random
 import numpy as np
 
 from . import params as p
-from .state import GameState, Hopeful, MP, Party, Voters, dist
+from .state import GameState, Hopeful, MP, Outlet, Party, Voters, dist
 
 _FIRST = "Ash Brook Cole Dawn Elm Fern Gale Hale Iris Jade Kite Lark Moss Nell Onyx Pine Reed Sage Teal Wren".split()
 _LAST = "Barton Croft Dale Ellis Frost Grange Holt Ingram Marsh North Pace Quill Rook Shore Vale West York".split()
+_OUTLET_ADJ = "Meridian Capital Northern Coastal Civic Free Daily Union".split()
+_OUTLET_NOUN = "Herald Tribune Post Wire Gazette Sentinel".split()
 
 
 def _names(rng: random.Random, n: int) -> list[str]:
@@ -64,6 +66,25 @@ def make_hopeful(rng: random.Random, np_rng: np.random.Generator,
     )
 
 
+def make_outlets(rng: random.Random, np_rng: np.random.Generator,
+                 parties: dict[int, Party]) -> list[Outlet]:
+    """The press: slants anchored near party poles, one guaranteed centrist."""
+    count = rng.randint(*p.OUTLET_COUNT)
+    anchors = [pt.platform for pt in parties.values()]
+    rng.shuffle(anchors)
+    if p.OUTLET_CENTRIST:
+        anchors[-1] = (0.0, 0.0)
+    outlets = []
+    for i in range(count):
+        anchor = np.asarray(anchors[i % len(anchors)])
+        slant = tuple(np.clip(anchor + np_rng.normal(0, p.OUTLET_SLANT_JITTER, 2), -1, 1))
+        outlets.append(Outlet(
+            id=i, name=f"The {rng.choice(_OUTLET_ADJ)} {rng.choice(_OUTLET_NOUN)}",
+            slant=slant, reach=rng.uniform(*p.OUTLET_REACH),
+            sensationalism=rng.random(), focus_axis=i % 2))
+    return outlets
+
+
 def new_game(seed: int) -> GameState:
     rng = random.Random(seed)
     np_rng = np.random.default_rng(seed)
@@ -106,5 +127,6 @@ def new_game(seed: int) -> GameState:
     med = np.argsort(np.linalg.norm(centroids, axis=1))[n_districts // 2]
     return GameState(
         rng=rng, week=0, phase="campaign", voters=voters, mps=mps, parties=parties,
-        hopefuls=hopefuls, player_id=int(med), weeks_to_election=8,
+        hopefuls=hopefuls, outlets=make_outlets(rng, np_rng, parties),
+        player_id=int(med), weeks_to_election=8,
     )
