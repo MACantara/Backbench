@@ -17,6 +17,19 @@ from sim.tick import tick
 from sim.worldgen import new_game
 
 
+def _to_governing(weeks: int = 60):
+    """A mid-game governed state; skips seeds where the player dies early."""
+    for seed in range(40):
+        s_ = new_game(seed)
+        for _ in range(weeks):
+            if s_.phase == "over":
+                break
+            tick(s_)
+        if s_.government.parties and s_.phase != "over":
+            return s_
+    raise AssertionError("no seed reached governing")
+
+
 def main() -> None:
     # law effects: a far-axis-0-right law pushes growth; a far-left pushes services
     right = law_effect(Bill(pos=(0.8, 0.0), beneficiary_axis=0))
@@ -37,10 +50,7 @@ def main() -> None:
     assert any(e.type == "LawEnacted" for e in s.log), "no LawEnacted event"
 
     # retrospective voting: crashed mood drops governing parties' poll share
-    s = new_game(7)
-    for _ in range(60):
-        tick(s)
-    assert s.government.parties, "fixture needs a government"
+    s = _to_governing()
     snap = copy.deepcopy(s)
     base = sum(v for k, v in poll(snap).items() if k in s.government.parties)
     snap.conditions.growth, snap.conditions.unemployment = -0.6, 0.9
@@ -49,9 +59,7 @@ def main() -> None:
     assert crashed < base, f"crash didn't hurt the government: {base:.3f} -> {crashed:.3f}"
 
     # clarity of responsibility: single-party PM bears more than a coalition PM
-    s = new_game(7)
-    for _ in range(60):
-        tick(s)
+    s = _to_governing()
     assert s.government.pm in s.mps, "fixture needs a sitting PM"
     pm_party = s.mps[s.government.pm].party
     multi = len(s.government.parties) > 1
@@ -66,9 +74,7 @@ def main() -> None:
         "opposition should carry no responsibility"
 
     # confidence pressure: a slump turns coalition MPs against their own survival vote
-    s = new_game(7)
-    for _ in range(60):
-        tick(s)
+    s = _to_governing()
     gov = {i for i in s.government.parties if i in s.parties}
     mean = tuple(np.mean([s.parties[i].platform for i in gov], axis=0))
     bill = Bill(pos=mean, beneficiary_axis=0, confidence=True)

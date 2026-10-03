@@ -81,8 +81,9 @@ def main() -> None:
         "salience gain didn't concentrate in the audience"
 
     # sustained coverage builds a measurable caricature gap — coherent pulls
-    # consolidate on a polar party (scattered slants cancel on a centrist one)
-    s = new_game(5)
+    # consolidate on a polar party (scattered slants cancel on a centrist one;
+    # the gap's size varies with each seed's generated outlet geometry)
+    s = new_game(1)
     pt = max(s.parties.values(), key=lambda t: np.linalg.norm(t.platform))
     mp = next(m for m in s.mps.values() if m.party == pt.id)
     for _ in range(10):
