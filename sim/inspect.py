@@ -23,9 +23,11 @@ def explain_vote(state: GameState, event_index: int = -1) -> str:
 def explain_mp(state: GameState, mp_id: int) -> str:
     m = state.mps[mp_id]
     pt = state.parties.get(m.party)
+    faction = next((f for f in pt.factions if f.id == m.faction), None) if pt else None
+    wing = f", {faction.name}" if faction else ""
     rels = sorted(m.relationships.items(), key=lambda kv: -abs(kv[1]))[:5]
     rel_txt = ", ".join(f"{state.mps[k].name if k in state.mps else k}:{v:+.2f}" for k, v in rels)
-    return (f"{m.name} ({pt.name if pt else 'independent'}) — district {m.district}\n"
+    return (f"{m.name} ({pt.name if pt else 'independent'}{wing}) — district {m.district}\n"
             f"  pos=({m.pos[0]:+.2f},{m.pos[1]:+.2f}) ambition={m.ambition:.2f} "
             f"loyalty={m.loyalty:.2f} competence={m.competence:.2f} integrity={m.integrity:.2f}\n"
             f"  seat_safety={m.seat_safety:.2f} portfolio={m.portfolio or '—'} "
@@ -37,11 +39,12 @@ def explain_district(state: GameState, district: int) -> str:
     v = state.voters
     mask = v.district == district
     centroid = v.pos[mask].mean(axis=0)
-    mp = next(m for m in state.mps.values() if m.district == district)
-    party_name = state.parties[mp.party].name if mp.party in state.parties else "ind"
+    mp = next((m for m in state.mps.values() if m.district == district), None)
+    holder = "vacant" if mp is None else (
+        f"{mp.name} ({state.parties[mp.party].name if mp.party in state.parties else 'ind'}, "
+        f"margin {mp.seat_safety:.0%})")
     return (f"District {district}: {int(mask.sum())} voters, centroid "
-            f"({centroid[0]:+.2f},{centroid[1]:+.2f}), held by {mp.name} "
-            f"({party_name}, margin {mp.seat_safety:.0%})")
+            f"({centroid[0]:+.2f},{centroid[1]:+.2f}), {holder}")
 
 
 def player_status(state: GameState) -> str:

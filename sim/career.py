@@ -42,13 +42,15 @@ def leadership_challenge(state: GameState) -> None:
         if not challengers:
             continue
         candidates = [pt.leader] + challengers
+        fleaders = {f.leader for f in pt.factions}
         votes = {c: 0 for c in candidates}
         for m in pt.members:
             mp = state.mps[m]
             best = max(candidates, key=lambda c: (
                 -dist(mp.pos, state.mps[c].pos)
                 + mp.relationships.get(c, 0.0)
-                + 0.3 * state.mps[c].competence))
+                + 0.3 * state.mps[c].competence
+                + (p.FACTION_LEADER_BONUS if c in fleaders else 0.0)))
             votes[best] += 1
         winner = max(votes, key=votes.get)
         if winner != pt.leader:
