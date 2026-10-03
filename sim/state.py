@@ -35,6 +35,7 @@ class MP:
     integrity: float
     district: int
     party: int | None = None
+    faction: int | None = None    # Faction.id within their party, or None
     portfolio: str | None = None
     dossier: float = 0.0            # hidden scandal material
     relationships: dict[int, float] = field(default_factory=dict)
@@ -58,6 +59,17 @@ class Hopeful:
 
 
 @dataclass
+class Faction:
+    """A detected ideological wing inside a party."""
+    id: int
+    name: str
+    centroid: Vec
+    members: set[int] = field(default_factory=set)
+    leader: int | None = None       # highest-ambition member — heir-apparent slot
+    estranged: int = 0              # consecutive weeks past secession distance
+
+
+@dataclass
 class Party:
     id: int
     name: str
@@ -67,6 +79,7 @@ class Party:
     leader: int | None = None
     cohesion: float = 1.0           # derived: mean member-platform alignment
     schism_cooldown: int = 0
+    factions: list[Faction] = field(default_factory=list)
 
 
 @dataclass
