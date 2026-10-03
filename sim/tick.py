@@ -7,6 +7,7 @@ from . import params as p
 from .actions import apply_action, evaluate_promises
 from .career import (assign_portfolios, leadership_challenge,
                      mp_lifecycle, update_score)
+from .conditions import conditions_lifecycle
 from .election import poll, resolve_election
 from .government import confidence_vote, form_government
 from .media import media_lifecycle
@@ -59,6 +60,7 @@ def tick(state: GameState, actions: list | None = None) -> list[Event]:
         party_lifecycle(state)
         leadership_challenge(state)
         scandal_lifecycle(state)   # last: dirt settles after the week's politics
+        conditions_lifecycle(state)  # the country drifts before the press reads it
         media_lifecycle(state, base)  # the press reads the whole week back
     _drift(state)
     return state.log[base:]

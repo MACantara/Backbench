@@ -5,6 +5,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 from sim import params as p
+from sim.scandals import scandal_lifecycle
 from sim.tick import tick
 from sim.worldgen import new_game
 
@@ -25,7 +26,7 @@ def main() -> None:
     target.integrity = 1.0  # isolate: no extra growth muddies the dossier
     broke = None
     for _ in range(60):
-        tick(s)
+        scandal_lifecycle(s)  # direct drive — a tick can end the game first
         ev = next((e for e in s.log if e.type in ("ScandalBreaks", "Expelled")
                    and e.data.get("mp") == target.id), None)
         if ev:
@@ -66,7 +67,6 @@ def main() -> None:
 
     # ministers get sacked when their scandal breaks — drive the lifecycle
     # directly so cabinet reshuffles can't wipe the injected portfolio first
-    from sim.scandals import scandal_lifecycle
     s = new_game(5)
     minister = next(m for m in s.mps.values()
                     if m.id != s.player_id and s.parties[m.party].leader != m.id)
