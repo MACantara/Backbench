@@ -17,7 +17,7 @@ Approved module boundaries for Phase 3. Each module gets its own spec (`docs/spe
 | treasury           | Government revenue ∝ indicators; bills spend; debt → crisis               | country-conditions           |
 | constitution       | Generated entrenched articles; the object judicial review reviews against  | courts                       |
 
-Build order: ai-careers ✓ → scandal-lifecycle ✓ → factions ✓ → media-layer ✓ → country-conditions ✓ → treasury → ministerial-perf → courts. Flexible: `party-variety` (worldgen-only, quick win — fits anywhere) and `independents` (order negotiable). `salience` was subsumed by media-layer (outlet agenda-setting is the mechanism).
+Build order: ai-careers ✓ → scandal-lifecycle ✓ → factions ✓ → media-layer ✓ → country-conditions ✓ → treasury → ministerial-perf → courts → constitution. Flexible: `party-variety` (worldgen-only, quick win — fits anywhere) and `independents` (order negotiable). `salience` was subsumed by media-layer (outlet agenda-setting is the mechanism).
 
 Deferred: by-elections (vacant seats stay empty until general elections; candidate machinery exists via the hopefuls pool — revisited after scandal-lifecycle: steady-state vacancies measured at ~1–5% of districts, real churn but not crisis-level — defer stands).
 
