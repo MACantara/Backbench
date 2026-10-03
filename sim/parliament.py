@@ -4,6 +4,7 @@ from __future__ import annotations
 import numpy as np
 
 from . import params as p
+from .conditions import enact, mood
 from .state import Bill, GameState, MP, dist
 
 
@@ -58,6 +59,8 @@ def vote_terms(state: GameState, mp: MP, bill: Bill) -> dict[str, float]:
         "district": p.W_SAFETY * (1 - mp.seat_safety) * district_opinion(state, mp.district, bill),
         "noise": state.rng.gauss(0, p.VOTE_NOISE),
     }
+    if bill.confidence and in_gov:
+        terms["retro"] = p.W_RETRO_CONF * mood(state.conditions)  # the slump votes too
     if fwhip is not None and fwhip != whip:
         terms["fwhip"] = p.W_WHIP * fwhip * mp.loyalty
         terms["whip"] = 0.0  # the wing overrules the party line
@@ -109,6 +112,7 @@ def resolve_vote(state: GameState, bill: Bill, player_vote: int | None = None) -
         state.voters.pos[:, ax] += 0.02 * np.sign(gov_platform[ax] - state.voters.pos[:, ax])
         for i in gov_parties:
             state.parties[i].brand += p.BILL_PASS_BRAND
+        enact(state, bill, yes, no)
         state.legacy_bills += state.player_id == state.government.pm
         state.emit("VoteResult", f"Bill passes {yes}-{no}.", passed=True, yes=yes, no=no, detail=detail)
     else:

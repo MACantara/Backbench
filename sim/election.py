@@ -5,6 +5,7 @@ import numpy as np
 
 from . import params as p
 from .career import remove_mp
+from .conditions import mood, responsibility
 from .state import GameState, Hopeful, MP
 from .worldgen import _FIRST, _LAST
 
@@ -37,6 +38,7 @@ def _district_scores(state: GameState, mask: np.ndarray, cand_pos: dict, incumbe
         score[:, j] = -np.sqrt((d * d * dsal).sum(axis=1))
         score[:, j] += p.BRAND_WEIGHT * pt.brand
         score[:, j] += p.LOYALTY_WEIGHT * v.loyalty[mask] * (v.last_party[mask] == pid)
+        score[:, j] += p.RETRO_WEIGHT * mood(state.conditions) * responsibility(state, pid)
         if incumbent and incumbent.party == pid:
             score[:, j] -= v.betrayal[mask]  # broken promises bite the incumbent's party
     score += np.random.default_rng(int(state.rng.random() * 2**63)).normal(0, p.VOTE_NOISE_SD, score.shape)
@@ -126,5 +128,6 @@ def poll(state: GameState) -> dict[int, float]:
         score[:, j] = -np.sqrt((d * d * dsal).sum(axis=1))
         score[:, j] += p.BRAND_WEIGHT * state.parties[pid].brand
         score[:, j] += p.LOYALTY_WEIGHT * v.loyalty[decided] * (v.last_party[decided] == pid)
+        score[:, j] += p.RETRO_WEIGHT * mood(state.conditions) * responsibility(state, pid)
     pick = np.bincount(score.argmax(axis=1), minlength=len(parties))
     return {pid: float(pick[i] / max(decided.sum(), 1)) for i, pid in enumerate(parties)}
