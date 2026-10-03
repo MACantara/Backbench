@@ -7,11 +7,12 @@ Approved module boundaries for Phase 3. Each module gets its own spec (`docs/spe
 | ai-careers         | MP lifecycle: climb, scheme, age, retire, be replaced                     | —                      |
 | scandal-lifecycle  | Simmering dossiers, timed releases, resignation cascades                  | ai-careers (vacancies) |
 | factions           | Named wings inside parties: separate whips, feuds, bloc secession         | — (extends parties.py) |
-| ministerial-perf   | Portfolio outcomes (economy, crises) reflect competence, move approval    | —                      |
+| country-conditions | Living indicators (growth, unemployment, services, crime) → retrospective voting | — (voter scoring) |
+| ministerial-perf   | Portfolio outcomes (economy, crises) reflect competence, move approval    | country-conditions     |
 | salience           | Which axis voters care about; bills/speeches shift the weights            | — (voter model)        |
 | media-layer        | Outlets with bias + audience; voters observe media, not reality           | salience               |
 
-Build order: ai-careers → scandal-lifecycle → factions → ministerial-perf → salience → media-layer
+Build order: ai-careers → scandal-lifecycle → factions → country-conditions → ministerial-perf → salience → media-layer
 
 Deferred: by-elections (vacant seats stay empty until general elections; candidate machinery exists via the hopefuls pool — revisit during scandal-lifecycle, when vacancies become more frequent).
 
