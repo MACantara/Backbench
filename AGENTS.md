@@ -23,6 +23,7 @@ A check that passes tells you the subsystem works; a failing assert is the repro
 
 ## Conventions
 
+- Commits use conventional prefixes: `feat:` `fix:` `docs:` `polish:` `merge:` — ≤50 chars, atomic.
 - Dataclasses for state (`state.py`), functions for behavior. No inheritance hierarchies.
 - Events are typed records: `state.emit("TypeName", "human-readable text", **data)`.
 - Keep it stdlib. NumPy is the only dependency and only where it's already used (voter math). No new deps without a reason.
