@@ -78,7 +78,7 @@ The three pillars made playable: climb, drama, strategy. These are player-facing
 - [ ] **Press relations** — the outlet landscape made playable: choose which outlet gets your dirt (a friendly paper buries the story, a hostile one leads with it), court editorial boards for friendlier coverage, and read polls through their publishers — biased samples mean a friendly poll can flatter you. AI parties court outlets on their own logic; hostile outlets become a career threat to manage. At the far end: **acquire the outlet outright** — ownership bends its slant toward the owner. Caveat: there is no money in the game, so the price is paid in favors/influence (ties to Deals and favors) unless an economy ever exists; AI barons owning outlets is the world-side half. Stretch (needs a truth layer): fabricated stories.
 - [ ] **Goals beyond score** — optional arcs layered on the open-ended career (win a majority as PM, found a party that outlives you, survive N terms) — roguelike structure without a fixed ending.
 - [ ] **Save/load** — `GameState` is a dataclass tree; serialize to JSON. Cheap because determinism was designed in.
-- [ ] **Difficulty and scenarios** — starting situations (safe seat vs marginal, incumbent vs opposition), `params.py` profiles. Constitutional variants too: constructive no-confidence (German model — must name a successor to topple the government) as a stability knob, and alternative district magnitudes.
+- [ ] **Difficulty and scenarios** — starting situations (safe seat vs marginal, incumbent vs opposition), `params.py` profiles. Constitutional variants too: constructive no-confidence (German model — must name a successor to topple the government) as a stability knob, and alternative district magnitudes. Scenario presets pin generated party systems via the `party_pool=` override hook deferred from party-variety.
 - [ ] **Balance pass** — playtest-driven tuning of `params.py`, informed by actually watching the sim run.
 
 Done when: you choose to act most weeks — not because the game demands input, but because the world gave you something to exploit.
@@ -87,7 +87,7 @@ Done when: you choose to act most weeks — not because the game demands input, 
 
 The world is already watchable; this is presentation depth and sharing.
 
-- [ ] **Better writing** — event text from a larger template pool with named actors, so the chronicle reads like political history instead of status lines.
+- [ ] **Better writing** — event text from a larger template pool with named actors, so the chronicle reads like political history instead of status lines. Includes the deferred naming texture: generated country names (a dateline for the chronicle), regional flavor name packs for party archetypes, and driver map pole labels reading `AXIS_LABELS`/`POLE_LABELS`.
 - [ ] **Election night mode** — districts resolve with projections and swing callouts during the reveal. The sim computes per-district; this is dramaturgy.
 - [ ] **Spectator/analysis mode** — headless auto-play with visualizations, for tuning and for watching the machine grind.
 - [ ] **Driver polish** — fullscreen mode, and a pass over whether every essential view is reachable without hunting (chronicle, why-overlay, map, action panel). As new Phase 3 systems land, their info needs a home too.
