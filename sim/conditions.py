@@ -87,4 +87,4 @@ def conditions_lifecycle(state: GameState) -> None:
         setattr(c, ind, float(np.clip(getattr(c, ind) + direction * mag, lo, hi)))
         state.emit("Shock", f"{variant.replace('_', ' ')} — {ind} {direction * mag:+.2f}.",
                    variant=variant, indicator=ind, delta=direction * mag,
-                   big=mag >= p.SHOCK_INTERRUPT)
+                   good=variant == "Boom", big=mag >= p.SHOCK_INTERRUPT)
