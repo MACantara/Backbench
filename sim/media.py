@@ -25,6 +25,7 @@ _NEWS = {
     "VoteResult":       (1.0,  0, False),  # sign resolved from passed
     "Shock":            (2.5,  0, False),  # sign resolved from good
     "LawEnacted":       (1.0, +1, False),
+    "DebtCrisis":       (3.0, -1, False),
 }
 
 
