@@ -9,7 +9,7 @@ Approved module boundaries for Phase 3. Each module gets its own spec (`docs/spe
 | factions           | Named wings inside parties: separate whips, feuds, bloc secession         | — (extends parties.py) |
 | country-conditions | Living indicators (growth, unemployment, services, crime) → retrospective voting | — (voter scoring) |
 | ministerial-perf   | Portfolio outcomes (economy, crises) reflect competence, move approval    | country-conditions     |
-| salience           | Which axis voters care about; bills/speeches shift the weights            | — (voter model)        |
+| salience           | Which axis voters care about; bills/speeches shift the weights — SUBSUMED by media-layer (outlet agenda-setting is the mechanism) | — (voter model)        |
 | media-layer        | Outlets with bias + audience; voters observe media, not reality           | salience               |
 | party-variety      | Per-seed starting party pool, generated party names, name library, named bills | — (worldgen + bill emit) |
 | independents       | Party-less candidates in FPTP; independents hold balance of power         | — (election machinery) |
