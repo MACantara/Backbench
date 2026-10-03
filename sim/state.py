@@ -39,6 +39,22 @@ class MP:
     dossier: float = 0.0            # hidden scandal material
     relationships: dict[int, float] = field(default_factory=dict)
     seat_safety: float = 0.5        # last margin, roughly
+    age: int = 2600                 # weeks; 2600 = 50y
+    seniority: int = 0              # weeks served in parliament
+
+
+@dataclass
+class Hopeful:
+    """Aspiring politician below the minimum age — ages into candidacy."""
+    name: str
+    pos: Vec
+    ambition: float
+    loyalty: float
+    competence: float
+    integrity: float
+    district: int                   # home district they'll stand in
+    party: int                      # party leaning
+    age: int                        # weeks
 
 
 @dataclass
@@ -85,6 +101,7 @@ class GameState:
     mps: dict[int, MP]
     parties: dict[int, Party]
     player_id: int
+    hopefuls: list[Hopeful] = field(default_factory=list)
     government: Government = field(default_factory=Government)
     current_bill: Bill | None = None
     weeks_to_election: int = 0

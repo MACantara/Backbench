@@ -30,6 +30,20 @@ MP_POS_JITTER = 0.12         # distance of an MP from their party/district ancho
 MP_STAT_SD = 0.20            # ambition/loyalty/competence/integrity spread around means
 MP_STAT_MEANS = {"ambition": 0.5, "loyalty": 0.5, "competence": 0.5, "integrity": 0.5}
 
+# --- careers / lifecycle ---
+MIN_MP_AGE = 1300            # minimum age to stand (weeks; 25y)
+MP_AGE_WORLDGEN = (2080, 3380)   # starting MP age range (40-65y)
+MP_SENIORITY_WORLDGEN = (0, 780) # starting seniority range (0-15y)
+N_HOPEFULS = 120             # aspiring-politician pool at worldgen
+HOPEFUL_AGE = (936, 1248)    # hopeful starting ages (18-24y)
+HOPEFULS_PER_WEEK_P = 3 / 52 # pool replenishment (~3 per year)
+RETIRE_FLOOR = 2860          # no retirements younger than this (55y)
+RETIRE_AGE = 3640            # retirement hazard ramps past this (70y)
+RETIRE_BASE_P = 0.0005       # weekly retirement probability below RETIRE_AGE
+RETIRE_SLOPE = 0.0002        # added probability per week past RETIRE_AGE
+RETIRE_MAX_P = 0.15          # weekly cap
+SENIORITY_W = 0.5            # portfolio weight for seniority (per ~100y normalized)
+
 # --- voting in parliament ---
 W_POLICY = 0.7     # weight on policy distance (higher = more ideological voting)
 W_WHIP = 0.8       # weight on party whip instruction

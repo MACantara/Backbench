@@ -15,7 +15,7 @@ Local politics sim in pure Python. No LLMs anywhere in the game logic — voters
 No test framework. Run the check for whatever you touched:
 
 ```bash
-python checks/check_<area>.py     # worldgen|election|parliament|government|parties|player|e2e
+python checks/check_<area>.py     # worldgen|election|parliament|government|parties|player|careers|e2e
 python checks/check_sweep.py      # 50-seed stability sweep — run after changing params.py weights
 ```
 

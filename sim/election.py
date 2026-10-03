@@ -4,19 +4,22 @@ from __future__ import annotations
 import numpy as np
 
 from . import params as p
-from .state import GameState, MP
+from .career import remove_mp
+from .state import GameState, Hopeful, MP
+from .worldgen import _FIRST, _LAST
 
-_FIRST = "Ash Brook Cole Dawn Elm Fern Gale Hale Iris Jade Kite Lark Moss Nell Onyx Pine Reed Sage Teal Wren".split()
-_LAST = "Barton Croft Dale Ellis Frost Grange Holt Ingram Marsh North Pace Quill Rook Shore Vale West York".split()
 
-
-def _candidate_pos(state: GameState, district: int, party_id: int, incumbent: MP | None) -> tuple[float, float]:
-    """Incumbent MP runs again; otherwise a placeholder candidate at the party platform."""
+def _candidate(state: GameState, district: int, party_id: int,
+               incumbent: MP | None) -> tuple[tuple[float, float], Hopeful | None]:
+    """Candidate for a party in a district: incumbent, eligible hopeful, or platform placeholder."""
     if incumbent and incumbent.party == party_id:
-        return incumbent.pos
+        return incumbent.pos, None
+    for h in state.hopefuls:
+        if h.party == party_id and h.district == district and h.age >= p.MIN_MP_AGE:
+            return h.pos, h
     plat = state.parties[party_id].platform
     return (float(np.clip(plat[0] + state.rng.gauss(0, p.MP_POS_JITTER), -1, 1)),
-            float(np.clip(plat[1] + state.rng.gauss(0, p.MP_POS_JITTER), -1, 1)))
+            float(np.clip(plat[1] + state.rng.gauss(0, p.MP_POS_JITTER), -1, 1))), None
 
 
 def _district_scores(state: GameState, mask: np.ndarray, cand_pos: dict, incumbent: MP | None) -> tuple[np.ndarray, list]:
@@ -47,12 +50,19 @@ def resolve_election(state: GameState) -> None:
     next_id = max(state.mps) + 1
 
     for d in range(n_districts):
-        inc = incumbents[d]
-        cand = {pid: _candidate_pos(state, d, pid, inc) for pid in state.parties}
+        inc = incumbents.get(d)
+        cand, cand_h = {}, {}
+        for pid in state.parties:
+            cand[pid], cand_h[pid] = _candidate(state, d, pid, inc)
         mask = (v.district == d) & turnout_hit
-        if not mask.any():  # nobody voted — incumbent survives by default
-            winner = inc.party
-            margin = 0.0
+        if not mask.any():  # nobody voted — incumbent survives, else district's nearest party
+            if inc is not None:
+                winner, margin = inc.party, 0.0
+            else:
+                centroid = v.pos[v.district == d].mean(axis=0)
+                winner = min(state.parties.values(),
+                             key=lambda pt: float(np.hypot(*(centroid - pt.platform)))).id
+                margin = 0.0
         else:
             score, parties = _district_scores(state, mask, cand, inc)
             tally = np.bincount(score.argmax(axis=1), minlength=len(parties))
@@ -61,16 +71,28 @@ def resolve_election(state: GameState) -> None:
         seat_counts[winner] = seat_counts.get(winner, 0) + 1
         v.last_party[v.district == d] = winner
 
-        if inc.party == winner:
+        if inc is not None and inc.party == winner:
             inc.seat_safety = margin
             new_mps[inc.id] = inc
         else:
-            state.parties[inc.party].members.discard(inc.id)
-            stat = lambda: min(1, max(0, state.rng.gauss(0.5, p.MP_STAT_SD)))
-            mp = MP(id=next_id, name=f"{state.rng.choice(_FIRST)} {state.rng.choice(_LAST)}",
-                    pos=cand[winner], ambition=stat(), loyalty=stat(),
-                    competence=stat(), integrity=stat(), district=d, party=winner,
-                    seat_safety=margin)
+            if inc is not None:
+                remove_mp(state, inc)
+            hopeful = cand_h.get(winner)
+            if hopeful is not None:
+                mp = MP(id=next_id, name=hopeful.name, pos=hopeful.pos,
+                        ambition=hopeful.ambition, loyalty=hopeful.loyalty,
+                        competence=hopeful.competence, integrity=hopeful.integrity,
+                        district=d, party=winner, seat_safety=margin, age=hopeful.age)
+                state.hopefuls.remove(hopeful)
+                state.emit("Newcomer", f"{mp.name}, {mp.age // 52}, wins their first seat "
+                                       f"in district {d} for {state.parties[winner].name}.",
+                           mp=next_id, district=d, party=winner, age=mp.age)
+            else:
+                stat = lambda: min(1, max(0, state.rng.gauss(0.5, p.MP_STAT_SD)))
+                mp = MP(id=next_id, name=f"{state.rng.choice(_FIRST)} {state.rng.choice(_LAST)}",
+                        pos=cand[winner], ambition=stat(), loyalty=stat(),
+                        competence=stat(), integrity=stat(), district=d, party=winner,
+                        seat_safety=margin, age=state.rng.randint(1400, 2600))
             state.parties[winner].members.add(next_id)
             new_mps[next_id] = mp
             next_id += 1
@@ -80,6 +102,9 @@ def resolve_election(state: GameState) -> None:
         state.phase = "over"
         state.emit("SeatLost", "You lost your seat.", district=incumbents[state.player_id].district)
     state.mps = new_mps
+    for pt in state.parties.values():  # leaders who lost their seat leave a dead reference
+        if pt.leader not in state.mps:
+            pt.leader = max(pt.members, key=lambda m: state.mps[m].ambition) if pt.members else None
     state.emit("ElectionResult", "Election resolved.", seats=seat_counts)
 
 

@@ -5,7 +5,8 @@ import numpy as np
 
 from . import params as p
 from .actions import apply_action, evaluate_promises
-from .career import assign_portfolios, check_expulsion, leadership_challenge, update_score
+from .career import (assign_portfolios, check_expulsion, leadership_challenge,
+                     mp_lifecycle, update_score)
 from .election import poll, resolve_election
 from .government import confidence_vote, form_government
 from .parliament import resolve_vote, table_bill
@@ -53,6 +54,7 @@ def tick(state: GameState, actions: list | None = None) -> list[Event]:
             state.weeks_to_election = 8
 
     if state.phase != "over":
+        mp_lifecycle(state)
         party_lifecycle(state)
         leadership_challenge(state)
     _drift(state)
