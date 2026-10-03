@@ -11,13 +11,13 @@ Approved module boundaries for Phase 3. Each module gets its own spec (`docs/spe
 | ministerial-perf   | Portfolio outcomes (economy, crises) reflect competence, move approval    | country-conditions     |
 | salience           | Which axis voters care about; bills/speeches shift the weights — SUBSUMED by media-layer (outlet agenda-setting is the mechanism) | — (voter model)        |
 | media-layer        | Outlets with bias + audience; voters observe media, not reality           | salience               |
-| party-variety      | Per-seed starting party pool, generated party names, name library, named bills | — (worldgen + bill emit) |
+| party-variety ✓    | Per-seed starting party pool, generated party names, name library, named bills | — (worldgen + bill emit) |
 | independents       | Party-less candidates in FPTP; independents hold balance of power         | — (election machinery) |
 | courts             | Judicial review: laws carry legal_risk, get struck or upheld after delay  | country-conditions (registry) |
 | treasury           | Government revenue ∝ indicators; bills spend; debt → crisis               | country-conditions           |
 | constitution       | Generated entrenched articles; the object judicial review reviews against  | courts                       |
 
-Build order: ai-careers ✓ → scandal-lifecycle ✓ → factions ✓ → media-layer ✓ → country-conditions ✓ → treasury ✓ → ministerial-perf → courts → constitution. Flexible: `party-variety` (worldgen-only, quick win — fits anywhere) and `independents` (order negotiable). `salience` was subsumed by media-layer (outlet agenda-setting is the mechanism).
+Build order: ai-careers ✓ → scandal-lifecycle ✓ → factions ✓ → media-layer ✓ → country-conditions ✓ → treasury ✓ → party-variety ✓ → ministerial-perf → courts → constitution. Flexible: `independents` (order negotiable). `salience` was subsumed by media-layer (outlet agenda-setting is the mechanism).
 
 Deferred: by-elections (vacant seats stay empty until general elections; candidate machinery exists via the hopefuls pool — revisited after scandal-lifecycle: steady-state vacancies measured at ~1–5% of districts, real churn but not crisis-level — defer stands).
 
