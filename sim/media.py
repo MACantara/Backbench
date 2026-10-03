@@ -1,0 +1,103 @@
+"""Media layer: outlets cover the week's events; voters watch the coverage."""
+from __future__ import annotations
+
+import numpy as np
+
+from . import params as p
+from .state import GameState, dist
+
+# type -> (newsworthiness, sign for the subject party, sensational?)
+_NEWS = {
+    "ScandalBreaks":    (3.0, -1, True),
+    "Resigned":         (3.0, -1, True),
+    "Expelled":         (2.5, -1, True),
+    "MinisterSacked":   (2.0, -1, True),
+    "Scandal":          (1.5, -1, True),
+    "ScandalWeathered": (1.5, +1, True),
+    "Defection":        (2.0, -1, True),
+    "ConfidenceLost":   (2.5, -1, False),
+    "PartyDissolved":   (1.5, -1, False),
+    "FactionRebels":    (1.5, -1, False),
+    "Secession":        (2.0, -1, False),
+    "PartyFormed":      (1.5, +1, False),
+    "CoalitionFormed":  (1.5, +1, False),
+    "ElectionCalled":   (1.0, +1, False),
+    "VoteResult":       (1.0,  0, False),  # sign resolved from passed
+}
+
+
+def _subject(state: GameState, e) -> int | None:
+    """The party a story is about: explicit, else the named MP's, else government."""
+    pid = e.data.get("party")
+    if pid in state.parties:
+        return pid
+    mp = state.mps.get(e.data.get("mp", -1))
+    if mp is not None and mp.party in state.parties:
+        return mp.party
+    return next((i for i in state.government.parties if i in state.parties), None)
+
+
+def media_lifecycle(state: GameState, base: int) -> None:
+    """Weekly: outlets pick their lead story, frame it, and set the agenda."""
+    v, rng = state.voters, state.rng
+    week = state.log[base:]
+
+    # each outlet leads with its most newsworthy story (tabloids ≠ broadsheets)
+    leads = []   # (reach, outlet, event, subject_pid)
+    for o in state.outlets:
+        best = None
+        for e in week:
+            if e.type not in _NEWS:
+                continue
+            w, sign, sens = _NEWS[e.type]
+            w = w * (o.sensationalism if sens else 1 - o.sensationalism)
+            pid = _subject(state, e)
+            if pid is None or (best and w <= best[0]):
+                continue
+            best = (w, e, pid)
+        if best:
+            leads.append((o.reach, o, best[1], best[2]))
+
+    # framing: hostile coverage amplifies damage, friendly coverage heals
+    for _, o, e, pid in leads:
+        pt = state.parties[pid]
+        w, sign, _ = _NEWS[e.type]
+        if sign == 0:
+            sign = 1 if e.data.get("passed") else -1
+        h = min(1.0, dist(o.slant, pt.platform) / 2)       # 0 friendly .. 1 hostile
+        pt.brand += sign * p.COVERAGE_BRAND_W * (0.5 + (h if sign < 0 else 1 - h))
+        plat = np.asarray(pt.platform)
+        if sign < 0:   # caricature: the platform stretched away from the outlet
+            target = plat + 0.5 * (plat - np.asarray(o.slant))
+        else:
+            target = plat
+        pt.pub_pos = tuple(np.clip(
+            np.asarray(pt.pub_pos) + p.COVERAGE_PUBPOS_W * (target - pt.pub_pos),
+            -1, 1))
+
+    # agenda-setting: every outlet pushes its axis into its audience's salience
+    np_rng = np.random.default_rng(int(rng.random() * 2**63))
+    for o in state.outlets:
+        aff = np.exp(-((v.pos - np.asarray(o.slant))**2).sum(axis=1)
+                     / (2 * p.AUDIENCE_AFFINITY_SD**2))
+        audience = np_rng.random(len(v.pos)) < o.reach * aff
+        v.salience[audience, o.focus_axis] += p.AGENDA_SALIENCE_W
+
+    # perceived positions slowly drift back toward the real platform
+    for pt in state.parties.values():
+        pt.pub_pos = tuple(np.asarray(pt.pub_pos)
+                           + p.PUB_POS_REVERT * (np.asarray(pt.platform) - pt.pub_pos))
+
+    # the headline: highest-reach lead; a multi-week subject becomes a frenzy
+    if not leads:
+        state.press_subject, state.press_weeks = None, 0
+        return
+    _, o, e, pid = max(leads, key=lambda t: t[0])
+    state.press_weeks = state.press_weeks + 1 if pid == state.press_subject else 1
+    state.press_subject = pid
+    pt = state.parties[pid]
+    state.emit("Headline", f"{o.name} leads with \"{e.text}\"",
+               outlet=o.id, party=pid, story=e.type)
+    if state.press_weeks == p.PRESS_CYCLE_WEEKS:
+        state.emit("PressCycle", f"The press will not let go of {pt.name}.",
+                   party=pid)
