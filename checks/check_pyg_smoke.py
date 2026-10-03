@@ -38,8 +38,11 @@ assert d.chronicle["filter"] is None
 d.chronicle["open"] = False
 
 # auto_play: weeks advance on the clock alone, no action pause
-d.auto_play = True
+d.toggle_auto()                    # the 'a' key — flushes any pending action pause
 w0 = d.state.week
-d.step(5.0)
+for _ in range(6):
+    d.step(5.0)
+    if d.banner:                     # interrupt: spectator dismisses with space
+        d.banner, d.paused = None, False
 assert d.state.week > w0 and not d.action_pause, "auto_play didn't advance"
 print(f"pyg smoke ok: week={d.state.week} phase={d.state.phase} events={len(d.state.log)}")

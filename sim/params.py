@@ -80,14 +80,14 @@ LEADERSHIP_COHESION_MIN = 0.45   # leader challengeable below this cohesion
 CHALLENGE_AMBITION_MIN = 0.6     # challengers need this much combined ambition
 
 # --- scandal lifecycle ---
-DIRTY_GROWTH = 0.008             # weekly dossier growth per unit of (1 - integrity)
-LEAK_BASE_P = 0.02               # weekly leak probability per unit of dossier
+DIRTY_GROWTH = 0.002             # weekly dossier growth per unit of (1 - integrity)
+LEAK_BASE_P = 0.015              # weekly leak probability per unit of dossier
 LEAK_MAX_P = 0.25                # leak probability cap
 LEAK_ELECTION_MULT = 3.0         # October-surprise multiplier near elections
 ELECTION_LEAK_WINDOW = 6         # weeks before an election the multiplier applies
 SCANDAL_WEEKS = (3, 6)           # active-scandal duration range
-RESIGN_BASE_P = 0.05             # weekly resignation probability while burning
-RESIGN_DOSSIER_W = 0.1           # added resignation probability per unit of dossier
+RESIGN_BASE_P = 0.02             # weekly resignation probability while burning
+RESIGN_DOSSIER_W = 0.15          # added resignation probability per unit of dossier
 SACK_THRESHOLD = 1.5             # leader expels members past this dossier size
 MINISTER_SACK_FRAC = 0.6         # ministers sacked past this fraction of the threshold
 SCANDAL_BRAND_HIT = 0.02         # weekly party brand bleed per active scandal

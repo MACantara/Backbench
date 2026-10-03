@@ -28,6 +28,7 @@ def scripted_actions(state) -> list[Action]:
 
 def main() -> None:
     s = new_game(0)
+    s.mps[s.player_id].integrity = 0.98  # clean player — scandal death is check_scandals' job
     for _ in range(200):
         tick(s, scripted_actions(s))
         if s.phase == "over":

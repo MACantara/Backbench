@@ -5,12 +5,13 @@ import numpy as np
 
 from . import params as p
 from .actions import apply_action, evaluate_promises
-from .career import (assign_portfolios, check_expulsion, leadership_challenge,
+from .career import (assign_portfolios, leadership_challenge,
                      mp_lifecycle, update_score)
 from .election import poll, resolve_election
 from .government import confidence_vote, form_government
 from .parliament import resolve_vote, table_bill
 from .parties import party_lifecycle
+from .scandals import scandal_lifecycle
 from .state import Event, GameState
 
 
@@ -21,7 +22,6 @@ def tick(state: GameState, actions: list | None = None) -> list[Event]:
 
     for action in (actions or []):
         apply_action(state, action)
-    check_expulsion(state)
     if state.phase == "over":
         return state.log[base:]
 
@@ -55,6 +55,7 @@ def tick(state: GameState, actions: list | None = None) -> list[Event]:
 
     if state.phase != "over":
         mp_lifecycle(state)
+        scandal_lifecycle(state)
         party_lifecycle(state)
         leadership_challenge(state)
     _drift(state)

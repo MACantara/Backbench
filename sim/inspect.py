@@ -31,6 +31,7 @@ def explain_mp(state: GameState, mp_id: int) -> str:
             f"  pos=({m.pos[0]:+.2f},{m.pos[1]:+.2f}) ambition={m.ambition:.2f} "
             f"loyalty={m.loyalty:.2f} competence={m.competence:.2f} integrity={m.integrity:.2f}\n"
             f"  seat_safety={m.seat_safety:.2f} portfolio={m.portfolio or '—'} "
+            f"dossier={m.dossier:.2f}{' BURNING' if m.scandal_weeks else ''} "
             f"{'[YOU]' if mp_id == state.player_id else ''}\n"
             f"  top relationships: {rel_txt or 'none'}")
 

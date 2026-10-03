@@ -14,7 +14,8 @@ from sim.tick import tick
 from sim.worldgen import new_game
 
 INTERRUPTS = {"ConfidenceLost", "CoalitionFormed", "PartyFormed", "Defection",
-              "PartyDissolved", "Scandal", "ElectionCalled", "ElectionResult", "SeatLost"}
+              "PartyDissolved", "Scandal", "ElectionCalled", "ElectionResult", "SeatLost",
+              "ScandalBreaks", "Expelled", "Resigned", "MinisterSacked"}
 
 
 def prompt_actions(state) -> list[Action]:
