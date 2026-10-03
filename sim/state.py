@@ -94,6 +94,6 @@ class GameState:
     legacy_bills: int = 0
 
     def emit(self, type_: str, text: str, **data) -> Event:
-        e = Event(type_, text, data)
+        e = Event(type_, text, {"week": self.week, **data})
         self.log.append(e)
         return e
