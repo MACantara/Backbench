@@ -70,7 +70,8 @@ def _drift(state: GameState) -> None:
         pt.brand *= p.BRAND_DECAY
         pt.schism_cooldown = max(0, pt.schism_cooldown - 1)
     for mp in state.mps.values():
-        dcent = state.voters.pos[state.voters.district == mp.district].mean(axis=0)
-        mp.pos = tuple(np.clip(np.asarray(mp.pos) + p.MP_DISTRICT_PULL * (dcent - mp.pos), -1, 1))
+        if mp.id != state.player_id:  # the player's ideology is theirs to manage
+            dcent = state.voters.pos[state.voters.district == mp.district].mean(axis=0)
+            mp.pos = tuple(np.clip(np.asarray(mp.pos) + p.MP_DISTRICT_PULL * (dcent - mp.pos), -1, 1))
         for k in mp.relationships:
             mp.relationships[k] *= p.REL_DECAY
