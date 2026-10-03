@@ -42,9 +42,9 @@ def main() -> None:
     leadership_challenge(s2)
     assert any(e.type == "CareerEvent" and "ousts" in e.text for e in s2.log) or pt.leader != challenger
 
-    # expulsion ends the run
+    # expulsion ends the run via the scandal lifecycle (was: instant threshold)
     s3 = new_game(3)
-    s3.mps[s3.player_id].dossier = p.DOSSIER_EXPEL_THRESHOLD
+    s3.mps[s3.player_id].dossier = p.SACK_THRESHOLD + 0.1
     tick(s3)
     assert s3.phase == "over"
 

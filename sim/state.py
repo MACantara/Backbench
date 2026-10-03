@@ -38,6 +38,7 @@ class MP:
     faction: int | None = None    # Faction.id within their party, or None
     portfolio: str | None = None
     dossier: float = 0.0            # hidden scandal material
+    scandal_weeks: int = 0          # weeks remaining of an active scandal; 0 = clean
     relationships: dict[int, float] = field(default_factory=dict)
     seat_safety: float = 0.5        # last margin, roughly
     age: int = 2600                 # weeks; 2600 = 50y

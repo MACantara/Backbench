@@ -124,9 +124,3 @@ def final_score(state: GameState) -> int:
     return t["mp"] + 3 * t["minister"] + 5 * t["pm"] + state.legacy_bills
 
 
-def check_expulsion(state: GameState) -> None:
-    player = state.mps.get(state.player_id)
-    if player and player.dossier >= p.DOSSIER_EXPEL_THRESHOLD and state.phase != "over":
-        state.phase = "over"
-        state.emit("Scandal", "Your dossier reaches the press. You are expelled.",
-                   mp=state.player_id)

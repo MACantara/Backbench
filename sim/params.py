@@ -76,9 +76,28 @@ FACTION_LEADER_BONUS = 0.2       # leadership-challenge edge for faction leaders
 
 # --- player / career ---
 ACTIONS_PER_WEEK = 2
-DOSSIER_EXPEL_THRESHOLD = 1.0    # hidden scandal total that forces expulsion
 LEADERSHIP_COHESION_MIN = 0.45   # leader challengeable below this cohesion
 CHALLENGE_AMBITION_MIN = 0.6     # challengers need this much combined ambition
+
+# --- scandal lifecycle ---
+DIRTY_GROWTH = 0.002             # weekly dossier growth per unit of (1 - integrity)
+LEAK_BASE_P = 0.015              # weekly leak probability per unit of dossier
+LEAK_MIN_DOSSIER = 0.1           # below this, dirt never leaks
+LEAK_MAX_P = 0.25                # cap on the base rate (election multiplier applies after)
+SEVERITY_SERIOUS = 0.5           # dossier separating "embarrassing" from "serious"
+LEAK_ELECTION_MULT = 3.0         # October-surprise multiplier near elections
+ELECTION_LEAK_WINDOW = 6         # weeks before an election the multiplier applies
+SCANDAL_WEEKS = (3, 6)           # active-scandal duration range
+RESIGN_BASE_P = 0.02             # weekly resignation probability while burning
+RESIGN_DOSSIER_W = 0.15          # added resignation probability per unit of dossier
+SACK_THRESHOLD = 1.5             # leader expels members past this dossier size
+MINISTER_SACK_FRAC = 0.6         # ministers sacked past this fraction of the threshold
+SCANDAL_BRAND_HIT = 0.02         # weekly party brand bleed per active scandal
+MINISTER_BRAND_MULT = 2.0        # minister scandals bleed this much harder
+PARTY_BLEED_MAX = 0.08           # cap on weekly brand loss per party
+SCANDAL_BETRAYAL = 0.05          # weekly district betrayal while a scandal burns
+WEATHERED_BURN = 0.5             # dossier fraction spent on surviving a scandal
+WEATHERED_BRAND_SCAR = 0.05      # permanent party brand cost of a weathered scandal
 
 # --- drift ---
 VOTER_DRIFT_SD = 0.004           # weekly position noise
