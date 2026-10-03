@@ -6,18 +6,12 @@ import random
 import numpy as np
 
 from . import params as p
+from .naming import generate_parties, mp_name, mp_names
 from .state import (Conditions, GameState, Hopeful, MP, Outlet, Party, Voters,
                     dist)
 
-_FIRST = "Ash Brook Cole Dawn Elm Fern Gale Hale Iris Jade Kite Lark Moss Nell Onyx Pine Reed Sage Teal Wren".split()
-_LAST = "Barton Croft Dale Ellis Frost Grange Holt Ingram Marsh North Pace Quill Rook Shore Vale West York".split()
 _OUTLET_ADJ = "Meridian Capital Northern Coastal Civic Free Daily Union".split()
 _OUTLET_NOUN = "Herald Tribune Post Wire Gazette Sentinel".split()
-
-
-def _names(rng: random.Random, n: int) -> list[str]:
-    pool = [f"{a} {b}" for a in _FIRST for b in _LAST]
-    return rng.sample(pool, n)
 
 
 def _district_of(pos: np.ndarray, grid: tuple[int, int]) -> np.ndarray:
@@ -28,10 +22,10 @@ def _district_of(pos: np.ndarray, grid: tuple[int, int]) -> np.ndarray:
     return cx * gy + cy
 
 
-def make_voters(rng: random.Random, np_rng: np.random.Generator) -> Voters:
+def make_voters(rng: random.Random, np_rng: np.random.Generator,
+                centers: np.ndarray) -> Voters:
     n = p.N_VOTERS
     # mixture of a few ideological clusters → regional polarization for free
-    centers = np.array([pl for _, pl in p.STARTING_PARTIES])
     weights = rng.choices(range(len(centers)), k=n)
     pos = centers[weights] + np_rng.normal(0, p.VOTER_POS_SD, (n, 2))
     pos = np.clip(pos, -1, 1)
@@ -58,7 +52,7 @@ def make_hopeful(rng: random.Random, np_rng: np.random.Generator,
     hpos = tuple(np.clip(plat + np_rng.normal(0, p.MP_POS_JITTER, 2), -1, 1))
     stat = lambda k: min(1, max(0, rng.gauss(p.MP_STAT_MEANS[k], p.MP_STAT_SD)))
     return Hopeful(
-        name=name or f"{rng.choice(_FIRST)} {rng.choice(_LAST)}", pos=hpos,
+        name=name or mp_name(rng), pos=hpos,
         ambition=stat("ambition"), loyalty=stat("loyalty"),
         competence=stat("competence"), integrity=stat("integrity"),
         district=rng.randrange(n_districts),
@@ -89,17 +83,19 @@ def make_outlets(rng: random.Random, np_rng: np.random.Generator,
 def new_game(seed: int) -> GameState:
     rng = random.Random(seed)
     np_rng = np.random.default_rng(seed)
-    voters = make_voters(rng, np_rng)
+    # the party system comes first — the electorate clusters around its anchors
+    specs = generate_parties(rng, np_rng)
+    voters = make_voters(rng, np_rng, np.array([pl for _, pl in specs]))
     n_districts = int(voters.district.max()) + 1
 
     parties = {
         i: Party(id=i, name=name, platform=platform)
-        for i, (name, platform) in enumerate(p.STARTING_PARTIES)
+        for i, (name, platform) in enumerate(specs)
     }
 
     # one incumbent per district, anchored near the district centroid
     mps: dict[int, MP] = {}
-    names = _names(rng, n_districts + p.N_HOPEFULS)
+    names = mp_names(rng, n_districts + p.N_HOPEFULS)
     centroids = np.array([voters.pos[voters.district == d].mean(axis=0) for d in range(n_districts)])
     for d in range(n_districts):
         centroid = tuple(np.clip(centroids[d] + np_rng.normal(0, p.MP_POS_JITTER, 2), -1, 1))

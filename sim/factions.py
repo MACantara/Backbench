@@ -4,20 +4,13 @@ from __future__ import annotations
 import numpy as np
 
 from . import params as p
+from .naming import describe_pos
 from .state import Faction, GameState, dist
-
-_ECON = {-1: "left", 1: "right"}
-_SOC = {-1: "libertarian", 1: "traditional"}
 
 
 def _wing_name(party_name: str, centroid: tuple[float, float], platform: tuple[float, float]) -> str:
-    dx, dy = centroid[0] - platform[0], centroid[1] - platform[1]
-    ax = np.argmax([abs(dx), abs(dy)])
-    dev = [dx, dy][ax]
-    if abs(dev) < 0.2:
-        word = "moderate"
-    else:
-        word = (_ECON if ax == 0 else _SOC)[int(np.sign(dev))]
+    dev = (centroid[0] - platform[0], centroid[1] - platform[1])
+    word = "moderate" if max(abs(dev[0]), abs(dev[1])) < 0.2 else describe_pos(dev)
     return f"{party_name}-{word}"
 
 

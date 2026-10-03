@@ -4,14 +4,11 @@
 N_VOTERS = 10_000
 N_DISTRICTS = 120
 DISTRICT_GRID = (12, 10)  # cells tiling the [-1,1]^2 ideology square → district ids
-STARTING_PARTIES = [
-    # name, platform (economic, social)
-    ("Union Labour", (-0.75, -0.15)),
-    ("Green Alliance", (-0.35, -0.70)),
-    ("Centre Democrats", (0.0, 0.0)),
-    ("Conservative Party", (0.60, 0.50)),
-    ("National Front", (0.35, 0.90)),
-]
+# --- party generation (per-seed cleavage-anchored systems; see sim/naming.py) ---
+PARTY_COUNT_RANGE = (3, 7)     # starting parties per worldgen
+PARTY_MIN_SEPARATION = 0.4     # min pairwise platform distance at worldgen
+PARTY_PLATFORM_JITTER = 0.12   # platform noise around archetype anchors
+DESCRIBE_THRESHOLD = 0.25      # |pos| per axis needed to earn a pole word
 
 # --- voters ---
 VOTER_POS_SD = 0.45          # clustered-normal spread in ideology space

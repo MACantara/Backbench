@@ -7,7 +7,7 @@ from . import params as p
 from .career import remove_mp
 from .conditions import mood, responsibility
 from .state import GameState, Hopeful, MP
-from .worldgen import _FIRST, _LAST
+from .naming import mp_name
 
 
 def _candidate(state: GameState, district: int, party_id: int,
@@ -96,7 +96,7 @@ def resolve_election(state: GameState) -> None:
                            mp=next_id, district=d, party=winner, age=mp.age)
             else:
                 stat = lambda: min(1, max(0, state.rng.gauss(0.5, p.MP_STAT_SD)))
-                mp = MP(id=next_id, name=f"{state.rng.choice(_FIRST)} {state.rng.choice(_LAST)}",
+                mp = MP(id=next_id, name=mp_name(state.rng),
                         pos=cand[winner], ambition=stat(), loyalty=stat(),
                         competence=stat(), integrity=stat(), district=d, party=winner,
                         seat_safety=margin, age=state.rng.randint(1400, 2600))

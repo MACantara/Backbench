@@ -26,7 +26,8 @@ def main() -> None:
     assert sorted(m.district for m in a.mps.values()) == list(range(n_districts))
     # parties are spread out
     plats = [pt.platform for pt in a.parties.values()]
-    assert all(dist(x, y) > 0.4 for i, x in enumerate(plats) for y in plats[i + 1:])
+    assert all(dist(x, y) >= p.PARTY_MIN_SEPARATION
+               for i, x in enumerate(plats) for y in plats[i + 1:])
     # every MP is in a party, every party member is an MP
     assert all(m.party is not None for m in a.mps.values())
     assert all(pt.members for pt in a.parties.values()) or True  # empty party allowed but note it
