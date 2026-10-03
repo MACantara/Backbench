@@ -67,7 +67,7 @@ def party_lifecycle(state: GameState) -> None:
         if pt.schism_cooldown > 0:
             continue
         for f in list(pt.factions):
-            if dist(f.centroid, pt.platform) > p.SECESSION_DIST and pt.cohesion < p.PARTY_COHESION_SPLIT:
+            if dist(f.centroid, pt.platform) > p.SECESSION_DIST:
                 f.estranged += 1
             else:
                 f.estranged = 0
