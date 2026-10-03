@@ -121,6 +121,7 @@ MEDIA_APPEAR_PUBPOS = 0.05       # player media appearance → pub_pos toward ce
 COND_BASE = {"growth": 0.0, "unemployment": 0.5, "inflation": 0.3,
              "services": 0.5, "crime": 0.3}     # mean-reversion baselines
 COND_REVERT = 0.02           # weekly pull toward baseline
+COND_JITTER_SD = 0.04        # worldgen spread around baseline per seed
 COND_NOISE_SD = 0.01         # weekly indicator noise
 COUPLE_GROWTH_UE = 0.03      # growth↑ → unemployment↓
 COUPLE_UE_CRIME = 0.02       # unemployment↑ → crime↑
@@ -128,7 +129,7 @@ COUPLE_SVC_CRIME = 0.01      # services↑ → crime↓ (slow)
 SHOCK_P = 1 / 80             # weekly shock probability (~one per term)
 SHOCK_MAG = (0.15, 0.35)     # jump magnitude range
 SHOCK_INTERRUPT = 0.25       # shocks at least this big interrupt auto-play
-LAW_EFFECT_SCALE = 0.01      # weekly indicator push per unit of axis extremity
+LAW_EFFECT_SCALE = 0.02      # weekly push rate per unit extremity (diminishing near bounds)
 MOOD_W = {"growth": 0.4, "services": 0.2, "unemployment": 0.3,
           "inflation": 0.2, "crime": 0.15}      # positive signs on the good ones
 RETRO_WEIGHT = 0.5           # voter-scoring weight on mood × responsibility

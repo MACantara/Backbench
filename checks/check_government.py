@@ -26,9 +26,10 @@ def main() -> None:
     for seed in range(5):
         s, completed = run_cycle(seed)
         types = [e.type for e in s.log]
-        # a run only counts as a formation verdict if an election happened and the
-        # game kept going — dying at the first election never reaches formation
-        if "ElectionResult" in types and "SeatLost" not in types:
+        # a run only counts as a formation verdict if it reached formation — either
+        # it formed one, or it saw an election and the game kept going (dying at
+        # the first election never reaches formation)
+        if "CoalitionFormed" in types or ("ElectionResult" in types and "SeatLost" not in types):
             verdicts += 1
             formed += "CoalitionFormed" in types
         cycles += completed
@@ -41,7 +42,7 @@ def main() -> None:
     types = [e.type for e in s.log]
     assert types.index("ElectionResult") < types.index("CoalitionFormed") < len(types)
     assert "VoteResult" in types and "PollShift" in types
-    print(f"government ok: {formed}/5 formed, {cycles}/5 completed a term, "
+    print(f"government ok: {formed}/{verdicts} formed, {cycles}/5 completed a term, "
           f"{len(s.log)} events logged in seed 0")
 
 

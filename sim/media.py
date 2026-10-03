@@ -66,7 +66,7 @@ def media_lifecycle(state: GameState, base: int) -> None:
     for _, w, o, e, pids in leads:
         for pid in pids:
             pt = state.parties[pid]
-            sign = _NEWS[e.type][1] or (1 if (e.data.get("passed") or e.data.get("good")) else -1)
+            sign = _NEWS[e.type][1] or (1 if e.data.get("passed", e.data.get("good")) else -1)
             h = min(1.0, dist(o.slant, pt.platform) / 2)   # 0 friendly .. 1 hostile
             pt.brand += (sign * p.COVERAGE_BRAND_W * (w / 2)
                          * (0.5 + (h if sign < 0 else 1 - h)))

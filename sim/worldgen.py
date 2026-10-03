@@ -6,7 +6,8 @@ import random
 import numpy as np
 
 from . import params as p
-from .state import GameState, Hopeful, MP, Outlet, Party, Voters, dist
+from .state import (Conditions, GameState, Hopeful, MP, Outlet, Party, Voters,
+                    dist)
 
 _FIRST = "Ash Brook Cole Dawn Elm Fern Gale Hale Iris Jade Kite Lark Moss Nell Onyx Pine Reed Sage Teal Wren".split()
 _LAST = "Barton Croft Dale Ellis Frost Grange Holt Ingram Marsh North Pace Quill Rook Shore Vale West York".split()
@@ -125,8 +126,11 @@ def new_game(seed: int) -> GameState:
 
     # player: an MP in a middling district (near the median centroid)
     med = np.argsort(np.linalg.norm(centroids, axis=1))[n_districts // 2]
+    conds = {f: float(np.clip(v + np_rng.normal(0, p.COND_JITTER_SD), -1, 1))
+             for f, v in p.COND_BASE.items()}
     return GameState(
         rng=rng, week=0, phase="campaign", voters=voters, mps=mps, parties=parties,
         hopefuls=hopefuls, outlets=make_outlets(rng, np_rng, parties),
+        conditions=Conditions(**conds),
         player_id=int(med), weeks_to_election=8,
     )

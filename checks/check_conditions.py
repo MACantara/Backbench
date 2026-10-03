@@ -52,6 +52,7 @@ def main() -> None:
     s = new_game(7)
     for _ in range(60):
         tick(s)
+    assert s.government.pm in s.mps, "fixture needs a sitting PM"
     pm_party = s.mps[s.government.pm].party
     multi = len(s.government.parties) > 1
     share_multi = responsibility(s, pm_party)
@@ -68,7 +69,7 @@ def main() -> None:
     s = new_game(7)
     for _ in range(60):
         tick(s)
-    gov = set(s.government.parties)
+    gov = {i for i in s.government.parties if i in s.parties}
     mean = tuple(np.mean([s.parties[i].platform for i in gov], axis=0))
     bill = Bill(pos=mean, beneficiary_axis=0, confidence=True)
 
@@ -92,10 +93,11 @@ def main() -> None:
             if sh:
                 shock_weeks.append(s.week)
                 hl = next((e for e in evs if e.type == "Headline"), None)
-                covered += hl is not None and sh.data["variant"].split()[0] in hl.text
+                covered += hl is not None and hl.data.get("story") == "Shock"
                 break
     assert shock_weeks, "no shock fired in 10x120 weeks"
-    assert covered > 0, "shocks should reach headlines"
+    # a bigger story can legitimately outrank a shock — require most get the lead
+    assert covered >= len(shock_weeks) / 2, "shocks rarely reach headlines"
 
     # determinism: same seed → identical conditions trajectory
     a, b = new_game(9), new_game(9)

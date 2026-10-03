@@ -36,16 +36,20 @@ def responsibility(state: GameState, pid: int) -> float:
     pm = state.government.pm
     if pm in state.mps and state.mps[pm].party == pid:
         return p.RETRO_PM_SHARE
+    if len(gov) == 1:
+        return p.RETRO_PM_SHARE  # a lone party bears it even after the PM falls
     n = len(gov) - 1
     return (1 - p.RETRO_PM_SHARE) / n if n > 0 else 0.0
 
 
 def law_effect(bill: Bill) -> dict[str, float]:
     """A law's weekly indicator push — legible quadrant map, magnitude ∝ extremity."""
-    s = p.LAW_EFFECT_SCALE
-    if bill.beneficiary_axis == 0:
+    s, ax = p.LAW_EFFECT_SCALE, bill.beneficiary_axis
+    if bill.pos[ax] == 0:
+        return {}
+    if ax == 0:
         return {"growth" if bill.pos[0] > 0 else "services": s * abs(bill.pos[0])}
-    return {"crime": -s * abs(bill.pos[1]) if bill.pos[1] > 0 else s * abs(bill.pos[1])}
+    return {"crime": -s * bill.pos[1]}
 
 
 def enact(state: GameState, bill: Bill, yes: int, no: int) -> Law:
@@ -55,10 +59,9 @@ def enact(state: GameState, bill: Bill, yes: int, no: int) -> Law:
               passed_week=state.week, margin=yes / max(yes + no, 1),
               effect=law_effect(bill))
     state.laws.append(law)
-    eff = next(iter(law.effect.items()))
-    state.emit("LawEnacted", f"{law.name} becomes law — {eff[0]} {'+' if eff[1] > 0 else '-'}"
-                             f"{abs(eff[1]):.3f}/wk.", law=law.name, indicator=eff[0],
-               weekly=eff[1])
+    eff = f" — {next(iter(law.effect))} {next(iter(law.effect.values())):+.3f}/wk" \
+        if law.effect else ""
+    state.emit("LawEnacted", f"{law.name} becomes law{eff}.", law=law.name)
     return law
 
 
@@ -74,11 +77,14 @@ def conditions_lifecycle(state: GameState) -> None:
     c.unemployment = float(np.clip(c.unemployment - p.COUPLE_GROWTH_UE * c.growth, 0, 1))
     c.crime = float(np.clip(c.crime + p.COUPLE_UE_CRIME * (c.unemployment - p.COND_BASE["unemployment"])
                             - p.COUPLE_SVC_CRIME * (c.services - p.COND_BASE["services"]), 0, 1))
-    # laws in force keep pushing while they stand
+    # laws in force keep pushing while they stand — diminishing returns near the
+    # bound, so a long legislative record saturates an indicator, not pins it
     for law in state.laws:
         for ind, dv in law.effect.items():
             lo, hi = _BOUNDS[ind]
-            setattr(c, ind, float(np.clip(getattr(c, ind) + dv, lo, hi)))
+            v = getattr(c, ind)
+            v += dv * (hi - v) if dv > 0 else dv * (v - lo)
+            setattr(c, ind, float(np.clip(v, lo, hi)))
     # shocks: rare, seeded, legible
     if rng.random() < p.SHOCK_P:
         ind, direction, variant = _SHOCKS[rng.randrange(len(_SHOCKS))]
