@@ -47,6 +47,23 @@ def make_voters(rng: random.Random, np_rng: np.random.Generator) -> Voters:
     )
 
 
+def make_hopeful(rng: random.Random, np_rng: np.random.Generator,
+                 parties: dict[int, Party], n_districts: int,
+                 name: str | None = None, age: int | None = None) -> Hopeful:
+    """One aspiring politician: stats rolled, leaning toward the nearest platform."""
+    plat = np.asarray(rng.choice(list(parties.values())).platform)
+    hpos = tuple(np.clip(plat + np_rng.normal(0, p.MP_POS_JITTER, 2), -1, 1))
+    stat = lambda k: min(1, max(0, rng.gauss(p.MP_STAT_MEANS[k], p.MP_STAT_SD)))
+    return Hopeful(
+        name=name or f"{rng.choice(_FIRST)} {rng.choice(_LAST)}", pos=hpos,
+        ambition=stat("ambition"), loyalty=stat("loyalty"),
+        competence=stat("competence"), integrity=stat("integrity"),
+        district=rng.randrange(n_districts),
+        party=min(parties.values(), key=lambda pt: dist(hpos, pt.platform)).id,
+        age=age if age is not None else rng.randint(*p.HOPEFUL_AGE),
+    )
+
+
 def new_game(seed: int) -> GameState:
     rng = random.Random(seed)
     np_rng = np.random.default_rng(seed)
@@ -82,19 +99,8 @@ def new_game(seed: int) -> GameState:
         pt.leader = min(pt.members, key=lambda m: mps[m].ambition * -1) if pt.members else None
 
     # the pipeline: hopefuls below minimum age, leaning toward their nearest party
-    hopefuls: list[Hopeful] = []
-    for i in range(p.N_HOPEFULS):
-        plat = np.asarray(rng.choice(list(parties.values())).platform)
-        hpos = tuple(np.clip(plat + np_rng.normal(0, p.MP_POS_JITTER, 2), -1, 1))
-        stat = lambda k: min(1, max(0, rng.gauss(p.MP_STAT_MEANS[k], p.MP_STAT_SD)))
-        hopefuls.append(Hopeful(
-            name=names[n_districts + i], pos=hpos,
-            ambition=stat("ambition"), loyalty=stat("loyalty"),
-            competence=stat("competence"), integrity=stat("integrity"),
-            district=rng.randrange(n_districts),
-            party=min(parties.values(), key=lambda pt: dist(hpos, pt.platform)).id,
-            age=rng.randint(*p.HOPEFUL_AGE),
-        ))
+    hopefuls = [make_hopeful(rng, np_rng, parties, n_districts, name=names[n_districts + i])
+                for i in range(p.N_HOPEFULS)]
 
     # player: an MP in a middling district (near the median centroid)
     med = np.argsort(np.linalg.norm(centroids, axis=1))[n_districts // 2]

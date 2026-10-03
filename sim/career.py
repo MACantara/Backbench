@@ -4,8 +4,8 @@ from __future__ import annotations
 import numpy as np
 
 from . import params as p
-from .state import GameState, Hopeful, dist
-from .worldgen import _FIRST, _LAST
+from .state import GameState, dist
+from .worldgen import make_hopeful
 
 PORTFOLIOS = ["Finance", "Interior", "Foreign", "Health", "Justice"]
 
@@ -101,18 +101,10 @@ def mp_lifecycle(state: GameState) -> None:
     for h in state.hopefuls:
         h.age += 1
     if state.rng.random() < p.HOPEFULS_PER_WEEK_P:
-        plat = np.asarray(state.rng.choice(list(state.parties.values())).platform)
-        hpos = tuple(np.clip(plat + np.random.default_rng(
-            int(state.rng.random() * 2**63)).normal(0, p.MP_POS_JITTER, 2), -1, 1))
-        stat = lambda k: min(1, max(0, state.rng.gauss(p.MP_STAT_MEANS[k], p.MP_STAT_SD)))
-        state.hopefuls.append(Hopeful(
-            name=f"{state.rng.choice(_FIRST)} {state.rng.choice(_LAST)}", pos=hpos,
-            ambition=stat("ambition"), loyalty=stat("loyalty"),
-            competence=stat("competence"), integrity=stat("integrity"),
-            district=state.rng.randrange(int(state.voters.district.max()) + 1),
-            party=min(state.parties.values(), key=lambda pt: dist(hpos, pt.platform)).id,
-            age=p.HOPEFUL_AGE[0],
-        ))
+        np_rng = np.random.default_rng(int(state.rng.random() * 2**63))
+        n_districts = int(state.voters.district.max()) + 1
+        state.hopefuls.append(make_hopeful(state.rng, np_rng, state.parties, n_districts,
+                                           age=p.HOPEFUL_AGE[0]))
 
 
 def update_score(state: GameState) -> None:

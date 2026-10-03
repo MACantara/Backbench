@@ -5,14 +5,12 @@ import numpy as np
 
 from . import params as p
 from .career import remove_mp
-from .state import GameState, MP
-
-_FIRST = "Ash Brook Cole Dawn Elm Fern Gale Hale Iris Jade Kite Lark Moss Nell Onyx Pine Reed Sage Teal Wren".split()
-_LAST = "Barton Croft Dale Ellis Frost Grange Holt Ingram Marsh North Pace Quill Rook Shore Vale West York".split()
+from .state import GameState, Hopeful, MP
+from .worldgen import _FIRST, _LAST
 
 
 def _candidate(state: GameState, district: int, party_id: int,
-               incumbent: MP | None) -> tuple[tuple[float, float], object | None]:
+               incumbent: MP | None) -> tuple[tuple[float, float], Hopeful | None]:
     """Candidate for a party in a district: incumbent, eligible hopeful, or platform placeholder."""
     if incumbent and incumbent.party == party_id:
         return incumbent.pos, None
