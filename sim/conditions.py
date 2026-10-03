@@ -54,7 +54,7 @@ def law_effect(bill: Bill) -> dict[str, float]:
 
 def enact(state: GameState, bill: Bill, yes: int, no: int) -> Law:
     """Register a passed bill as a law in force."""
-    law = Law(name=f"Week-{state.week} Act", pos=bill.pos,
+    law = Law(name=bill.name or f"Week-{state.week} Act", pos=bill.pos,
               beneficiary_axis=bill.beneficiary_axis, cost=bill.cost,
               passed_week=state.week, margin=yes / max(yes + no, 1),
               effect=law_effect(bill))

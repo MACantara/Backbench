@@ -5,6 +5,7 @@ import numpy as np
 
 from . import params as p
 from .factions import update_factions
+from .naming import party_name_for
 from .state import GameState, Party, dist
 
 
@@ -25,7 +26,13 @@ def _next_party_id(state: GameState) -> int:
 
 def _found(state: GameState, founder, followers: list[int]) -> int:
     pid = _next_party_id(state)
-    name = f"{state.mps[founder].name.split()[-1]} List"
+    if followers:
+        # a bloc secession names itself for where it stands ideologically
+        bloc = np.mean([state.mps[m].pos for m in [founder, *followers]], axis=0)
+        taken = {pt.name for pt in state.parties.values()}
+        name = party_name_for(tuple(bloc), state.rng, taken)
+    else:
+        name = f"{state.mps[founder].name.split()[-1]} List"  # a lone founder's vehicle
     pt = Party(id=pid, name=name, platform=state.mps[founder].pos, leader=founder)
     for mid in [founder, *followers]:
         old = state.mps[mid].party

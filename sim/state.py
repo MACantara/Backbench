@@ -105,6 +105,7 @@ class Bill:
     beneficiary_axis: int           # 0 or 1 — which voter axis it flatters
     cost: float = 0.0
     confidence: bool = False        # a confidence motion — govt parties whip to survive
+    name: str = ""                  # domain-flavored name; confidence motions stay blank
 
 
 @dataclass

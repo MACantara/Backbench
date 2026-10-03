@@ -5,6 +5,7 @@ import numpy as np
 
 from . import params as p
 from .conditions import enact, mood
+from .naming import bill_name, describe_pos
 from .state import Bill, GameState, MP, dist
 from .treasury import debt_pressure
 
@@ -85,11 +86,13 @@ def table_bill(state: GameState) -> Bill:
     ax = state.rng.randrange(2)
     bill = Bill(pos=pos, beneficiary_axis=ax,
                 cost=float(max(0.0, p.COST_BASE + p.COST_EXTREMITY_W * abs(pos[ax])
-                               + state.rng.gauss(0, p.COST_JITTER))))
+                               + state.rng.gauss(0, p.COST_JITTER))),
+                name=bill_name(pos, ax, state.rng))
     state.current_bill = bill
-    state.emit("BillTabled", f"Government tables a bill at ({pos[0]:+.2f}, {pos[1]:+.2f})"
-                             f" costing {bill.cost:.3f}/wk.",
-               pos=pos, beneficiary_axis=bill.beneficiary_axis, cost=bill.cost)
+    state.emit("BillTabled", f"Government tables the {bill.name} — {describe_pos(pos)}"
+                             f" (cost {bill.cost:.3f}/wk).",
+               pos=pos, beneficiary_axis=bill.beneficiary_axis, cost=bill.cost,
+               bill=bill.name)
     return bill
 
 
