@@ -10,6 +10,7 @@ from . import params as p
 from .state import Vec, dist
 
 # --- ideology vocabulary ---
+# AXIS_LABELS/POLE_LABELS land now so the Phase 5 driver map can read them
 AXIS_LABELS = ("economic", "social")
 POLE_LABELS = {0: ("redistribution", "market"), 1: ("libertarian", "authoritarian")}
 _AXIS_WORDS = {0: {-1: "left", 1: "right"}, 1: {-1: "libertarian", 1: "traditional"}}
@@ -75,7 +76,7 @@ _ORDINALS = "Second Third Fourth Fifth Sixth Seventh".split()
 
 
 def _weight(key: str, cleavage: dict[str, float]) -> float:
-    return 0.2 + sum(cleavage[c] for c in ARCHETYPES[key]["cleavages"])
+    return p.ARCHETYPE_BASE_W + sum(cleavage[c] for c in ARCHETYPES[key]["cleavages"])
 
 
 def _pick_name(pool: list[str], rng: random.Random, taken: set[str]) -> str:
@@ -90,7 +91,9 @@ def _pick_name(pool: list[str], rng: random.Random, taken: set[str]) -> str:
                 name = f"{ord_} {base}"
                 break
         else:
-            name = f"New {base}"
+            name, i = f"New {base}", 2
+            while name in taken:
+                name, i = f"New {base} {i}", i + 1
     taken.add(name)
     return name
 
@@ -106,29 +109,55 @@ def generate_parties(rng: random.Random, np_rng: np.random.Generator) -> list[tu
         rest = [k for k in keys if k not in chosen]
         chosen.append(rng.choices(rest, weights=[_weight(k, cleavage) for k in rest])[0])
 
-    # coverage: a viable system needs anchors on both flanks of the class axis
-    flanks = {-1: [k for k in keys if ARCHETYPES[k]["anchor"][0] < -0.25],
-              1: [k for k in keys if ARCHETYPES[k]["anchor"][0] > 0.25]}
-    for sign in (-1, 1):
-        if not any(ARCHETYPES[k]["anchor"][0] * sign > 0.25 for k in chosen):
-            swap_in = max((k for k in flanks[sign] if k not in chosen),
-                          key=lambda k: _weight(k, cleavage), default=None)
-            if swap_in is not None:
-                weakest = min(chosen, key=lambda k: _weight(k, cleavage))
-                chosen[chosen.index(weakest)] = swap_in
+    # coverage: a viable system needs anchors on both flanks of the class axis;
+    # never evict the other flank's only representative
+    flanks = {-1: [k for k in keys if ARCHETYPES[k]["anchor"][0] < -p.PARTY_FLANK_EDGE],
+              1: [k for k in keys if ARCHETYPES[k]["anchor"][0] > p.PARTY_FLANK_EDGE]}
+    for _ in range(4):
+        missing = [s for s in (-1, 1)
+                   if not any(ARCHETYPES[k]["anchor"][0] * s > p.PARTY_FLANK_EDGE for k in chosen)]
+        if not missing:
+            break
+        sign = missing[0]
+        swap_in = max((k for k in flanks[sign] if k not in chosen),
+                      key=lambda k: _weight(k, cleavage), default=None)
+        if swap_in is None:
+            break
+        other = {k for k in chosen if ARCHETYPES[k]["anchor"][0] * -sign > p.PARTY_FLANK_EDGE}
+        victims = [k for k in chosen if k not in other]
+        weakest = min(victims or chosen, key=lambda k: _weight(k, cleavage))
+        chosen[chosen.index(weakest)] = swap_in
 
     plats: list[Vec] = []
     kept: list[str] = []
+    queue = [k for k in keys if k not in chosen]  # replacements if an anchor can't place
+
+    def _replacement(k: str):
+        """Prefer a same-flank archetype so coverage survives a placement drop."""
+        sign = np.sign(ARCHETYPES[k]["anchor"][0])
+        for i, q in enumerate(queue):
+            if np.sign(ARCHETYPES[q]["anchor"][0]) == sign:
+                return queue.pop(i)
+        return queue.pop(0) if queue else None
+
     for k in chosen:
-        anchor = np.asarray(ARCHETYPES[k]["anchor"])
-        for _ in range(20):  # resample jitter until separated
-            plat = tuple(np.clip(anchor + np_rng.normal(0, p.PARTY_PLATFORM_JITTER, 2), -1, 1))
-            if all(dist(plat, q) >= p.PARTY_MIN_SEPARATION for q in plats):
-                break
-        else:
-            continue  # too crowded — drop this archetype rather than overlap
-        plats.append(plat)
-        kept.append(k)
+        while k is not None:
+            anchor = np.asarray(ARCHETYPES[k]["anchor"])
+            # a flank rep must stay on its side of the axis — jitter can't
+            # carry it across and void the coverage guarantee
+            flank_sign = np.sign(anchor[0]) if abs(anchor[0]) > p.PARTY_FLANK_EDGE else 0.0
+            for _ in range(p.PARTY_PLACE_TRIES):  # resample jitter until it fits
+                plat = tuple(np.clip(anchor + np_rng.normal(0, p.PARTY_PLATFORM_JITTER, 2), -1, 1))
+                if flank_sign and plat[0] * flank_sign <= 0:
+                    continue
+                if all(dist(plat, q) >= p.PARTY_MIN_SEPARATION for q in plats):
+                    break
+            else:
+                k = _replacement(k)  # too crowded — try another archetype
+                continue
+            plats.append(plat)
+            kept.append(k)
+            break
 
     taken: set[str] = set()
     return [(_pick_name(ARCHETYPES[k]["names"], rng, taken), plat)
@@ -164,7 +193,8 @@ _BILL_NEUTRAL = ["Administrative Reform Act", "Technical Measures Act",
 def bill_name(pos: Vec, axis: int, rng: random.Random) -> str:
     """A domain-flavored name from the bill's ideological address."""
     v = pos[axis]
-    pool = _BILL_NEUTRAL if abs(v) < 0.2 else _BILL_NAMES[(axis, int(np.sign(v)))]
+    pool = _BILL_NEUTRAL if abs(v) < p.BILL_NEUTRAL_BAND \
+        else _BILL_NAMES[(axis, int(np.sign(v)))]
     return rng.choice(pool)
 
 
@@ -182,14 +212,18 @@ _LAST = ("Barton Croft Dale Ellis Frost Grange Holt Ingram Marsh North Pace Quil
 def mp_name(rng: random.Random) -> str:
     """One MP name; ~5% get a composed double surname."""
     last = rng.choice(_LAST)
-    if rng.random() < 0.05:
+    if rng.random() < p.COMPOSED_SURNAME_P:
         last = f"{last}-{rng.choice(_LAST)}"
     return f"{rng.choice(_FIRST)} {last}"
 
 
 def mp_names(rng: random.Random, n: int) -> list[str]:
-    """n unique names — the composed-surname pool is large enough to not exhaust."""
-    seen: set[str] = set()
-    while len(seen) < n:
-        seen.add(mp_name(rng))
-    return list(seen)
+    """n unique names, insertion-ordered — set iteration order is hash-seeded
+    per process, so a bare set would break cross-process determinism."""
+    out, seen = [], set()
+    while len(out) < n:
+        name = mp_name(rng)
+        if name not in seen:
+            seen.add(name)
+            out.append(name)
+    return out

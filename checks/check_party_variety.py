@@ -34,8 +34,10 @@ def main() -> None:
         assert all(dist(x, y) >= p.PARTY_MIN_SEPARATION
                    for i, x in enumerate(plats) for y in plats[i + 1:]), \
             f"seed {seed}: overlapping platforms"
-        # both flanks of the class axis are represented
-        assert min(x[0] for x in plats) < 0.2 and max(x[0] for x in plats) > -0.2
+        # both flanks of the class axis are represented — the generator swaps
+        # in a ±FLANK_EDGE anchor; jitter (sd 0.12) can't drag it past ±0.1
+        assert min(x[0] for x in plats) < 0.1 and max(x[0] for x in plats) > -0.1, \
+            f"seed {seed}: one-flank parliament {plats}"
 
     # describe_pos is the one position vocabulary
     assert describe_pos((-0.6, 0.0)) == "left"

@@ -8,7 +8,12 @@ DISTRICT_GRID = (12, 10)  # cells tiling the [-1,1]^2 ideology square → distri
 PARTY_COUNT_RANGE = (3, 7)     # starting parties per worldgen
 PARTY_MIN_SEPARATION = 0.4     # min pairwise platform distance at worldgen
 PARTY_PLATFORM_JITTER = 0.12   # platform noise around archetype anchors
+PARTY_PLACE_TRIES = 20         # jitter resamples to satisfy min separation
+PARTY_FLANK_EDGE = 0.25        # anchors past this cover an economic flank
+ARCHETYPE_BASE_W = 0.2         # draw weight floor per archetype
 DESCRIBE_THRESHOLD = 0.25      # |pos| per axis needed to earn a pole word
+BILL_NEUTRAL_BAND = 0.2        # |pos| below this → generic bill names
+COMPOSED_SURNAME_P = 0.05      # double-barreled surname rate
 
 # --- voters ---
 VOTER_POS_SD = 0.45          # clustered-normal spread in ideology space

@@ -10,8 +10,8 @@ from .state import Faction, GameState, dist
 
 def _wing_name(party_name: str, centroid: tuple[float, float], platform: tuple[float, float]) -> str:
     dev = (centroid[0] - platform[0], centroid[1] - platform[1])
-    word = "moderate" if max(abs(dev[0]), abs(dev[1])) < 0.2 else describe_pos(dev)
-    return f"{party_name}-{word}"
+    word = describe_pos(dev)
+    return f"{party_name}-{'moderate' if word == 'centrist' else word}"
 
 
 def _next_faction_id(state: GameState) -> int:
