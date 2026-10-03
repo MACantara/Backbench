@@ -2,7 +2,7 @@
 
 A living fictional country that runs on classical AI — where you build a career inside politics the world generates itself.
 
-No LLMs, no network, no cloud. Elections, coalitions, schisms, and realignments run whether or not anyone plays — you are a politician inside that world, not the center of it. Campaign, keep your seat, climb to minister, challenge the leader, survive to become PM.
+No LLMs, no network, no cloud. You have the main role — the game is driven by your actions: what you campaign on, who you court, when you strike. The world stays alive around you (elections, coalitions, schisms, realignments run on their own logic), but this is a game to be played, not a simulation to watch. Campaign, keep your seat, climb to minister, challenge the leader, survive to become PM.
 
 Every other actor is a classical algorithm: ~10,000 voter agents in a 2D ideological space, ~120 MP agents with ambition/loyalty/grudges/utility functions, parties that form, split, and die on their own. Every outcome is deterministic by seed and decomposes into legible causes — drama is emergent, not scripted.
 

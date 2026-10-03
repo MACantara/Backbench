@@ -4,7 +4,7 @@
 
 **A living fictional country that runs on classical AI — where you build a career inside politics the world generates itself.**
 
-The world is the star: elections, coalitions, schisms, and realignments run whether or not anyone plays — auto-play is the country's heartbeat made visible. You are a politician inside that world, not the center of it. Three pillars, equal weight: the career climb (backbencher to PM), the emergent drama (betrayals and collapses nobody scripted), and strategic depth (whipping and kingmaking against worthy opponents). A run succeeds when the world does something unscripted, it mattered to your career, and the why traces to legible algorithmic causes — not a scripted twist, not an LLM, not a dice roll.
+You have the main role: the game loop is driven by your actions — what you campaign on, who you court, when you strike. The world stays alive around you (elections, coalitions, schisms, realignments run on their own logic), but the game is *played*, not watched — auto-play exists only to observe and tune the simulation, not as the intended experience. Three pillars, equal weight: the career climb (backbencher to PM), the emergent drama (betrayals and collapses nobody scripted), and strategic depth (whipping and kingmaking against worthy opponents). A run succeeds when the world does something unscripted, it mattered to your career, and the why traces to legible algorithmic causes — not a scripted twist, not an LLM, not a dice roll.
 
 Constraints: classical AI only, local, deterministic by seed, self-consistent without a player. Audience: me. Out of scope forever: LLMs, real-world data, multiplayer, online services.
 
@@ -53,7 +53,7 @@ The north star says the world is the star — so the next phase is everything th
 - [ ] **Ministerial performance** — portfolios generate outcomes (economy up/down, crises) that reflect on competence and feed approval. Right now a portfolio is a title; under the north star a bad minister should *matter* to the country.
 - [ ] **Policy salience** — bills and speeches move *which axis* voters care about (economy vs social), not just positions on it. The voter model already weights axes.
 
-Done when: run auto-play for a full term and the chronicle reads like a country's history — governments rose and fell, careers started and ended, and you weren't in it.
+Done when: a played term feels like you're inside a living country — and when you peek via auto-play, the chronicle confirms the world moved on its own logic, not around you.
 
 ## Phase 4 — Your career inside it
 
