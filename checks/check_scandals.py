@@ -64,22 +64,23 @@ def main() -> None:
     assert not any(m.district == dirty.district for m in s.mps.values()), \
         "expulsion should leave a vacancy"
 
-    # ministers get sacked when their scandal breaks
+    # ministers get sacked when their scandal breaks — drive the lifecycle
+    # directly so cabinet reshuffles can't wipe the injected portfolio first
+    from sim.scandals import scandal_lifecycle
     s = new_game(5)
     minister = next(m for m in s.mps.values()
                     if m.id != s.player_id and s.parties[m.party].leader != m.id)
     minister.portfolio = "Finance"
     minister.dossier = 1.2
-    for _ in range(60):
-        tick(s)
-        if any(e.type == "MinisterSacked" and e.data.get("mp") == minister.id
-               for e in s.log):
-            break
+    for _ in range(400):
+        minister.dossier = max(minister.dossier, 1.2)  # pin against weathering
+        scandal_lifecycle(s)
         if minister.id not in s.mps or minister.scandal_weeks:
             break
+    assert minister.scandal_weeks > 0, "minister's dossier never broke"
     sacked = any(e.type == "MinisterSacked" and e.data.get("mp") == minister.id
                  for e in s.log)
-    assert sacked or minister.portfolio is None or minister.id not in s.mps, \
+    assert sacked and minister.portfolio is None, \
         "ministerial scandal left the minister in post"
 
     # resolution: burning ends in resignation (vacancy) or weathering (scar)

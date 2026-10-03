@@ -24,7 +24,7 @@ def scandal_lifecycle(state: GameState) -> None:
     near_election = (state.phase == "campaign"
                      and state.weeks_to_election <= p.ELECTION_LEAK_WINDOW)
     for mp in list(state.mps.values()):
-        if mp.scandal_weeks > 0 or mp.dossier <= 0.1:
+        if mp.scandal_weeks > 0 or mp.dossier <= p.LEAK_MIN_DOSSIER:
             continue
         pt = state.parties.get(mp.party)
         # leaders expel the dirtiest members outright to contain the damage
@@ -39,7 +39,9 @@ def scandal_lifecycle(state: GameState) -> None:
             pr *= p.LEAK_ELECTION_MULT
         if rng.random() >= pr:
             continue
-        sev = "career-ending" if mp.dossier > p.SACK_THRESHOLD else "serious" if mp.dossier > 0.5 else "embarrassing"
+        sev = ("career-ending" if mp.dossier > p.SACK_THRESHOLD
+               else "serious" if mp.dossier > p.SEVERITY_SERIOUS
+               else "embarrassing")
         mp.scandal_weeks = rng.randint(*p.SCANDAL_WEEKS)
         state.emit("ScandalBreaks", f"Scandal breaks around {mp.name} ({sev}).",
                    mp=mp.id, dossier=mp.dossier, severity=sev)
@@ -68,16 +70,22 @@ def scandal_lifecycle(state: GameState) -> None:
         mp.scandal_weeks -= 1
         if mp.scandal_weeks <= 0:
             mp.dossier *= 1 - p.WEATHERED_BURN
+            if mp.party in state.parties:
+                state.parties[mp.party].brand -= p.WEATHERED_BRAND_SCAR
             state.emit("ScandalWeathered", f"{mp.name} weathers the scandal.",
                        mp=mp.id)
 
     for pid, b in bleed.items():
         state.parties[pid].brand -= min(b, p.PARTY_BLEED_MAX)
 
-    # the player's own dirt can surface into expulsion by their party
+    # the player's own dirt can surface into expulsion by their party — but
+    # only while clean (a burning player can weather below the threshold, like
+    # AI MPs), and never as party leader (leaders die by the resignation roll
+    # or leadership challenges, not self-expulsion)
     me = state.mps.get(player)
     if me and me.dossier > p.SACK_THRESHOLD and state.phase != "over":
         pt = state.parties.get(me.party)
-        if pt is not None and pt.leader != player:
-            state.emit("Expelled", f"{pt.name} expels you over the scandal.", mp=player)
+        if pt is not None and pt.leader != player and me.scandal_weeks <= 0:
+            state.emit("Expelled", f"{pt.name} expels you over the scandal.",
+                       mp=player, party=pt.id)
             _game_over(state, "expelled")

@@ -55,9 +55,9 @@ def tick(state: GameState, actions: list | None = None) -> list[Event]:
 
     if state.phase != "over":
         mp_lifecycle(state)
-        scandal_lifecycle(state)
         party_lifecycle(state)
         leadership_challenge(state)
+        scandal_lifecycle(state)   # last: dirt settles after the week's politics
     _drift(state)
     return state.log[base:]
 
