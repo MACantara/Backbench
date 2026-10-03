@@ -51,9 +51,11 @@ W_REL = 0.4        # weight on relationship with the government/leader
 W_SAFETY = 0.6     # weight on district opinion exposure (unsafe seats vote locally)
 W_GOV = 0.35       # solidarity bonus for coalition MPs backing their own government's bill
 VOTE_NOISE = 0.05  # per-MP ballot noise
+BILL_PERSUASION = 0.008  # weekly electorate pull toward gov axis per passed bill
 
 # --- government ---
 COALITION_MAX_DIST = 1.0         # partners won't join a coalition beyond this platform distance
+COALITION_WHIP_TOL = 1.2         # gov bill this far from a partner's platform breaks its whip line
 CONFIDENCE_THRESHOLD = 0.5       # fraction of parliament needed
 MINORITY_GOVT_PENALTY = 0.15     # utility discount on bills under minority government
 BUDGET_EVERY_WEEKS = 12          # budget votes double as confidence votes
@@ -135,6 +137,21 @@ MOOD_W = {"growth": 0.4, "services": 0.2, "unemployment": 0.3,
 RETRO_WEIGHT = 0.5           # voter-scoring weight on mood × responsibility
 RETRO_PM_SHARE = 0.6         # the PM's party takes this share of credit/blame
 W_RETRO_CONF = 0.3           # confidence-vote term: coalition MPs feel the slump
+
+# --- treasury ---
+REV_BASE = 0.10              # weekly revenue at baseline conditions
+REV_GROWTH_W = 0.05          # revenue swing per unit of growth
+REV_UE_W = 0.04              # revenue drag per unit of unemployment
+DEBT_INTEREST = 0.005        # weekly interest rate on the debt stock
+COST_BASE = 0.002            # a bill's minimum weekly upkeep
+COST_EXTREMITY_W = 0.008     # ambitious programs cost more
+COST_JITTER = 0.001          # noise on bill cost
+LAW_COST_DECAY = 0.98        # programs normalize into baseline spending over time
+DEBT_WARN = 1.0              # debt above this drags inflation + tightens fiscal votes
+DEBT_INFLATION_W = 0.01      # weekly inflation push per unit of debt past WARN
+DEBT_CRISIS = 2.0            # insolvency: DebtCrisis + forced confidence vote
+DEBT_BRAND_HIT = 0.15        # one-time brand drop for gov parties on crisis
+W_FISCAL = 0.6               # vote term weight on bill cost × debt pressure
 
 # --- drift ---
 VOTER_DRIFT_SD = 0.004           # weekly position noise

@@ -130,6 +130,13 @@ class Conditions:
 
 
 @dataclass
+class Treasury:
+    """The public finances: one stock (debt); flows are derived weekly."""
+    debt: float = 0.0               # cumulative deficit; floored at 0
+    crisis_armed: bool = True       # hysteresis — re-arms when debt < DEBT_WARN
+
+
+@dataclass
 class Event:
     type: str                       # PollShift, VoteResult, Scandal, Defection, ...
     text: str
@@ -157,6 +164,7 @@ class GameState:
     outlets: list[Outlet] = field(default_factory=list)
     conditions: Conditions = field(default_factory=Conditions)
     laws: list[Law] = field(default_factory=list)  # registry of laws in force
+    treasury: Treasury = field(default_factory=Treasury)
     press_subject: int | None = None  # party id of last week's lead story
     press_weeks: int = 0              # consecutive weeks that subject has led
     government: Government = field(default_factory=Government)
