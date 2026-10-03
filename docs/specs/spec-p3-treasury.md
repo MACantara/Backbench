@@ -9,15 +9,15 @@ Money should *constrain legislation*: expensive programs are easier to pass in g
 ## Mechanics
 
 **State (`Treasury` dataclass on `GameState.treasury`):**
-- `debt: float` — the single stock. Starts at `DEBT_START`.
+- `debt: float` — the single stock. Starts at 0; floored at 0 (no savings stock).
 - Weekly flow is derived, not stored: `flow = revenue - upkeep - interest`, shown in inspect.
 - `revenue = REV_BASE + REV_GROWTH_W * growth - REV_UE_W * unemployment` — the country pays what it earns (reads `conditions` weekly).
-- `upkeep = Σ law.cost for law in state.laws` — laws in force cost money *while they stand*. Repeal (P4) or a court strike (P3 `courts`) stops the drain — fiscal meaning for free in both later modules.
+- `upkeep = Σ law.cost for law in state.laws` — laws in force cost money *while they stand*. Repeal (P4) or a court strike (P3 `courts`) stops the drain — fiscal meaning for free in both later modules. Until those land, `LAW_COST_DECAY` fades each law's cost weekly (programs normalize into baseline spending) — the interim release valve that stops upkeep ratcheting to guaranteed insolvency.
 - `interest = debt * DEBT_INTEREST` — the compound squeeze.
 
-**`Bill.cost` becomes real:** `table_bill` assigns `cost = COST_BASE + COST_EXTREMITY_W * |pos[axis]| + jitter` — ambitious programs cost more than housekeeping. `Law.cost` already rides along via `enact`.
+**`Bill.cost` becomes real:** `table_bill` assigns `cost = COST_BASE + COST_EXTREMITY_W * |pos[axis]| + jitter` — ambitious programs cost more than housekeeping. `Law.cost` rides along via `enact` (and is printed on the `LawEnacted` event).
 
-**Fiscal constraint on votes (the named `fiscal` term):** `vote_terms` gains `fiscal = W_FISCAL * (-bill.cost) * debt_pressure` where `debt_pressure = min(1, debt / DEBT_WARN)`. In surpluses MPs shrug at expensive bills; as debt mounts, cost-shyness enters the utility — expensive legislation gets harder to pass exactly when it should. Applies to all MPs, not just the coalition (parliaments get stingy, not just governments).
+**Fiscal constraint on votes (the named `fiscal` term):** `vote_terms` gains `fiscal = -W_FISCAL * (bill.cost / (COST_BASE + COST_EXTREMITY_W)) * debt_pressure` — cost normalized against the most expensive plausible bill — where `debt_pressure = min(1, debt / DEBT_WARN)`. In surpluses MPs shrug at expensive bills; as debt mounts, cost-shyness enters the utility — expensive legislation gets harder to pass exactly when it should. Applies to all MPs, not just the coalition (parliaments get stingy, not just governments); zero on confidence bills (`cost=0` — survival votes aren't stingy).
 
 **Debt → inflation drag:** while `debt > DEBT_WARN`, the conditions lifecycle adds `DEBT_INFLATION_W * (debt - DEBT_WARN)` to `inflation` weekly — debt feeds the indicators that feed `mood`, closing the loop into retrospective voting.
 

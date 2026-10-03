@@ -61,7 +61,8 @@ def enact(state: GameState, bill: Bill, yes: int, no: int) -> Law:
     state.laws.append(law)
     eff = f" — {next(iter(law.effect))} {next(iter(law.effect.values())):+.3f}/wk" \
         if law.effect else ""
-    state.emit("LawEnacted", f"{law.name} becomes law{eff}.", law=law.name)
+    state.emit("LawEnacted", f"{law.name} becomes law{eff} (cost {law.cost:.3f}/wk).",
+               law=law.name, cost=law.cost)
     return law
 
 

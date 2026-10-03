@@ -42,18 +42,23 @@ def main() -> None:
     assert s.treasury.debt == 0.0, "surplus should floor debt at 0, not create savings"
     s.treasury.debt = 0.5
     for _ in range(5):  # a heavy legislative program → real deficit
-        s.laws.append(enact(s, Bill(pos=(0.8, 0.0), beneficiary_axis=0, cost=0.05),
-                            yes=80, no=40))
+        enact(s, Bill(pos=(0.8, 0.0), beneficiary_axis=0, cost=0.05), yes=80, no=40)
     d0 = s.treasury.debt
     for _ in range(10):
         treasury_lifecycle(s)
     assert s.treasury.debt > d0, "deficit program didn't grow the debt"
     print(f"  flow under load: {flow(s):+.3f}/wk -> debt {d0:.2f}->{s.treasury.debt:.2f}")
 
+    def _to_governing(seed):
+        s_ = new_game(seed)
+        for _ in range(400):
+            if s_.phase == "governing" and s_.government.parties:
+                return s_
+            tick(s_)
+        raise AssertionError("fixture never reached governing")
+
     # debt past WARN drags inflation; debt past CRISIS fires the crisis once
-    s = new_game(7)
-    for _ in range(60):
-        tick(s)
+    s = _to_governing(7)
     snap = copy.deepcopy(s)
     snap.treasury.debt = p.DEBT_WARN + 0.5
     i0 = snap.conditions.inflation
@@ -79,9 +84,7 @@ def main() -> None:
         "crisis re-fired while still armed-down (hysteresis broken)"
 
     # fiscal term: a dear bill loses the house when the books are red
-    s = new_game(7)
-    for _ in range(60):
-        tick(s)
+    s = _to_governing(7)
     dear = Bill(pos=(0.0, 0.0), beneficiary_axis=0, cost=0.010)
     cheap = Bill(pos=(0.0, 0.0), beneficiary_axis=0, cost=0.001)
     solvent, broke = copy.deepcopy(s), copy.deepcopy(s)
@@ -98,9 +101,7 @@ def main() -> None:
     assert yes_cheap > yes_broke, "stinginess should scale with bill cost"
 
     # the crisis is news
-    s = new_game(7)
-    for _ in range(60):
-        tick(s)
+    s = _to_governing(7)
     base = len(s.log)
     s.treasury.debt = p.DEBT_CRISIS + 0.1
     from sim.media import media_lifecycle

@@ -84,11 +84,12 @@ def table_bill(state: GameState) -> Bill:
     pos = tuple(np.clip(anchor + np.array([state.rng.gauss(0, 0.05), state.rng.gauss(0, 0.05)]), -1, 1))
     ax = state.rng.randrange(2)
     bill = Bill(pos=pos, beneficiary_axis=ax,
-                cost=max(0.0, p.COST_BASE + p.COST_EXTREMITY_W * abs(pos[ax])
-                         + state.rng.gauss(0, p.COST_JITTER)))
+                cost=float(max(0.0, p.COST_BASE + p.COST_EXTREMITY_W * abs(pos[ax])
+                               + state.rng.gauss(0, p.COST_JITTER))))
     state.current_bill = bill
-    state.emit("BillTabled", f"Government tables a bill at ({pos[0]:+.2f}, {pos[1]:+.2f}).",
-               pos=pos, beneficiary_axis=bill.beneficiary_axis)
+    state.emit("BillTabled", f"Government tables a bill at ({pos[0]:+.2f}, {pos[1]:+.2f})"
+                             f" costing {bill.cost:.3f}/wk.",
+               pos=pos, beneficiary_axis=bill.beneficiary_axis, cost=bill.cost)
     return bill
 
 

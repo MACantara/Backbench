@@ -46,10 +46,14 @@ def treasury_lifecycle(state: GameState) -> None:
         t.crisis_armed = True  # hysteresis — a crisis doesn't re-fire weekly
     if t.crisis_armed and t.debt > p.DEBT_CRISIS and state.phase == "governing":
         t.crisis_armed = False
+        pm_party = state.mps[state.government.pm].party \
+            if state.government.pm in state.mps else None
         for i in state.government.parties:
             if i in state.parties:
                 state.parties[i].brand -= p.DEBT_BRAND_HIT
+        # stamp the party now — the confidence vote below may clear government state
         state.emit("DebtCrisis", f"Insolvency — the treasury is {t.debt:.1f} in debt "
-                                 f"and confidence is demanded.", debt=t.debt)
+                                 f"and confidence is demanded.", debt=t.debt, party=pm_party)
+        # deferred import: government→parliament→treasury is a cycle at module level
         from .government import confidence_vote
         confidence_vote(state)
