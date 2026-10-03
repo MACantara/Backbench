@@ -17,6 +17,6 @@ Approved module boundaries for Phase 3. Each module gets its own spec (`docs/spe
 
 Build order: ai-careers → scandal-lifecycle → factions → country-conditions → ministerial-perf → salience → media-layer. Flexible: `party-variety` (worldgen-only, quick win — fits anywhere) and `independents` (slots after scandal-lifecycle, order negotiable).
 
-Deferred: by-elections (vacant seats stay empty until general elections; candidate machinery exists via the hopefuls pool — revisit during scandal-lifecycle, when vacancies become more frequent).
+Deferred: by-elections (vacant seats stay empty until general elections; candidate machinery exists via the hopefuls pool — revisited after scandal-lifecycle: steady-state vacancies measured at ~1–5% of districts, real churn but not crisis-level — defer stands).
 
 Rationale: ai-careers is the largest north-star gap and creates the vacancy machinery scandal-lifecycle needs; scandal reuses existing dossier fields; factions extends `parties.py` which is already exercised; ministerial-perf and salience are isolated deltas; media-layer is the most invasive (rewrites voter perception) and benefits from richer events to refract — it is the candidate most likely to be deferred.
