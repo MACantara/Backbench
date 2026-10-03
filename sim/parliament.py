@@ -6,6 +6,7 @@ import numpy as np
 from . import params as p
 from .conditions import enact, mood
 from .state import Bill, GameState, MP, dist
+from .treasury import debt_pressure
 
 
 def whip_direction(state: GameState, party_id: int, bill: Bill) -> int:
@@ -14,9 +15,11 @@ def whip_direction(state: GameState, party_id: int, bill: Bill) -> int:
         return 1  # survival votes: the coalition always whips yes
     pt = state.parties[party_id]
     d = dist(pt.platform, bill.pos)
-    # coalition partners lean yes — the government made this bill
-    bonus = 0.3 if party_id in state.government.parties else 0.0
-    return 1 if (-d + bonus) > -0.4 else -1
+    if party_id in state.government.parties:
+        # the coalition agreement binds: partners whip FOR the government program
+        # unless the bill is so far out it breaks the agreement itself
+        return -1 if d > p.COALITION_WHIP_TOL else 1
+    return 1 if -d > -0.4 else -1
 
 
 def district_opinion(state: GameState, district: int, bill: Bill) -> float:
@@ -57,6 +60,8 @@ def vote_terms(state: GameState, mp: MP, bill: Bill) -> dict[str, float]:
         "gov": p.W_GOV * in_gov,
         "rel": p.W_REL * (mp.relationships.get(state.government.pm or -1, 0.0) if in_gov else 0.0),
         "district": p.W_SAFETY * (1 - mp.seat_safety) * district_opinion(state, mp.district, bill),
+        "fiscal": -p.W_FISCAL * (bill.cost / (p.COST_BASE + p.COST_EXTREMITY_W))
+                  * debt_pressure(state),  # stingy house when the books are red
         "noise": state.rng.gauss(0, p.VOTE_NOISE),
     }
     if bill.confidence and in_gov:
@@ -77,7 +82,10 @@ def table_bill(state: GameState) -> Bill:
     gov = [state.parties[i].platform for i in state.government.parties if i in state.parties]
     anchor = np.mean(gov, axis=0) if gov else np.array([0.0, 0.0])
     pos = tuple(np.clip(anchor + np.array([state.rng.gauss(0, 0.05), state.rng.gauss(0, 0.05)]), -1, 1))
-    bill = Bill(pos=pos, beneficiary_axis=state.rng.randrange(2))
+    ax = state.rng.randrange(2)
+    bill = Bill(pos=pos, beneficiary_axis=ax,
+                cost=max(0.0, p.COST_BASE + p.COST_EXTREMITY_W * abs(pos[ax])
+                         + state.rng.gauss(0, p.COST_JITTER)))
     state.current_bill = bill
     state.emit("BillTabled", f"Government tables a bill at ({pos[0]:+.2f}, {pos[1]:+.2f}).",
                pos=pos, beneficiary_axis=bill.beneficiary_axis)
@@ -109,7 +117,7 @@ def resolve_vote(state: GameState, bill: Bill, player_vote: int | None = None) -
     if passed and gov_parties:
         gov_platform = np.mean([state.parties[i].platform for i in gov_parties], axis=0)
         ax = bill.beneficiary_axis
-        state.voters.pos[:, ax] += 0.02 * np.sign(gov_platform[ax] - state.voters.pos[:, ax])
+        state.voters.pos[:, ax] += p.BILL_PERSUASION * np.sign(gov_platform[ax] - state.voters.pos[:, ax])
         for i in gov_parties:
             state.parties[i].brand += p.BILL_PASS_BRAND
         state.legacy_bills += state.player_id == state.government.pm

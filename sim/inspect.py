@@ -3,6 +3,7 @@ from __future__ import annotations
 
 from .conditions import mood
 from .state import GameState, dist
+from .treasury import flow, interest, revenue, upkeep
 
 
 def explain_vote(state: GameState, event_index: int = -1) -> str:
@@ -57,4 +58,8 @@ def player_status(state: GameState) -> str:
     country = (f"country: growth {c.growth:+.2f} unemp {c.unemployment:.2f} "
                f"infl {c.inflation:.2f} services {c.services:.2f} crime {c.crime:.2f} "
                f"| mood {mood(c):+.2f} | {len(state.laws)} laws in force")
-    return explain_mp(state, state.player_id) + "\n" + country
+    t = state.treasury
+    books = (f"treasury: debt {t.debt:.2f} | rev {revenue(state):.3f} "
+             f"upkeep {upkeep(state):.3f} interest {interest(state):.3f} "
+             f"flow {flow(state):+.3f}/wk")
+    return explain_mp(state, state.player_id) + "\n" + country + "\n" + books
