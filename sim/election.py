@@ -17,20 +17,25 @@ def _candidate(state: GameState, district: int, party_id: int,
     for h in state.hopefuls:
         if h.party == party_id and h.district == district and h.age >= p.MIN_MP_AGE:
             return h.pos, h
-    plat = state.parties[party_id].platform
+    plat = np.asarray(state.parties[party_id].pub_pos)  # voters know the perceived party
     return (float(np.clip(plat[0] + state.rng.gauss(0, p.MP_POS_JITTER), -1, 1)),
             float(np.clip(plat[1] + state.rng.gauss(0, p.MP_POS_JITTER), -1, 1))), None
 
 
 def _district_scores(state: GameState, mask: np.ndarray, cand_pos: dict, incumbent: MP | None) -> tuple[np.ndarray, list]:
-    """score[voter, party] = -salience-weighted distance + loyalty - betrayal + noise."""
+    """score[voter, party] = -salience-weighted dist to perceived pos + brand + loyalty - betrayal + noise."""
     v = state.voters
     dpos, dsal = v.pos[mask], v.salience[mask]
     parties = sorted(cand_pos)
     score = np.empty((dpos.shape[0], len(parties)))
     for j, pid in enumerate(parties):
-        d = dpos - np.asarray(cand_pos[pid])
+        pt = state.parties[pid]
+        # the candidate is a person; the label is a media-constructed caricature
+        eff = ((1 - p.PUB_POS_MIX) * np.asarray(cand_pos[pid])
+               + p.PUB_POS_MIX * np.asarray(pt.pub_pos))
+        d = dpos - eff
         score[:, j] = -np.sqrt((d * d * dsal).sum(axis=1))
+        score[:, j] += p.BRAND_WEIGHT * pt.brand
         score[:, j] += p.LOYALTY_WEIGHT * v.loyalty[mask] * (v.last_party[mask] == pid)
         if incumbent and incumbent.party == pid:
             score[:, j] -= v.betrayal[mask]  # broken promises bite the incumbent's party
@@ -112,13 +117,14 @@ def poll(state: GameState) -> dict[int, float]:
     """Weekly poll: national vote share of decided voters, turnout-weighted."""
     v = state.voters
     decided = v.turnout > 0.3
-    plats = {pid: np.asarray(pt.platform) for pid, pt in state.parties.items()}
+    plats = {pid: np.asarray(pt.pub_pos) for pid, pt in state.parties.items()}
     parties = sorted(plats)
     score = np.empty((int(decided.sum()), len(parties)))
     dpos, dsal = v.pos[decided], v.salience[decided]
     for j, pid in enumerate(parties):
         d = dpos - plats[pid]
         score[:, j] = -np.sqrt((d * d * dsal).sum(axis=1))
+        score[:, j] += p.BRAND_WEIGHT * state.parties[pid].brand
         score[:, j] += p.LOYALTY_WEIGHT * v.loyalty[decided] * (v.last_party[decided] == pid)
     pick = np.bincount(score.argmax(axis=1), minlength=len(parties))
     return {pid: float(pick[i] / max(decided.sum(), 1)) for i, pid in enumerate(parties)}

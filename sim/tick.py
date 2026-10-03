@@ -70,7 +70,7 @@ def _drift(state: GameState) -> None:
     state.voters.pos += rng.normal(0, p.VOTER_DRIFT_SD, state.voters.pos.shape)
     np.clip(state.voters.pos, -1, 1, out=state.voters.pos)
     for pt in state.parties.values():
-        pt.brand *= p.BRAND_DECAY
+        pt.brand = float(np.clip(pt.brand * p.BRAND_DECAY, -1, 1))  # reputation is bounded
         pt.schism_cooldown = max(0, pt.schism_cooldown - 1)
     for mp in state.mps.values():
         if mp.id != state.player_id:  # the player's ideology is theirs to manage

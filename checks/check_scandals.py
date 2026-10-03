@@ -86,13 +86,13 @@ def main() -> None:
     # resolution: burning ends in resignation (vacancy) or weathering (scar)
     s = new_game(6)
     resigned = weathered = 0
-    burning = []
+    burning = {}   # id -> MP object (outlives removal from state.mps)
     for m in s.mps.values():
         if m.id == s.player_id:
             continue
         m.dossier, m.scandal_weeks = 1.0, p.SCANDAL_WEEKS[0]
         m.integrity = 1.0
-        burning.append(m.id)
+        burning[m.id] = m
     for _ in range(p.SCANDAL_WEEKS[1] + 2):
         tick(s)
         if s.phase == "over":
@@ -104,9 +104,9 @@ def main() -> None:
     assert resigned + weathered >= len(burning) - 20, "burns left unresolved"
     assert resigned > 0 and weathered > 0, "expected both endings in 100 MPs"
     for e in s.log:
-        if e.type == "ScandalWeathered":
-            m = s.mps[e.data["mp"]]
-            assert m.dossier < 1.0, "weathered scandal left no scar burn"
+        if e.type == "ScandalWeathered" and e.data["mp"] in burning:
+            assert burning[e.data["mp"]].dossier < 1.0, \
+                "weathered scandal left no scar burn"
             break
 
     # election window: leaks cluster near an election (per-tick rates)

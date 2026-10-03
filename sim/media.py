@@ -65,7 +65,8 @@ def media_lifecycle(state: GameState, base: int) -> None:
         if sign == 0:
             sign = 1 if e.data.get("passed") else -1
         h = min(1.0, dist(o.slant, pt.platform) / 2)       # 0 friendly .. 1 hostile
-        pt.brand += sign * p.COVERAGE_BRAND_W * (0.5 + (h if sign < 0 else 1 - h))
+        pt.brand += (sign * p.COVERAGE_BRAND_W * (w / 2)
+                     * (0.5 + (h if sign < 0 else 1 - h)))
         plat = np.asarray(pt.platform)
         if sign < 0:   # caricature: the platform stretched away from the outlet
             target = plat + 0.5 * (plat - np.asarray(o.slant))
