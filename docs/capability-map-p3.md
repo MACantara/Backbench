@@ -11,8 +11,10 @@ Approved module boundaries for Phase 3. Each module gets its own spec (`docs/spe
 | ministerial-perf   | Portfolio outcomes (economy, crises) reflect competence, move approval    | country-conditions     |
 | salience           | Which axis voters care about; bills/speeches shift the weights            | — (voter model)        |
 | media-layer        | Outlets with bias + audience; voters observe media, not reality           | salience               |
+| party-variety      | Per-seed starting party pool, generated party names, bigger name library  | — (worldgen only)      |
+| independents       | Party-less candidates in FPTP; independents hold balance of power         | — (election machinery) |
 
-Build order: ai-careers → scandal-lifecycle → factions → country-conditions → ministerial-perf → salience → media-layer
+Build order: ai-careers → scandal-lifecycle → factions → country-conditions → ministerial-perf → salience → media-layer. Flexible: `party-variety` (worldgen-only, quick win — fits anywhere) and `independents` (slots after scandal-lifecycle, order negotiable).
 
 Deferred: by-elections (vacant seats stay empty until general elections; candidate machinery exists via the hopefuls pool — revisit during scandal-lifecycle, when vacancies become more frequent).
 
