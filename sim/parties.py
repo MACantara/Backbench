@@ -4,6 +4,7 @@ from __future__ import annotations
 import numpy as np
 
 from . import params as p
+from .factions import update_factions
 from .state import GameState, Party, dist
 
 
@@ -31,6 +32,7 @@ def _found(state: GameState, founder, followers: list[int]) -> int:
         if old is not None and old in state.parties:
             state.parties[old].members.discard(mid)
         state.mps[mid].party = pid
+        state.mps[mid].faction = None
         pt.members.add(mid)
     state.parties[pid] = pt
     state.emit("PartyFormed", f"{name} founded by {state.mps[founder].name} ({len(pt.members)} MPs).",
@@ -47,7 +49,8 @@ def _stay_utility(state: GameState, mp) -> float:
 
 
 def party_lifecycle(state: GameState) -> None:
-    """Weekly: cohesion update → defections/foundings → schisms → deaths."""
+    """Weekly: faction wings → cohesion update → defections/foundings → schisms → deaths."""
+    update_factions(state)
     update_cohesion(state)
 
     # lone founder: the single most miserable ambitious MP walks, once per week
