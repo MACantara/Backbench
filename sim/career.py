@@ -23,9 +23,10 @@ def assign_portfolios(state: GameState) -> None:
         cands = [m for m in state.parties[pid].members
                  if m in state.mps and state.mps[m].portfolio is None and m != state.government.pm]
         if cands:
-            best = max(cands, key=lambda m: state.mps[m].competence + state.mps[m].loyalty)
+            best = max(cands, key=lambda m: (state.mps[m].competence + state.mps[m].loyalty
+                                             + min(state.mps[m].seniority / 1040, 1) * p.SENIORITY_W))
             state.mps[best].portfolio = ministry
-            state.emit("CareerEvent", f"{state.mps[best].name} appointed {ministry}.",
+            state.emit("Promoted", f"{state.mps[best].name} appointed {ministry}.",
                        mp=best, ministry=ministry)
 
 
@@ -57,6 +58,26 @@ def leadership_challenge(state: GameState) -> None:
                        party=pid, new_leader=winner)
 
 
+def remove_mp(state: GameState, mp) -> None:
+    """Take an MP out of parliament: membership, leadership, premiership handoffs."""
+    del state.mps[mp.id]
+    pt = state.parties.get(mp.party)
+    if pt is not None:
+        pt.members.discard(mp.id)
+        if pt.leader == mp.id:
+            cands = [m for m in pt.members if m in state.mps]
+            pt.leader = max(cands, key=lambda m: state.mps[m].ambition) if cands else None
+            if pt.leader is not None:
+                state.emit("CareerEvent",
+                           f"{state.mps[pt.leader].name} succeeds {mp.name} as {pt.name} leader.",
+                           party=pt.id, new_leader=pt.leader)
+    if state.government.pm == mp.id:
+        succ = pt.leader if pt is not None and pt.members else None
+        state.government.pm = succ
+        if succ is not None:
+            state.emit("CareerEvent", f"{state.mps[succ].name} succeeds {mp.name} as PM.", mp=succ)
+
+
 def mp_lifecycle(state: GameState) -> None:
     """Weekly aging + retirement. Vacated seats stay empty until the election."""
     for mp in state.mps.values():
@@ -73,22 +94,7 @@ def mp_lifecycle(state: GameState) -> None:
         if state.rng.random() < prob:
             gone.append(mp)
     for mp in gone:
-        del state.mps[mp.id]
-        pt = state.parties.get(mp.party)
-        if pt is not None:
-            pt.members.discard(mp.id)
-            if pt.leader == mp.id:
-                pt.leader = max(pt.members, key=lambda m: state.mps[m].ambition) if pt.members else None
-                if pt.leader is not None:
-                    state.emit("CareerEvent",
-                               f"{state.mps[pt.leader].name} succeeds {mp.name} as {pt.name} leader.",
-                               party=pt.id, new_leader=pt.leader)
-        if state.government.pm == mp.id:
-            succ = state.parties[mp.party].leader if pt is not None and pt.members else None
-            state.government.pm = succ
-            if succ is not None:
-                state.emit("CareerEvent", f"{state.mps[succ].name} succeeds {mp.name} as PM.",
-                           mp=succ)
+        remove_mp(state, mp)
         state.emit("Retired", f"{mp.name} retires at {mp.age // 52}; the seat sits vacant.",
                    mp=mp.id, district=mp.district, age=mp.age)
 
