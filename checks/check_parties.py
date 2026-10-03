@@ -13,7 +13,7 @@ from sim.worldgen import new_game
 
 
 def main() -> None:
-    # forced schism: party split into two distant wings, cohesion destroyed
+    # forced secession: party split into two distant wings, cohesion destroyed
     s = new_game(5)
     pt = s.parties[0]
     members = list(pt.members)
@@ -24,13 +24,15 @@ def main() -> None:
         s.mps[m].pos = (1.0, 1.0)
     for m in members:
         s.mps[m].loyalty = 0.1
-        s.mps[m].ambition = 0.4  # below the lone-founder threshold — schism path only
+        s.mps[m].ambition = 0.4  # below the lone-founder threshold — secession path only
     pt.platform = (0.0, 0.0)
     pt.schism_cooldown = 0
     n_parties = len(s.parties)
-    party_lifecycle(s)
-    assert len(s.parties) == n_parties + 1, "schism should create a new party"
+    for _ in range(p.SECESSION_WEEKS + 2):  # wings form, then secede when estrangement matures
+        party_lifecycle(s)
+    assert len(s.parties) == n_parties + 1, "secession should create a new party"
     assert members[0] not in s.parties[0].members
+    assert any(e.type == "Secession" for e in s.log)
     assert any(e.type == "PartyFormed" for e in s.log)
 
     # lone founder: tank party cohesion, one ambitious MP far from platform walks

@@ -65,6 +65,15 @@ PARTY_SPREAD_SPLIT = 0.8         # intra-party position spread needed for schism
 PARTY_FORM_STAY_UTILITY = 0.2    # MP founds party when stay-utility drops below this
 PARTY_SCHISM_COOLDOWN = 8        # weeks a party must wait after a schism event
 
+# --- factions ---
+FACTION_SPREAD_MIN = 0.45        # intra-party spread that forms wings
+FACTION_MIN_SIZE = 3             # wings smaller than this dissolve back
+FACTION_REBEL_DIST = 0.65         # centroid-bill distance where a wing whips its own line
+MP_DISTRICT_PULL = 0.003         # weekly drift of an MP toward their district centroid
+SECESSION_DIST = 0.5             # centroid-platform distance feeding estrangement
+SECESSION_WEEKS = 6              # consecutive estranged weeks before the wing walks
+FACTION_LEADER_BONUS = 0.2       # leadership-challenge edge for faction leaders
+
 # --- player / career ---
 ACTIONS_PER_WEEK = 2
 DOSSIER_EXPEL_THRESHOLD = 1.0    # hidden scandal total that forces expulsion

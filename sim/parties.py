@@ -4,6 +4,7 @@ from __future__ import annotations
 import numpy as np
 
 from . import params as p
+from .factions import update_factions
 from .state import GameState, Party, dist
 
 
@@ -31,6 +32,7 @@ def _found(state: GameState, founder, followers: list[int]) -> int:
         if old is not None and old in state.parties:
             state.parties[old].members.discard(mid)
         state.mps[mid].party = pid
+        state.mps[mid].faction = None
         pt.members.add(mid)
     state.parties[pid] = pt
     state.emit("PartyFormed", f"{name} founded by {state.mps[founder].name} ({len(pt.members)} MPs).",
@@ -47,7 +49,8 @@ def _stay_utility(state: GameState, mp) -> float:
 
 
 def party_lifecycle(state: GameState) -> None:
-    """Weekly: cohesion update → defections/foundings → schisms → deaths."""
+    """Weekly: faction wings → cohesion update → defections/foundings → schisms → deaths."""
+    update_factions(state)
     update_cohesion(state)
 
     # lone founder: the single most miserable ambitious MP walks, once per week
@@ -59,25 +62,32 @@ def party_lifecycle(state: GameState) -> None:
     if miserable:
         _found(state, min(miserable, key=lambda m: _stay_utility(state, m)).id, [])
 
-    # schisms: a low-cohesion, high-spread party splits at its ideological fault line
+    # secessions: an estranged wing walks out as a bloc (multi-MP splits only via factions)
     for pt in list(state.parties.values()):
-        if len(pt.members) < 4 or pt.schism_cooldown > 0 or pt.cohesion >= p.PARTY_COHESION_SPLIT:
+        if pt.schism_cooldown > 0:
             continue
-        members = list(pt.members)
-        positions = np.array([state.mps[m].pos for m in members])
-        spread = float(np.linalg.norm(positions - positions.mean(axis=0), axis=1).max())
-        if spread < p.PARTY_SPREAD_SPLIT:
-            continue
-        # the farthest member leads a schism, taking nearby members
-        idx = int(np.argmax(np.linalg.norm(positions - positions.mean(axis=0), axis=1)))
-        rebel = members[idx]
-        followers = [m for m in pt.members
-                     if m != rebel and dist(state.mps[m].pos, state.mps[rebel].pos) < 0.4]
-        if followers:
-            _found(state, rebel, followers)
+        for f in list(pt.factions):
+            if dist(f.centroid, pt.platform) > p.SECESSION_DIST:
+                f.estranged += 1
+            else:
+                f.estranged = 0
+            if f.estranged < p.SECESSION_WEEKS:
+                continue
+            walkers = sorted(f.members - {state.player_id})
+            if not walkers:
+                f.estranged = 0
+                continue
+            founder = f.leader if f.leader in walkers else walkers[0]
+            state.emit("Secession", f"{f.name} secedes — {len(walkers)} MPs walk out of {pt.name}.",
+                       party=pt.id, faction=f.id, size=len(walkers))
+            _found(state, founder, [m for m in walkers if m != founder])
+            pt.factions.remove(f)
             pt.schism_cooldown = p.PARTY_SCHISM_COOLDOWN
-            state.emit("Defection", f"{pt.name} splits — {state.mps[rebel].name} walks out.",
-                       party=pt.id, rebel=rebel)
+            if state.player_id in f.members:
+                state.mps[state.player_id].faction = None
+                state.emit("CareerEvent",
+                           f"Your wing {f.name} secedes — you stay with {pt.name}.", party=pt.id)
+            break  # one bloc walks per week
 
     # leaders who lost their seat get replaced; empty parties die
     for pid, pt in list(state.parties.items()):

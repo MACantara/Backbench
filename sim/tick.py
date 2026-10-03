@@ -62,7 +62,7 @@ def tick(state: GameState, actions: list | None = None) -> list[Event]:
 
 
 def _drift(state: GameState) -> None:
-    """Weekly environment drift: voters wander, brands and relationships decay."""
+    """Weekly environment drift: voters wander, MPs feel constituency pull, decays."""
     rng = np.random.default_rng(int(state.rng.random() * 2**63))
     state.voters.pos += rng.normal(0, p.VOTER_DRIFT_SD, state.voters.pos.shape)
     np.clip(state.voters.pos, -1, 1, out=state.voters.pos)
@@ -70,5 +70,8 @@ def _drift(state: GameState) -> None:
         pt.brand *= p.BRAND_DECAY
         pt.schism_cooldown = max(0, pt.schism_cooldown - 1)
     for mp in state.mps.values():
+        if mp.id != state.player_id:  # the player's ideology is theirs to manage
+            dcent = state.voters.pos[state.voters.district == mp.district].mean(axis=0)
+            mp.pos = tuple(np.clip(np.asarray(mp.pos) + p.MP_DISTRICT_PULL * (dcent - mp.pos), -1, 1))
         for k in mp.relationships:
             mp.relationships[k] *= p.REL_DECAY
