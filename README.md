@@ -1,8 +1,10 @@
 # Backbench
 
-A local politics simulation game in Python — no LLMs, no network, no cloud. You play a backbench MP in a fictional multiparty parliament: campaign, keep your seat, climb to minister, challenge the leader, survive to become PM.
+A living fictional country that runs on classical AI — where you build a career inside politics the world generates itself.
 
-Every other actor in the game is a classical algorithm: ~10,000 voter agents in a 2D ideological space, ~120 MP agents with ambition/loyalty/grudges/utility functions, parties that form, split, and die on their own. Drama is emergent, not scripted.
+No LLMs, no network, no cloud. Elections, coalitions, schisms, and realignments run whether or not anyone plays — you are a politician inside that world, not the center of it. Campaign, keep your seat, climb to minister, challenge the leader, survive to become PM.
+
+Every other actor is a classical algorithm: ~10,000 voter agents in a 2D ideological space, ~120 MP agents with ambition/loyalty/grudges/utility functions, parties that form, split, and die on their own. Every outcome is deterministic by seed and decomposes into legible causes — drama is emergent, not scripted.
 
 ## Requirements
 
