@@ -15,7 +15,7 @@ Local politics sim in pure Python. No LLMs anywhere in the game logic — voters
 No test framework. Run the check for whatever you touched:
 
 ```bash
-python checks/check_<area>.py     # worldgen|election|parliament|government|parties|player|careers|e2e
+python checks/check_<area>.py     # worldgen|election|parliament|government|parties|player|careers|scandals|media|conditions|factions|e2e|pyg_smoke
 python checks/check_sweep.py      # 50-seed stability sweep — run after changing params.py weights
 ```
 
@@ -24,6 +24,7 @@ A check that passes tells you the subsystem works; a failing assert is the repro
 ## Conventions
 
 - Commits use conventional prefixes: `feat:` `fix:` `docs:` `polish:` `merge:` — ≤50 chars, atomic.
+- Branches are `p<N>-<module>` for roadmap phase work (`p3-conditions`, `p3-media`), `fix-<slug>` / `docs-<slug>` for standalone work. One branch per spec, merge to `main` after checks + review.
 - Dataclasses for state (`state.py`), functions for behavior. No inheritance hierarchies.
 - Events are typed records: `state.emit("TypeName", "human-readable text", **data)`.
 - Keep it stdlib. NumPy is the only dependency and only where it's already used (voter math). No new deps without a reason.
