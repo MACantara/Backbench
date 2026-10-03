@@ -26,7 +26,7 @@ The terminal prints text; the game *thinks* in geometry and networks. This phase
 - [x] **District map** — 12x10 grid colored by seat holder, brightness = margin, player district ringed.
 - [x] **Hybrid time** — auto-run weeks (1.5s, speeds 0.5–4x), interrupt banners hard-pause, weekly action panel with click-to-target MPs, click any seat to inspect, `why?` overlay explains the last vote term-by-term.
 - [x] **Election reveal** — districts resolve one by one on the map when an election lands.
-- [ ] **Event chronicle** — scrollable full history, filterable by type. Not yet — feed shows last 9.
+- [x] **Event chronicle** — C opens a scrollable full-history overlay with week stamps and per-type filter buttons; A toggles auto-play so the sim runs hands-free.
 
 Done when met: a coalition collapse is *watchable* — vote cascade, banner pause, party colors rearranging.
 
