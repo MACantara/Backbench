@@ -25,8 +25,11 @@ def _district_of(pos: np.ndarray, grid: tuple[int, int]) -> np.ndarray:
 def make_voters(rng: random.Random, np_rng: np.random.Generator,
                 centers: np.ndarray) -> Voters:
     n = p.N_VOTERS
-    # mixture of a few ideological clusters → regional polarization for free
-    weights = rng.choices(range(len(centers)), k=n)
+    # mixture of a few ideological clusters → regional polarization for free;
+    # cluster masses are a Dirichlet draw — some countries get a hegemonic
+    # party, others a fragmented system where coalitions live on a knife-edge
+    masses = np_rng.dirichlet(np.ones(len(centers)))
+    weights = rng.choices(range(len(centers)), weights=masses.tolist(), k=n)
     pos = centers[weights] + np_rng.normal(0, p.VOTER_POS_SD, (n, 2))
     pos = np.clip(pos, -1, 1)
     cell = _district_of(pos, p.DISTRICT_GRID)
