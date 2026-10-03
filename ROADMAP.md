@@ -42,32 +42,41 @@ The terminal prints text; the game *thinks* in geometry and networks. This phase
 
 Done when met: a coalition collapse is *watchable* — vote cascade, banner pause, party colors rearranging.
 
-## Phase 3 — Richer politics
+## Phase 3 — The country deepens
 
-Depth additions to the sim itself. Each item is separable; reorder freely.
+The north star says the world is the star — so the next phase is everything that makes the country feel alive *without the player touching it*. Auto-play should already be worth watching at the end of this phase.
 
+- [ ] **AI careers** — the biggest north-star gap: only the player has a career arc. MPs should climb (backbencher → minister → leader), scheme, age, retire, and be replaced by rising challengers. The country generates its own politicians; a PM you never met should fall to a rival you watched grow.
+- [ ] **Factions inside parties** — named wings (Labour-left vs Labour-pragmatists) that whip separately, feud, and can secede as a bloc. The schism machinery exists; factions give it texture before the break.
+- [ ] **Scandal lifecycle** — dossiers currently fire once. Simmering scandals, opposition research timed to elections, resignation cascades. Careers should end in flames sometimes — AI ones too.
 - [ ] **Media layer** — voters observe outlets, not reality. Outlets have bias + audience; events refract before reaching voters. Deferred from the original spec as "v2 stacked on a working base" — the base now works.
-- [ ] **Factions inside parties** — named wings (e.g. Labour-left vs Labour-pragmatists) that whip separately and can secede as a bloc. The schism machinery exists; factions give it texture before the break.
-- [ ] **Deals and favors** — logrolled votes: promise an MP your vote on their bill for theirs on yours. The relationships dict and favor mechanics are placeholders waiting for this.
-- [ ] **Scandal lifecycle** — dossiers currently fire once. Add simmering scandals, opposition research timed to elections, resignation cascades.
-- [ ] **Ministerial performance** — portfolios generate outcomes (economy up/down, crisis events) that reflect on competence and feed approval. Right now a portfolio is a title.
-- [ ] **Policy salience** — bills and speeches move *which axis* voters care about (economy vs social), not just positions on it. The voter model already weights axes; this gives the player a lever on the weights.
+- [ ] **Ministerial performance** — portfolios generate outcomes (economy up/down, crises) that reflect on competence and feed approval. Right now a portfolio is a title; under the north star a bad minister should *matter* to the country.
+- [ ] **Policy salience** — bills and speeches move *which axis* voters care about (economy vs social), not just positions on it. The voter model already weights axes.
 
-Done when: two consecutive terms feel politically different — different factions matter, different scandals, different salience.
+Done when: run auto-play for a full term and the chronicle reads like a country's history — governments rose and fell, careers started and ended, and you weren't in it.
 
-## Phase 4 — A real game around the sim
+## Phase 4 — Your career inside it
 
-- [ ] **Save/load** — `GameState` is already a dataclass tree; serialize to JSON/YAML. Cheap because determinism was designed in.
-- [ ] **Difficulty and scenarios** — starting situations (safe seat vs marginal, incumbent party vs opposition), parameter presets in `params.py` profiles.
-- [ ] **Goals beyond score** — optional win conditions (win a majority as PM, survive N terms, found a party that outlives you) layered on the open-ended career.
-- [ ] **Better writing** — event text from a larger template pool with named actors, so the log reads like a political chronicle instead of status lines.
-- [ ] **Balance pass** — playtest-driven tuning of everything in `params.py`, informed by the Phase 2 visualizations (you can finally see what's too stable or too chaotic).
+The three pillars made playable: climb, drama, strategy. These are player-facing systems layered on the now-living world.
 
-## Phase 5 — Beyond the terminal (optional)
+- [ ] **Deals and favors** — logrolled votes: promise an MP your vote on their bill for theirs on yours. The relationships dict and favor mechanics are placeholders waiting for this. The core of strategic depth.
+- [ ] **Opposition role** — today the player mostly matters in government. Shadow scrutiny, amendment attacks, coordinated rebellion — being out of power should be a playable position, not dead time.
+- [ ] **Scandal as a weapon** — dig_dirt currently produces dossiers mechanically. Timing releases, trading silence, deciding when your own dirt is survivable.
+- [ ] **Goals beyond score** — optional arcs layered on the open-ended career (win a majority as PM, found a party that outlives you, survive N terms) — roguelike structure without a fixed ending.
+- [ ] **Save/load** — `GameState` is a dataclass tree; serialize to JSON. Cheap because determinism was designed in.
+- [ ] **Difficulty and scenarios** — starting situations (safe seat vs marginal, incumbent vs opposition), `params.py` profiles.
+- [ ] **Balance pass** — playtest-driven tuning of `params.py`, informed by actually watching the sim run.
 
-- [ ] **Pygame or web driver** — same `tick()` contract, richer rendering: animated ideology scatter, clickable MPs, a real map. Web version enables sharing seeds/runs.
-- [ ] **Spectator/analysis mode** — headless autoplay with the visualizations running, for tuning and for just watching the machine grind.
-- [ ] **Election night mode** — results resolve district-by-district with a live map and projections. The sim already computes per-district; this is dramaturgy.
+Done when: you choose to act most weeks — not because the game demands input, but because the world gave you something to exploit.
+
+## Phase 5 — Watchability and reach (optional)
+
+The world is already watchable; this is presentation depth and sharing.
+
+- [ ] **Better writing** — event text from a larger template pool with named actors, so the chronicle reads like political history instead of status lines.
+- [ ] **Election night mode** — districts resolve with projections and swing callouts during the reveal. The sim computes per-district; this is dramaturgy.
+- [ ] **Spectator/analysis mode** — headless auto-play with visualizations, for tuning and for watching the machine grind.
+- [ ] **Web driver** — same `tick()` contract, browser rendering. Enables sharing seeds and runs — only if "just me" ever widens.
 
 ## Explicitly not on the roadmap
 
