@@ -26,15 +26,17 @@ _NEWS = {
 }
 
 
-def _subject(state: GameState, e) -> int | None:
-    """The party a story is about: explicit, else the named MP's, else government."""
+def _subjects(state: GameState, e) -> list[int]:
+    """The parties a story is about. Explicit `party=` (stamped at emit time so
+    post-removal resolution still works), else the named MP's party, else every
+    government party — coalition coverage shouldn't land on one member."""
     pid = e.data.get("party")
-    if pid in state.parties:
-        return pid
+    if pid is not None:
+        return [pid] if pid in state.parties else []
     mp = state.mps.get(e.data.get("mp", -1))
-    if mp is not None and mp.party in state.parties:
-        return mp.party
-    return next((i for i in state.government.parties if i in state.parties), None)
+    if mp is not None:
+        return [mp.party] if mp.party in state.parties else []
+    return [i for i in state.government.parties if i in state.parties]
 
 
 def media_lifecycle(state: GameState, base: int) -> None:
@@ -43,7 +45,7 @@ def media_lifecycle(state: GameState, base: int) -> None:
     week = state.log[base:]
 
     # each outlet leads with its most newsworthy story (tabloids ≠ broadsheets)
-    leads = []   # (reach, outlet, event, subject_pid)
+    leads = []   # (reach, weighted_w, outlet, event, subject_pids)
     for o in state.outlets:
         best = None
         for e in week:
@@ -51,30 +53,29 @@ def media_lifecycle(state: GameState, base: int) -> None:
                 continue
             w, sign, sens = _NEWS[e.type]
             w = w * (o.sensationalism if sens else 1 - o.sensationalism)
-            pid = _subject(state, e)
-            if pid is None or (best and w <= best[0]):
+            pids = _subjects(state, e)
+            if not pids or (best and w <= best[0]):
                 continue
-            best = (w, e, pid)
+            best = (w, e, pids)
         if best:
-            leads.append((o.reach, o, best[1], best[2]))
+            leads.append((o.reach, best[0], o, best[1], best[2]))
 
     # framing: hostile coverage amplifies damage, friendly coverage heals
-    for _, o, e, pid in leads:
-        pt = state.parties[pid]
-        w, sign, _ = _NEWS[e.type]
-        if sign == 0:
-            sign = 1 if e.data.get("passed") else -1
-        h = min(1.0, dist(o.slant, pt.platform) / 2)       # 0 friendly .. 1 hostile
-        pt.brand += (sign * p.COVERAGE_BRAND_W * (w / 2)
-                     * (0.5 + (h if sign < 0 else 1 - h)))
-        plat = np.asarray(pt.platform)
-        if sign < 0:   # caricature: the platform stretched away from the outlet
-            target = plat + 0.5 * (plat - np.asarray(o.slant))
-        else:
-            target = plat
-        pt.pub_pos = tuple(np.clip(
-            np.asarray(pt.pub_pos) + p.COVERAGE_PUBPOS_W * (target - pt.pub_pos),
-            -1, 1))
+    for _, w, o, e, pids in leads:
+        for pid in pids:
+            pt = state.parties[pid]
+            sign = _NEWS[e.type][1] or (1 if e.data.get("passed") else -1)
+            h = min(1.0, dist(o.slant, pt.platform) / 2)   # 0 friendly .. 1 hostile
+            pt.brand += (sign * p.COVERAGE_BRAND_W * (w / 2)
+                         * (0.5 + (h if sign < 0 else 1 - h)))
+            plat = np.asarray(pt.platform)
+            if sign < 0:   # caricature: the platform stretched away from the outlet
+                target = plat + 0.5 * (plat - np.asarray(o.slant))
+            else:
+                target = plat
+            pt.pub_pos = tuple(np.clip(
+                np.asarray(pt.pub_pos) + p.COVERAGE_PUBPOS_W * (target - pt.pub_pos),
+                -1, 1))
 
     # agenda-setting: every outlet pushes its axis into its audience's salience
     np_rng = np.random.default_rng(int(rng.random() * 2**63))
@@ -89,11 +90,13 @@ def media_lifecycle(state: GameState, base: int) -> None:
         pt.pub_pos = tuple(np.asarray(pt.pub_pos)
                            + p.PUB_POS_REVERT * (np.asarray(pt.platform) - pt.pub_pos))
 
-    # the headline: highest-reach lead; a multi-week subject becomes a frenzy
+    # the headline: highest-reach lead. The frenzy counter tracks the *party*,
+    # not the story — a party generating fresh bad news weekly IS a press cycle.
     if not leads:
         state.press_subject, state.press_weeks = None, 0
         return
-    _, o, e, pid = max(leads, key=lambda t: t[0])
+    _, _, o, e, pids = max(leads, key=lambda t: t[0])
+    pid = pids[0]
     state.press_weeks = state.press_weeks + 1 if pid == state.press_subject else 1
     state.press_subject = pid
     pt = state.parties[pid]

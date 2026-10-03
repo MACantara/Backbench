@@ -35,9 +35,23 @@ def main() -> None:
     hl = [e for e in s.log[base:] if e.type == "Headline"]
     assert len(hl) == 1 and hl[0].data["party"] == pt.id, "no headline attribution"
 
+    # attribution survives the MP being gone (Resigned emits post-removal)
+    from sim.career import remove_mp
+    s = new_game(9)
+    pt = min(s.parties.values(), key=lambda t: len(t.members))
+    mp = next(m for m in s.mps.values() if m.party == pt.id)
+    base = len(s.log)   # week's slice starts before the emit
+    s.emit("Resigned", "test resignation", mp=mp.id, party=mp.party,
+           district=mp.district)
+    remove_mp(s, mp)
+    brand0 = pt.brand
+    media_lifecycle(s, base)
+    assert pt.brand < brand0, "post-removal story didn't reach its subject"
+
     # framing asymmetry: hostile outlets hurt more than friendly ones
     s = new_game(3)
-    pt = min(s.parties.values(), key=lambda t: len(t.members))
+    pt = min((t for t in s.parties.values() if t.members),
+             key=lambda t: len(t.members))
     far = max(s.outlets, key=lambda o: dist_slant(o, pt))
     near = min(s.outlets, key=lambda o: dist_slant(o, pt))
     deltas = {}

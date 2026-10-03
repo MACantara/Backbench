@@ -17,7 +17,7 @@ def _candidate(state: GameState, district: int, party_id: int,
     for h in state.hopefuls:
         if h.party == party_id and h.district == district and h.age >= p.MIN_MP_AGE:
             return h.pos, h
-    plat = np.asarray(state.parties[party_id].pub_pos)  # voters know the perceived party
+    plat = np.asarray(state.parties[party_id].platform)  # the person is real; the label is perceived
     return (float(np.clip(plat[0] + state.rng.gauss(0, p.MP_POS_JITTER), -1, 1)),
             float(np.clip(plat[1] + state.rng.gauss(0, p.MP_POS_JITTER), -1, 1))), None
 
@@ -117,12 +117,12 @@ def poll(state: GameState) -> dict[int, float]:
     """Weekly poll: national vote share of decided voters, turnout-weighted."""
     v = state.voters
     decided = v.turnout > 0.3
-    plats = {pid: np.asarray(pt.pub_pos) for pid, pt in state.parties.items()}
-    parties = sorted(plats)
+    ppos = {pid: np.asarray(pt.pub_pos) for pid, pt in state.parties.items()}
+    parties = sorted(ppos)
     score = np.empty((int(decided.sum()), len(parties)))
     dpos, dsal = v.pos[decided], v.salience[decided]
     for j, pid in enumerate(parties):
-        d = dpos - plats[pid]
+        d = dpos - ppos[pid]
         score[:, j] = -np.sqrt((d * d * dsal).sum(axis=1))
         score[:, j] += p.BRAND_WEIGHT * state.parties[pid].brand
         score[:, j] += p.LOYALTY_WEIGHT * v.loyalty[decided] * (v.last_party[decided] == pid)

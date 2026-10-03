@@ -73,7 +73,7 @@ def make_outlets(rng: random.Random, np_rng: np.random.Generator,
     anchors = [pt.platform for pt in parties.values()]
     rng.shuffle(anchors)
     if p.OUTLET_CENTRIST:
-        anchors[rng.randrange(count)] = (0.0, 0.0)  # must land on a used slot
+        anchors[rng.randrange(min(count, len(anchors)))] = (0.0, 0.0)  # used slot
     outlets = []
     for i in range(count):
         anchor = np.asarray(anchors[i % len(anchors)])

@@ -25,7 +25,8 @@ def explain_mp(state: GameState, mp_id: int) -> str:
     pt = state.parties.get(m.party)
     faction = next((f for f in pt.factions if f.id == m.faction), None) if pt else None
     wing = f", {faction.name}" if faction else ""
-    seen = (f" [seen {pt.pub_pos[0]:+.2f},{pt.pub_pos[1]:+.2f}]"
+    seen = (f" [seen {pt.pub_pos[0]:+.2f},{pt.pub_pos[1]:+.2f} "
+            f"vs platform {pt.platform[0]:+.2f},{pt.platform[1]:+.2f}]"
             if pt and dist(pt.pub_pos, pt.platform) > 0.05 else "")
     rels = sorted(m.relationships.items(), key=lambda kv: -abs(kv[1]))[:5]
     rel_txt = ", ".join(f"{state.mps[k].name if k in state.mps else k}:{v:+.2f}" for k, v in rels)

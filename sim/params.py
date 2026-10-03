@@ -114,8 +114,11 @@ BILL_FAIL_BRAND = 0.01           # failed bills hurt a bit more
 PUB_POS_MIX = 0.5                # candidate-vs-perceived-label blend in scoring
 PUB_POS_REVERT = 0.02            # weekly pull of pub_pos back to platform
 PRESS_CYCLE_WEEKS = 3            # headline streak that triggers a frenzy
+MEDIA_APPEAR_BRAND = 0.05        # player media appearance → brand
+MEDIA_APPEAR_PUBPOS = 0.05       # player media appearance → pub_pos toward center
 
 # --- drift ---
 VOTER_DRIFT_SD = 0.004           # weekly position noise
+SALIENCE_REVERT = 0.02           # weekly pull of salience back toward base
 BRAND_DECAY = 0.95               # weekly brand multiplier — reputation mean-reverts
 REL_DECAY = 0.97                 # relationships decay toward neutral

@@ -71,9 +71,10 @@ def apply_action(state: GameState, action: Action) -> None:
             pt.brand -= 0.05
             state.emit("Scandal", "A gaffe on air — the clip is circulating.", mp=player.id)
         else:
-            pt.brand += 0.05 * (0.5 + friend)
+            pt.brand += p.MEDIA_APPEAR_BRAND * (0.5 + friend)
             # friendly coverage pulls the perceived party toward respectability
-            pt.pub_pos = tuple(np.asarray(pt.pub_pos) - 0.05 * friend * np.asarray(pt.pub_pos))
+            pt.pub_pos = tuple(np.asarray(pt.pub_pos)
+                               - p.MEDIA_APPEAR_PUBPOS * friend * np.asarray(pt.pub_pos))
             state.emit("CareerEvent", "A solid media appearance.", action="media")
 
     elif action.kind == "dig_dirt" and action.target in state.mps:
