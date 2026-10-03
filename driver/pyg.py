@@ -105,8 +105,11 @@ class Driver:
         self.week_timer += dt * SPEEDS[self.speed_i]
         if self.week_timer >= BASE_WEEK_SECONDS:
             self.week_timer = 0.0
-            self.action_pause = True   # stop the clock for the weekly decision
-            self.paused = True
+            if self.auto_play:
+                self.advance()
+            else:
+                self.action_pause = True   # stop the clock for the weekly decision
+                self.paused = True
 
     def on_button(self, bid: str) -> None:
         from sim.inspect import explain_vote
@@ -131,7 +134,7 @@ class Driver:
         elif bid == "why":
             self.why_text = explain_vote(self.state)
         elif bid == "auto":
-            self.auto_play = not self.auto_play
+            self.toggle_auto()
         elif bid.startswith("flt:"):
             f = bid[4:]
             self.chronicle["filter"] = None if f == "all" or f == self.chronicle["filter"] else f
@@ -139,6 +142,11 @@ class Driver:
     def _after_pick(self) -> None:
         if len(self.picks) >= 2:
             self.on_button("continue")
+
+    def toggle_auto(self) -> None:
+        self.auto_play = not self.auto_play
+        if self.auto_play and self.action_pause:
+            self.on_button("continue")  # flush picks, resume the clock
 
     def handle_event(self, e) -> None:
         if e.type == pygame.QUIT:
@@ -157,7 +165,7 @@ class Driver:
                 if c["open"]:
                     c["scroll"] = 10 ** 9      # pin to latest; draw clamps
             elif e.key == pygame.K_a:
-                self.auto_play = not self.auto_play
+                self.toggle_auto()
             elif e.key == pygame.K_PAGEUP and self.chronicle["open"]:
                 self.chronicle["scroll"] += 20
             elif e.key == pygame.K_PAGEDOWN and self.chronicle["open"]:

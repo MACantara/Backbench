@@ -145,7 +145,8 @@ def draw_panel(drv) -> None:
     _text(drv, f"Week {s.week}   {s.phase}", (x, y), font=drv.big)
     y += 36
     speed = ["0.5x", "1x", "2x", "4x"][drv.speed_i]
-    _text(drv, f"{'PAUSED' if drv.paused else 'running'} {speed}   space=pause tab=map q=quit", (x, y), DIM)
+    mode = "AUTO" if drv.auto_play else ("PAUSED" if drv.paused else "running")
+    _text(drv, f"{mode} {speed}   space=pause a=auto c=log tab=map q=quit", (x, y), DIM)
     y += 28
     last = next((e for e in reversed(s.log) if e.type == "PollShift"), None)
     if last:
@@ -202,6 +203,7 @@ def draw_action_panel(drv) -> None:
             x += w + 8
     _button(drv, "continue", "continue >>", pygame.Rect(34, H - 50, 110, 28))
     _button(drv, "why", "why?", pygame.Rect(154, H - 50, 70, 28))
+    _button(drv, "auto", "auto: " + ("on" if drv.auto_play else "off"), pygame.Rect(234, H - 50, 90, 28))
 
 
 def draw_inspect(drv) -> None:

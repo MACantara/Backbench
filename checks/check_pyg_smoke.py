@@ -25,4 +25,21 @@ assert d.state.week >= 30, f"expected ~35 weeks, got {d.state.week}"
 assert len(d.events) > 0, "no events collected"
 assert saw_election, "35 weeks without an election"
 assert saw_seats, "no hit-test geometry registered"
+
+# chronicle: open, filter, scroll, close — same paths as the input handlers
+d.chronicle["open"] = True
+d.draw()
+d.on_button("flt:VoteResult")
+assert d.chronicle["filter"] == "VoteResult"
+d.chronicle["scroll"] = 10
+d.draw()
+d.on_button("flt:all")
+assert d.chronicle["filter"] is None
+d.chronicle["open"] = False
+
+# auto_play: weeks advance on the clock alone, no action pause
+d.auto_play = True
+w0 = d.state.week
+d.step(5.0)
+assert d.state.week > w0 and not d.action_pause, "auto_play didn't advance"
 print(f"pyg smoke ok: week={d.state.week} phase={d.state.phase} events={len(d.state.log)}")
