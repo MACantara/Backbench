@@ -14,6 +14,7 @@ Approved module boundaries for Phase 3. Each module gets its own spec (`docs/spe
 | party-variety      | Per-seed starting party pool, generated party names, name library, named bills | — (worldgen + bill emit) |
 | independents       | Party-less candidates in FPTP; independents hold balance of power         | — (election machinery) |
 | courts             | Judicial review: laws carry legal_risk, get struck or upheld after delay  | country-conditions (registry) |
+| treasury           | Government revenue ∝ indicators; bills spend; debt → crisis               | country-conditions           |
 
 Build order: ai-careers → scandal-lifecycle → factions → country-conditions → ministerial-perf → salience → media-layer. Flexible: `party-variety` (worldgen-only, quick win — fits anywhere) and `independents` (slots after scandal-lifecycle, order negotiable).
 
