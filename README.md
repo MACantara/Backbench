@@ -72,7 +72,7 @@ driver/
   terminal.py   thin shell over the sim core — replaceable (Textual later)
 checks/         assertion scripts, one per subsystem
 docs/
-  spec.md       the design contract this was built against
+  specs/        design contracts per phase (spec-p1, spec-p2, spec-p3-*, capability-map-p3)
   ideas/        original concept one-pager
 ```
 

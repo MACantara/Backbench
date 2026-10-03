@@ -1,6 +1,6 @@
 # Spec P3.1 — AI Careers (MP lifecycle)
 
-Module id: `ai-careers` (per `docs/capability-map-p3.md`). The largest north-star gap: only the player has a career arc today. This module gives every MP a trajectory — they climb, scheme, age, retire, and get replaced — so the country generates its own politicians.
+Module id: `ai-careers` (per `docs/specs/capability-map-p3.md`). The largest north-star gap: only the player has a career arc today. This module gives every MP a trajectory — they climb, scheme, age, retire, and get replaced — so the country generates its own politicians.
 
 ## Objective
 

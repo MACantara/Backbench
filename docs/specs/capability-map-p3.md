@@ -1,6 +1,6 @@
 # Capability Map: Phase 3 — The Country Deepens
 
-Approved module boundaries for Phase 3. Each module gets its own spec (`docs/spec-p3-<module>.md`), plan, and task list, built in dependency order.
+Approved module boundaries for Phase 3. Each module gets its own spec (`docs/specs/spec-p3-<module>.md`), plan, and task list, built in dependency order.
 
 | Module id          | Responsibility                                                            | Depends on             |
 |--------------------|---------------------------------------------------------------------------|------------------------|

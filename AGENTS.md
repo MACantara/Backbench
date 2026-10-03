@@ -26,4 +26,4 @@ A check that passes tells you the subsystem works; a failing assert is the repro
 - Dataclasses for state (`state.py`), functions for behavior. No inheritance hierarchies.
 - Events are typed records: `state.emit("TypeName", "human-readable text", **data)`.
 - Keep it stdlib. NumPy is the only dependency and only where it's already used (voter math). No new deps without a reason.
-- Small files, direct code. The design doc is `docs/spec.md` — if behavior diverges from it, that's a bug or a spec change, decide which.
+- Small files, direct code. Design docs live in `docs/specs/` — if behavior diverges from them, that's a bug or a spec change, decide which.
