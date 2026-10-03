@@ -46,7 +46,7 @@ Done when met: a coalition collapse is *watchable* — vote cascade, banner paus
 
 The north star says the world is the star — so the next phase is everything that makes the country feel alive *without the player touching it*. Auto-play should already be worth watching at the end of this phase.
 
-- [ ] **AI careers** — the biggest north-star gap: only the player has a career arc. MPs should climb (backbencher → minister → leader), scheme, age, retire, and be replaced by rising challengers. The country generates its own politicians; a PM you never met should fall to a rival you watched grow.
+- [x] **AI careers** — done (P3.1): MPs age and accrue seniority, retire past ~55 (hazard ramps at 70), seats sit vacant until the next general election, party-leader and PM succession fire automatically, portfolios weight seniority, and a ~120-strong hopefuls pool ages into eligibility — young newcomers win their first seats via elections (`Retired`, `Newcomer`, `Promoted` events). Deferred on purpose: by-elections (revisit during scandal-lifecycle, when vacancies get frequent).
 - [ ] **Factions inside parties** — named wings (Labour-left vs Labour-pragmatists) that whip separately, feud, and can secede as a bloc. The schism machinery exists; factions give it texture before the break.
 - [ ] **Scandal lifecycle** — dossiers currently fire once. Simmering scandals, opposition research timed to elections, resignation cascades. Careers should end in flames sometimes — AI ones too.
 - [ ] **Media layer** — voters observe outlets, not reality. Outlets have bias + audience; events refract before reaching voters. Deferred from the original spec as "v2 stacked on a working base" — the base now works.
