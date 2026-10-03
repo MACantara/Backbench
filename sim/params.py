@@ -99,7 +99,26 @@ SCANDAL_BETRAYAL = 0.05          # weekly district betrayal while a scandal burn
 WEATHERED_BURN = 0.5             # dossier fraction spent on surviving a scandal
 WEATHERED_BRAND_SCAR = 0.05      # permanent party brand cost of a weathered scandal
 
+# --- media layer ---
+OUTLET_COUNT = (3, 4)            # outlets per worldgen
+OUTLET_REACH = (0.25, 0.55)      # audience fraction range
+OUTLET_SLANT_JITTER = 0.15       # noise on editorial positions
+OUTLET_CENTRIST = True           # guarantee one centrist outlet
+COVERAGE_BRAND_W = 0.015         # brand shift per unit of newsworthiness/2, per outlet
+COVERAGE_PUBPOS_W = 0.05         # pub_pos pull per covering outlet-week
+AGENDA_SALIENCE_W = 0.02         # salience nudge for in-audience voters
+AUDIENCE_AFFINITY_SD = 0.5       # ideological sd of an outlet's audience
+BRAND_WEIGHT = 0.15              # voter-scoring weight on party brand (bounded ±1)
+BILL_PASS_BRAND = 0.005          # weekly competence signal while governing
+BILL_FAIL_BRAND = 0.01           # failed bills hurt a bit more
+PUB_POS_MIX = 0.5                # candidate-vs-perceived-label blend in scoring
+PUB_POS_REVERT = 0.02            # weekly pull of pub_pos back to platform
+PRESS_CYCLE_WEEKS = 3            # headline streak that triggers a frenzy
+MEDIA_APPEAR_BRAND = 0.05        # player media appearance → brand
+MEDIA_APPEAR_PUBPOS = 0.05       # player media appearance → pub_pos toward center
+
 # --- drift ---
 VOTER_DRIFT_SD = 0.004           # weekly position noise
-BRAND_DECAY = 0.98               # weekly brand multiplier
+SALIENCE_REVERT = 0.02           # weekly pull of salience back toward base
+BRAND_DECAY = 0.95               # weekly brand multiplier — reputation mean-reverts
 REL_DECAY = 0.97                 # relationships decay toward neutral

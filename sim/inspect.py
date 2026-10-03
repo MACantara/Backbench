@@ -1,7 +1,7 @@
 """Legibility tools: explain why MPs voted how they did, why events happened."""
 from __future__ import annotations
 
-from .state import GameState
+from .state import GameState, dist
 
 
 def explain_vote(state: GameState, event_index: int = -1) -> str:
@@ -25,9 +25,12 @@ def explain_mp(state: GameState, mp_id: int) -> str:
     pt = state.parties.get(m.party)
     faction = next((f for f in pt.factions if f.id == m.faction), None) if pt else None
     wing = f", {faction.name}" if faction else ""
+    seen = (f" [seen {pt.pub_pos[0]:+.2f},{pt.pub_pos[1]:+.2f} "
+            f"vs platform {pt.platform[0]:+.2f},{pt.platform[1]:+.2f}]"
+            if pt and dist(pt.pub_pos, pt.platform) > 0.05 else "")
     rels = sorted(m.relationships.items(), key=lambda kv: -abs(kv[1]))[:5]
     rel_txt = ", ".join(f"{state.mps[k].name if k in state.mps else k}:{v:+.2f}" for k, v in rels)
-    return (f"{m.name} ({pt.name if pt else 'independent'}{wing}) — district {m.district}\n"
+    return (f"{m.name} ({pt.name if pt else 'independent'}{wing}{seen}) — district {m.district}\n"
             f"  pos=({m.pos[0]:+.2f},{m.pos[1]:+.2f}) ambition={m.ambition:.2f} "
             f"loyalty={m.loyalty:.2f} competence={m.competence:.2f} integrity={m.integrity:.2f}\n"
             f"  seat_safety={m.seat_safety:.2f} portfolio={m.portfolio or '—'} "

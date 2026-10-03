@@ -9,6 +9,7 @@ from .career import (assign_portfolios, leadership_challenge,
                      mp_lifecycle, update_score)
 from .election import poll, resolve_election
 from .government import confidence_vote, form_government
+from .media import media_lifecycle
 from .parliament import resolve_vote, table_bill
 from .parties import party_lifecycle
 from .scandals import scandal_lifecycle
@@ -58,6 +59,7 @@ def tick(state: GameState, actions: list | None = None) -> list[Event]:
         party_lifecycle(state)
         leadership_challenge(state)
         scandal_lifecycle(state)   # last: dirt settles after the week's politics
+        media_lifecycle(state, base)  # the press reads the whole week back
     _drift(state)
     return state.log[base:]
 
@@ -67,8 +69,11 @@ def _drift(state: GameState) -> None:
     rng = np.random.default_rng(int(state.rng.random() * 2**63))
     state.voters.pos += rng.normal(0, p.VOTER_DRIFT_SD, state.voters.pos.shape)
     np.clip(state.voters.pos, -1, 1, out=state.voters.pos)
+    v = state.voters  # agenda-setting lifts salience; it must mean-revert
+    v.salience += p.SALIENCE_REVERT * (p.SALIENCE_BASE - v.salience)
+    np.clip(v.salience, 0.1, None, out=v.salience)
     for pt in state.parties.values():
-        pt.brand *= p.BRAND_DECAY
+        pt.brand = float(np.clip(pt.brand * p.BRAND_DECAY, -1, 1))  # reputation is bounded
         pt.schism_cooldown = max(0, pt.schism_cooldown - 1)
     for mp in state.mps.values():
         if mp.id != state.player_id:  # the player's ideology is theirs to manage

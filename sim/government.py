@@ -61,8 +61,10 @@ def confidence_vote(state: GameState) -> bool:
     mean = tuple(np.mean(gov, axis=0))
     survived = resolve_vote(state, Bill(pos=mean, beneficiary_axis=0, confidence=True))
     if not survived:
+        pm_party = state.mps[state.government.pm].party \
+            if state.government.pm in state.mps else None
         state.emit("ConfidenceLost", "Government loses confidence of the house.",
-                   parties=sorted(state.government.parties))
+                   party=pm_party, parties=sorted(state.government.parties))
         state.government.parties = set()
         state.government.pm = None
         state.phase = "formation"

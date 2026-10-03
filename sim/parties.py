@@ -93,7 +93,7 @@ def party_lifecycle(state: GameState) -> None:
     for pid, pt in list(state.parties.items()):
         pt.members &= set(state.mps)
         if not pt.members:
-            del state.parties[pid]
             state.emit("PartyDissolved", f"{pt.name} dissolves.", party=pid)
+            del state.parties[pid]
         elif pt.leader not in pt.members:
             pt.leader = max(pt.members, key=lambda m: state.mps[m].ambition)

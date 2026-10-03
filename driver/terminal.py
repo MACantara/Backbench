@@ -15,7 +15,8 @@ from sim.worldgen import new_game
 
 INTERRUPTS = {"ConfidenceLost", "CoalitionFormed", "PartyFormed", "Defection",
               "PartyDissolved", "Scandal", "ElectionCalled", "ElectionResult", "SeatLost",
-              "ScandalBreaks", "Expelled", "Resigned", "MinisterSacked"}
+              "ScandalBreaks", "Expelled", "Resigned", "MinisterSacked",
+              "PressCycle"}
 
 
 def prompt_actions(state) -> list[Action]:

@@ -44,10 +44,10 @@ def scandal_lifecycle(state: GameState) -> None:
                else "embarrassing")
         mp.scandal_weeks = rng.randint(*p.SCANDAL_WEEKS)
         state.emit("ScandalBreaks", f"Scandal breaks around {mp.name} ({sev}).",
-                   mp=mp.id, dossier=mp.dossier, severity=sev)
+                   mp=mp.id, party=mp.party, dossier=mp.dossier, severity=sev)
         if mp.portfolio is not None and mp.dossier > p.SACK_THRESHOLD * p.MINISTER_SACK_FRAC:
             state.emit("MinisterSacked", f"{mp.name} is sacked as {mp.portfolio}.",
-                       mp=mp.id, portfolio=mp.portfolio)
+                       mp=mp.id, party=mp.party, portfolio=mp.portfolio)
             mp.portfolio = None
 
     # burning: brand bleeds, the district turns, careers end or survive
@@ -64,7 +64,7 @@ def scandal_lifecycle(state: GameState) -> None:
                 _game_over(state, "you resign")
             else:
                 state.emit("Resigned", f"{mp.name} resigns over the scandal.",
-                           mp=mp.id, district=mp.district)
+                           mp=mp.id, party=mp.party, district=mp.district)
                 remove_mp(state, mp)
             continue
         mp.scandal_weeks -= 1
@@ -73,7 +73,7 @@ def scandal_lifecycle(state: GameState) -> None:
             if mp.party in state.parties:
                 state.parties[mp.party].brand -= p.WEATHERED_BRAND_SCAR
             state.emit("ScandalWeathered", f"{mp.name} weathers the scandal.",
-                       mp=mp.id)
+                       mp=mp.id, party=mp.party)
 
     for pid, b in bleed.items():
         state.parties[pid].brand -= min(b, p.PARTY_BLEED_MAX)

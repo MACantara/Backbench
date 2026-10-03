@@ -108,11 +108,11 @@ def resolve_vote(state: GameState, bill: Bill, player_vote: int | None = None) -
         ax = bill.beneficiary_axis
         state.voters.pos[:, ax] += 0.02 * np.sign(gov_platform[ax] - state.voters.pos[:, ax])
         for i in gov_parties:
-            state.parties[i].brand += 0.02
+            state.parties[i].brand += p.BILL_PASS_BRAND
         state.legacy_bills += state.player_id == state.government.pm
         state.emit("VoteResult", f"Bill passes {yes}-{no}.", passed=True, yes=yes, no=no, detail=detail)
     else:
         for i in gov_parties:
-            state.parties[i].brand -= 0.03
+            state.parties[i].brand -= p.BILL_FAIL_BRAND
         state.emit("VoteResult", f"Bill fails {yes}-{no}.", passed=False, yes=yes, no=no, detail=detail)
     return passed
