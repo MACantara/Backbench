@@ -72,11 +72,13 @@ def resolve_election(state: GameState) -> None:
                 margin = 0.0
         else:
             score, parties = _district_scores(state, mask, cand, inc)
-            tally = np.bincount(score.argmax(axis=1), minlength=len(parties))
+            picks = score.argmax(axis=1)
+            tally = np.bincount(picks, minlength=len(parties))
             winner = parties[int(tally.argmax())]
             margin = float((tally.max() - np.sort(tally)[-2]) / max(tally.sum(), 1))
+            # loyalty attaches to the party each voter actually backed
+            v.last_party[mask] = np.asarray(parties)[picks]
         seat_counts[winner] = seat_counts.get(winner, 0) + 1
-        v.last_party[v.district == d] = winner
 
         if inc is not None and inc.party == winner:
             inc.seat_safety = margin
