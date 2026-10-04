@@ -6,7 +6,7 @@ import numpy as np
 from . import params as p
 from .actions import apply_action, evaluate_promises
 from .career import (assign_portfolios, leadership_challenge,
-                     mp_lifecycle, update_score)
+                     ministerial_lifecycle, mp_lifecycle, update_score)
 from .conditions import conditions_lifecycle
 from .election import poll, resolve_election
 from .government import (call_election, confidence_vote, form_government,
@@ -59,6 +59,7 @@ def tick(state: GameState, actions: list | None = None) -> list[Event]:
 
     if state.phase != "over":
         mp_lifecycle(state)
+        ministerial_lifecycle(state)
         party_lifecycle(state)
         leadership_challenge(state)
         scandal_lifecycle(state)   # last: dirt settles after the week's politics

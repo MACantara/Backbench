@@ -47,7 +47,7 @@ def scandal_lifecycle(state: GameState) -> None:
                    mp=mp.id, party=mp.party, dossier=mp.dossier, severity=sev)
         if mp.portfolio is not None and mp.dossier > p.SACK_THRESHOLD * p.MINISTER_SACK_FRAC:
             state.emit("MinisterSacked", f"{mp.name} is sacked as {mp.portfolio}.",
-                       mp=mp.id, party=mp.party, portfolio=mp.portfolio)
+                       mp=mp.id, party=mp.party, portfolio=mp.portfolio, reason="scandal")
             mp.portfolio = None
 
     # burning: brand bleeds, the district turns, careers end or survive

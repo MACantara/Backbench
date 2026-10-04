@@ -38,6 +38,30 @@ def assign_portfolios(state: GameState) -> None:
         _appoint(state, pid, ministry)
 
 
+def ministerial_lifecycle(state: GameState) -> None:
+    """Weekly: judge records, sack the failures, refill vacancies, strip defectors.
+    Refill goes to the vacated party — a reshuffle swaps the person, not the share."""
+    gov = state.government.parties
+    # defectors: a portfolio belongs to a government, not the person
+    for mp in state.mps.values():
+        if gov and mp.portfolio is not None and mp.party not in gov:
+            mp.portfolio, mp.portfolio_weeks = None, 0
+    if not gov:
+        return
+    for mp in list(state.mps.values()):
+        if mp.portfolio is None or mp.party not in gov:
+            continue
+        if mp.portfolio_weeks >= p.MINISTER_TENURE and mp.perf < p.MINISTER_SACK_RECORD:
+            ministry, pid = mp.portfolio, mp.party
+            mp.portfolio, mp.portfolio_weeks = None, 0
+            if pid in state.parties:
+                state.parties[pid].brand -= p.MINISTER_SACK_BRAND
+            state.emit("MinisterSacked",
+                       f"{mp.name} is sacked as {ministry} — the {p.PORTFOLIO_INDICATOR[ministry]} numbers got worse.",
+                       mp=mp.id, party=pid, portfolio=ministry, reason="performance")
+            _appoint(state, pid, ministry, reason="reshuffle")
+
+
 def leadership_challenge(state: GameState) -> None:
     """Weak leaders face ambitious challengers — members vote on utility."""
     for pid, pt in state.parties.items():
