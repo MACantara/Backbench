@@ -17,10 +17,10 @@ Approved module boundaries for Phase 3. Each module gets its own spec (`docs/spe
 | treasury           | Government revenue ∝ indicators; bills spend; debt → crisis               | country-conditions           |
 | constitution       | Generated entrenched articles; the object judicial review reviews against  | courts                       |
 | party-dynamism ✓    | Party births: niche entry on unserved space, retuned founding/faction gates — observed duopoly lock-in by ~week 300 | parties, factions, election |
-| snap-elections     | Fallen governments dissolve parliament for early elections                 | government (confidence) |
+| snap-elections ✓   | Fallen governments dissolve parliament for early elections                 | government (confidence) |
 | fiscal-escalation  | Insolvency recurs: repeated crises, forced austerity — hysteresis re-arm never re-fires once insolvent | treasury |
 
-Build order: ai-careers ✓ → scandal-lifecycle ✓ → factions ✓ → media-layer ✓ → country-conditions ✓ → treasury ✓ → party-variety ✓ → party-dynamism ✓ → ministerial-perf → courts → constitution. Flexible: `independents`, `snap-elections`, `fiscal-escalation` (order negotiable — small modules); `party-dynamism` ✓ done — niche entry, graves/revival, retuned gates, per-voter loyalty fix. `salience` was subsumed by media-layer (outlet agenda-setting is the mechanism).
+Build order: ai-careers ✓ → scandal-lifecycle ✓ → factions ✓ → media-layer ✓ → country-conditions ✓ → treasury ✓ → party-variety ✓ → party-dynamism ✓ → ministerial-perf → courts → constitution. Flexible: `independents`, `fiscal-escalation` (order negotiable — small modules); `party-dynamism` ✓ done — niche entry, graves/revival, retuned gates, per-voter loyalty fix. `salience` was subsumed by media-layer (outlet agenda-setting is the mechanism).
 
 Deferred: by-elections (vacant seats stay empty until general elections; candidate machinery exists via the hopefuls pool — revisited after scandal-lifecycle: steady-state vacancies measured at ~1–5% of districts, real churn but not crisis-level — defer stands).
 
