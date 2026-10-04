@@ -68,6 +68,12 @@ PARTY_COHESION_SPLIT = 0.35      # below this + spread trigger → schism possib
 PARTY_SPREAD_SPLIT = 0.8         # intra-party position spread needed for schism
 PARTY_FORM_STAY_UTILITY = 0.45   # MP founds party when stay-utility drops below this
 PARTY_SCHISM_COOLDOWN = 8        # weeks a party must wait after a schism event
+STAY_W_COHESION = 0.35           # stay-utility weight on party cohesion
+STAY_W_PROXIMITY = 0.45          # stay-utility weight on platform proximity
+STAY_PORTFOLIO = 0.2             # stay-utility bonus for holding a portfolio
+STAY_ALIEN_DIST = 0.3            # MP-platform distance where alienation starts to bite
+STAY_ALIEN_W = 0.5               # alienation penalty slope past STAY_ALIEN_DIST
+STAY_ESTRANGED = 0.15            # stay-utility penalty when the MP's wing is estranged
 
 # --- factions ---
 FACTION_SPREAD_MIN = 0.2         # intra-party spread that forms wings
@@ -84,6 +90,7 @@ DYNAMIC_GAP_MIN_SEATS = 6        # contiguous unserved districts needed to suppo
 DYNAMIC_ENTRIES_PER_ELECTION = 2 # cap on niche entries/revivals per campaign
 DYNAMIC_GRACE_WEEKS = 12         # memberless entrants survive until after their first election
 GRAVE_WEEKS = 520                # a dissolved party stays revivable for ~10 terms
+GRAVE_MAX = 24                   # the graveyard itself is bounded — most recent kept
 
 # --- player / career ---
 ACTIONS_PER_WEEK = 2

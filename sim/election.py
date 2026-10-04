@@ -75,7 +75,8 @@ def resolve_election(state: GameState) -> None:
             picks = score.argmax(axis=1)
             tally = np.bincount(picks, minlength=len(parties))
             winner = parties[int(tally.argmax())]
-            margin = float((tally.max() - np.sort(tally)[-2]) / max(tally.sum(), 1))
+            runner_up = np.sort(tally)[-2] if len(parties) > 1 else 0
+            margin = float((tally.max() - runner_up) / max(tally.sum(), 1))
             # loyalty attaches to the party each voter actually backed
             v.last_party[mask] = np.asarray(parties)[picks]
         seat_counts[winner] = seat_counts.get(winner, 0) + 1
@@ -103,6 +104,7 @@ def resolve_election(state: GameState) -> None:
                         competence=stat(), integrity=stat(), district=d, party=winner,
                         seat_safety=margin, age=state.rng.randint(1400, 2600))
             state.parties[winner].members.add(next_id)
+            state.parties[winner].seated = True
             new_mps[next_id] = mp
             next_id += 1
 

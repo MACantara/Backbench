@@ -82,11 +82,20 @@ class Party:
     cohesion: float = 1.0           # derived: mean member-platform alignment
     schism_cooldown: int = 0
     founded_week: int = 0           # for the memberless-entrant grace window
+    seated: bool = True             # False only for entrants born with no MPs
     factions: list[Faction] = field(default_factory=list)
 
     def __post_init__(self) -> None:
         if self.pub_pos is None:
             self.pub_pos = self.platform
+
+
+@dataclass
+class Grave:
+    """A dissolved party remembered by name and platform — revivable for a while."""
+    name: str
+    platform: Vec
+    died: int
 
 
 @dataclass
@@ -167,7 +176,7 @@ class GameState:
     conditions: Conditions = field(default_factory=Conditions)
     laws: list[Law] = field(default_factory=list)  # registry of laws in force
     treasury: Treasury = field(default_factory=Treasury)
-    graves: list[dict] = field(default_factory=list)  # dissolved parties, revivable
+    graves: list[Grave] = field(default_factory=list)  # dissolved parties, revivable
     press_subject: int | None = None  # party id of last week's lead story
     press_weeks: int = 0              # consecutive weeks that subject has led
     government: Government = field(default_factory=Government)

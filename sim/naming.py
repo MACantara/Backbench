@@ -98,6 +98,19 @@ def _pick_name(pool: list[str], rng: random.Random, taken: set[str]) -> str:
     return name
 
 
+def revival_name(name: str, taken: set[str]) -> str | None:
+    """The ordinal successor to a dead name ("Second X" → "Third X").
+    None when the ladder is exhausted — the caller falls back to a fresh name."""
+    first, _, rest = name.partition(" ")
+    base = rest if first in _ORDINALS else name
+    for ord_ in _ORDINALS:
+        cand = f"{ord_} {base}"
+        if cand not in taken:
+            taken.add(cand)
+            return cand
+    return None
+
+
 def generate_parties(rng: random.Random, np_rng: np.random.Generator) -> list[tuple[str, Vec]]:
     """A per-seed party system: cleavage salience → archetype draw → jittered
     platforms with separation → family names. Returns (name, platform) pairs."""

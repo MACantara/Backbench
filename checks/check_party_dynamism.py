@@ -9,7 +9,7 @@ import numpy as np
 import sim.params as p
 from sim.actions import Action, available_actions
 from sim.dynamism import _unserved_clusters, niche_entry
-from sim.state import dist
+from sim.state import Grave, dist
 from sim.tick import tick
 from sim.worldgen import new_game
 
@@ -23,8 +23,8 @@ def _policy(s) -> list:
 
 def _enp(s) -> float:
     shares = np.array([len(pt.members) for pt in s.parties.values()], dtype=float)
-    shares /= shares.sum()
-    return float(1.0 / (shares**2).sum())
+    shares /= max(shares.sum(), 1)
+    return float(1.0 / max((shares**2).sum(), 1e-9))
 
 
 def main() -> None:
@@ -49,7 +49,7 @@ def main() -> None:
         if s is not None:
             break
     assert s is not None, "no seed produced an unserved cluster after a flank party died"
-    s.graves.append({"name": victim.name, "platform": victim.platform, "died": s.week})
+    s.graves.append(Grave(name=victim.name, platform=victim.platform, died=s.week))
     niche_entry(s)
     births = [e for e in s.log if e.type == "PartyFormed"]
     assert births
@@ -79,7 +79,7 @@ def main() -> None:
         end_counts.append(counts[-1] if counts else len(s.parties))
     assert sum(c >= 3 for c in end_counts) >= 4, \
         f"too many seeds collapsed below 3 parties: {end_counts}"
-    assert kinds_seen & {"entry", "founder", "secession"}, f"no births fired: {kinds_seen}"
+    assert "entry" in kinds_seen, f"the niche-entry channel never fired: {kinds_seen}"
     assert factions_seen > 0, "wings should form under the retuned gate"
     med_enp = float(np.median(enps))
     assert med_enp >= 2.0, f"median seat ENP {med_enp:.2f} < 2.0"

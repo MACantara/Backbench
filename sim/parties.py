@@ -6,7 +6,7 @@ import numpy as np
 from . import params as p
 from .factions import update_factions
 from .naming import party_name_for
-from .state import GameState, Party, dist
+from .state import GameState, Grave, Party, dist
 
 
 def update_cohesion(state: GameState) -> None:
@@ -55,11 +55,11 @@ def _stay_utility(state: GameState, mp) -> float:
     pt = state.parties[mp.party]
     f = next((f for f in pt.factions if f.id == mp.faction), None)
     d = dist(mp.pos, pt.platform)
-    return (pt.cohesion * 0.35
-            + max(0, 1 - d) * 0.45
-            + (0.2 if mp.portfolio else 0.0)
-            - 0.5 * max(0, d - 0.3)          # ideological alienation bites past 0.3
-            - (0.15 if f is not None and f.estranged > 0 else 0.0))
+    return (pt.cohesion * p.STAY_W_COHESION
+            + max(0, 1 - d) * p.STAY_W_PROXIMITY
+            + (p.STAY_PORTFOLIO if mp.portfolio else 0.0)
+            - p.STAY_ALIEN_W * max(0, d - p.STAY_ALIEN_DIST)  # alienation bites
+            - (p.STAY_ESTRANGED if f is not None and f.estranged > 0 else 0.0))
 
 
 def party_lifecycle(state: GameState) -> None:
@@ -104,13 +104,13 @@ def party_lifecycle(state: GameState) -> None:
             break  # one bloc walks per week
 
     # leaders who lost their seat get replaced; empty parties die (and are buried)
-    state.graves = [g for g in state.graves if state.week - g["died"] < p.GRAVE_WEEKS]
+    state.graves = [g for g in state.graves if state.week - g.died < p.GRAVE_WEEKS][-p.GRAVE_MAX:]
     for pid, pt in list(state.parties.items()):
         pt.members &= set(state.mps)
         if not pt.members:
-            if pt.leader is None and state.week - pt.founded_week <= p.DYNAMIC_GRACE_WEEKS:
+            if not pt.seated and state.week - pt.founded_week <= p.DYNAMIC_GRACE_WEEKS:
                 continue  # a born-memberless entrant gets until after its first election
-            state.graves.append({"name": pt.name, "platform": pt.platform, "died": state.week})
+            state.graves.append(Grave(name=pt.name, platform=pt.platform, died=state.week))
             state.emit("PartyDissolved", f"{pt.name} dissolves.", party=pid)
             del state.parties[pid]
         elif pt.leader not in pt.members:
