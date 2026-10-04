@@ -132,4 +132,5 @@ def new_game(seed: int) -> GameState:
         hopefuls=hopefuls, outlets=make_outlets(rng, np_rng, parties),
         conditions=Conditions(**conds),
         player_id=int(med), weeks_to_election=p.CAMPAIGN_WEEKS,
+        court_activism=rng.random(),
     )

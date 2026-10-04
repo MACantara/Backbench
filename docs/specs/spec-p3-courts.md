@@ -39,8 +39,10 @@ Weekly scan (`courts_lifecycle`, in the always-on tail — courts don't dissolve
 Per-seed `state.court_activism` (0..1, drawn at worldgen from `state.rng`) is the bench's character — deferential courts let almost everything stand, activist courts police hard:
 
 ```
-strike if legal_risk(law) >= COURT_STRIKE_BASE - COURT_ACTIVISM_W * (court_activism - 0.5)
+strike if risk_at_filing >= COURT_STRIKE_BASE - COURT_ACTIVISM_W * (court_activism - 0.5)
 ```
+
+The verdict reads the risk snapshot stamped on the `CourtCase` at filing — the statute *as challenged*, not as decayed (upkeep costs fade weekly; a filed case can't cool off under the line by waiting).
 
 No RNG at decision time. The same statute survives on one world and falls on another — institutional character is the uncertainty, not a per-case coin. A `CourtCase` whose law left the registry another way (future repeal) resolves as moot.
 
