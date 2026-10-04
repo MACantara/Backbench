@@ -63,6 +63,9 @@ MINORITY_GOVT_PENALTY = 0.15     # utility discount on bills under minority gove
 BUDGET_EVERY_WEEKS = 12          # budget votes double as confidence votes
 GOVERNING_WEEKS_PER_TERM = 40    # term length before election is due
 
+# --- snap elections ---
+SNAP_COLLAPSE_MAX = 2            # collapses since last election that force dissolution
+
 # --- parties ---
 PARTY_COHESION_SPLIT = 0.35      # below this + spread trigger → schism possible
 PARTY_SPREAD_SPLIT = 0.8         # intra-party position spread needed for schism

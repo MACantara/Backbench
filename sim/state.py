@@ -160,6 +160,7 @@ class Government:
     pm: int | None = None           # MP id
     minority: bool = False
     weeks_in_office: int = 0
+    collapses: int = 0              # confidence losses since the last election
 
 
 @dataclass

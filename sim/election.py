@@ -113,6 +113,7 @@ def resolve_election(state: GameState) -> None:
         state.phase = "over"
         state.emit("SeatLost", "You lost your seat.", district=incumbents[state.player_id].district)
     state.mps = new_mps
+    state.government.collapses = 0
     for pt in state.parties.values():  # leaders who lost their seat leave a dead reference
         if pt.leader not in state.mps:
             pt.leader = max(pt.members, key=lambda m: state.mps[m].ambition) if pt.members else None

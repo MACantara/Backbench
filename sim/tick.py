@@ -8,9 +8,8 @@ from .actions import apply_action, evaluate_promises
 from .career import (assign_portfolios, leadership_challenge,
                      mp_lifecycle, update_score)
 from .conditions import conditions_lifecycle
-from .dynamism import niche_entry
 from .election import poll, resolve_election
-from .government import confidence_vote, form_government
+from .government import call_election, confidence_vote, form_government
 from .media import media_lifecycle
 from .parliament import resolve_vote, table_bill
 from .parties import party_lifecycle
@@ -52,11 +51,8 @@ def tick(state: GameState, actions: list | None = None) -> list[Event]:
         resolve_vote(state, bill)
         if state.week % p.BUDGET_EVERY_WEEKS == 0:
             confidence_vote(state)
-        if state.phase != "over" and state.government.weeks_in_office >= p.GOVERNING_WEEKS_PER_TERM:
-            state.emit("ElectionCalled", "Term ends — election called.")
-            state.phase = "campaign"
-            state.weeks_to_election = 8
-            niche_entry(state)  # entrants declare as the campaign opens
+        if state.phase == "governing" and state.government.weeks_in_office >= p.GOVERNING_WEEKS_PER_TERM:
+            call_election(state, snap=False, reason="scheduled")
 
     if state.phase != "over":
         mp_lifecycle(state)

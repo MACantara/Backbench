@@ -1,13 +1,22 @@
-"""Government formation, coalition bargaining, and confidence."""
+"""Government formation, coalition bargaining, confidence, and dissolution."""
 from __future__ import annotations
 
 import numpy as np
 
 from . import params as p
+from .dynamism import niche_entry
+from .election import poll
 from .state import Bill, GameState, dist
 from .parliament import resolve_vote
 
 MAJORITY = 61  # of 120 seats
+
+_ELECTION_TEXT = {
+    "scheduled": "Term ends — election called.",
+    "confidence": "Government fallen — snap election called.",
+    "deadlock": "No stable government can be formed — parliament dissolved.",
+    "strategic": "The PM calls an early election to capitalize on the polls.",
+}
 
 
 def _seats(state: GameState) -> dict[int, int]:
@@ -23,28 +32,42 @@ def _will_join(state: GameState, partner_id: int, proposer_id: int) -> bool:
     return dist(a, b) < p.COALITION_MAX_DIST
 
 
-def form_government(state: GameState) -> bool:
-    """Largest party tries to build a majority; falls back to minority government."""
+def _best_coalition(state: GameState, exclude_proposer: int | None = None
+                    ) -> tuple[int, set[int], int] | None:
+    """Dry-run coalition builder: each party by size tries partners by proximity.
+    Returns (proposer, coalition, bloc) for the first majority, else None."""
     seats = _seats(state)
     for proposer in sorted(seats, key=seats.get, reverse=True):
-        coalition = {proposer}
-        bloc = seats[proposer]
-        for partner in sorted(seats, key=lambda pid: dist(state.parties[pid].platform, state.parties[proposer].platform)):
+        if proposer == exclude_proposer:
+            continue
+        coalition, bloc = {proposer}, seats[proposer]
+        for partner in sorted(seats, key=lambda pid: dist(state.parties[pid].platform,
+                                                          state.parties[proposer].platform)):
             if bloc >= MAJORITY:
                 break
             if partner != proposer and _will_join(state, partner, proposer):
                 coalition.add(partner)
                 bloc += seats[partner]
         if bloc >= MAJORITY:
-            state.government.parties = coalition
-            state.government.pm = state.parties[proposer].leader
-            state.government.minority = False
-            state.government.weeks_in_office = 0
-            names = [state.parties[i].name for i in coalition]
-            state.emit("CoalitionFormed", f"{' + '.join(names)} form a government ({bloc} seats).",
-                       parties=sorted(coalition), seats=bloc)
-            return True
+            return proposer, coalition, bloc
+    return None
+
+
+def form_government(state: GameState) -> bool:
+    """Largest party tries to build a majority; falls back to minority government."""
+    found = _best_coalition(state)
+    if found is not None:
+        proposer, coalition, bloc = found
+        state.government.parties = coalition
+        state.government.pm = state.parties[proposer].leader
+        state.government.minority = False
+        state.government.weeks_in_office = 0
+        names = [state.parties[i].name for i in coalition]
+        state.emit("CoalitionFormed", f"{' + '.join(names)} form a government ({bloc} seats).",
+                   parties=sorted(coalition), seats=bloc)
+        return True
     # nobody could build a majority — largest party tries minority rule
+    seats = _seats(state)
     biggest = max(seats, key=seats.get)
     state.government.parties = {biggest}
     state.government.pm = state.parties[biggest].leader
@@ -55,8 +78,17 @@ def form_government(state: GameState) -> bool:
     return True
 
 
+def call_election(state: GameState, snap: bool, reason: str) -> None:
+    """Dissolve to campaign — scheduled or snap. Entrants declare at the call."""
+    state.emit("ElectionCalled", _ELECTION_TEXT[reason], snap=snap, reason=reason)
+    state.phase = "campaign"
+    state.weeks_to_election = 8
+    niche_entry(state)
+
+
 def confidence_vote(state: GameState) -> bool:
-    """A confidence vote is a bill at the government's mean platform."""
+    """A confidence vote is a bill at the government's mean platform.
+    On failure the house replaces the government if it can — else it dissolves."""
     gov = [state.parties[i].platform for i in state.government.parties if i in state.parties]
     mean = tuple(np.mean(gov, axis=0))
     survived = resolve_vote(state, Bill(pos=mean, beneficiary_axis=0, confidence=True))
@@ -65,7 +97,16 @@ def confidence_vote(state: GameState) -> bool:
             if state.government.pm in state.mps else None
         state.emit("ConfidenceLost", "Government loses confidence of the house.",
                    party=pm_party, parties=sorted(state.government.parties))
+        state.government.collapses += 1
+        fallen_largest = max(state.government.parties,
+                             key=lambda pid: len(state.parties[pid].members), default=None)
+        alt = _best_coalition(state, exclude_proposer=fallen_largest)
         state.government.parties = set()
         state.government.pm = None
-        state.phase = "formation"
+        if state.government.collapses >= p.SNAP_COLLAPSE_MAX:
+            call_election(state, snap=True, reason="deadlock")
+        elif alt is None:
+            call_election(state, snap=True, reason="confidence")
+        else:
+            state.phase = "formation"   # a different majority exists — it forms in place
     return survived
