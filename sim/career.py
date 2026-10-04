@@ -7,7 +7,22 @@ from . import params as p
 from .state import GameState, dist
 from .worldgen import make_hopeful
 
-PORTFOLIOS = ["Finance", "Interior", "Foreign", "Health", "Justice"]
+PORTFOLIOS = list(p.PORTFOLIO_INDICATOR)   # the cabinet table — append rows to grow
+
+
+def _appoint(state: GameState, pid: int, ministry: str, reason: str = "cabinet") -> bool:
+    """Best available MP of a party takes a ministry."""
+    cands = [m for m in state.parties[pid].members
+             if m in state.mps and state.mps[m].portfolio is None and m != state.government.pm]
+    if not cands:
+        return False
+    best = max(cands, key=lambda m: (state.mps[m].competence + state.mps[m].loyalty
+                                     + min(state.mps[m].seniority / 1040, 1) * p.SENIORITY_W))
+    mp = state.mps[best]
+    mp.portfolio, mp.perf, mp.portfolio_weeks = ministry, 0.0, 0
+    state.emit("Promoted", f"{mp.name} appointed {ministry}.",
+               mp=best, ministry=ministry, reason=reason)
+    return True
 
 
 def assign_portfolios(state: GameState) -> None:
@@ -20,14 +35,7 @@ def assign_portfolios(state: GameState) -> None:
     for pid, n in seats.items():
         queue += [pid] * round(len(PORTFOLIOS) * n / total)
     for pid, ministry in zip(queue, PORTFOLIOS):
-        cands = [m for m in state.parties[pid].members
-                 if m in state.mps and state.mps[m].portfolio is None and m != state.government.pm]
-        if cands:
-            best = max(cands, key=lambda m: (state.mps[m].competence + state.mps[m].loyalty
-                                             + min(state.mps[m].seniority / 1040, 1) * p.SENIORITY_W))
-            state.mps[best].portfolio = ministry
-            state.emit("Promoted", f"{state.mps[best].name} appointed {ministry}.",
-                       mp=best, ministry=ministry)
+        _appoint(state, pid, ministry)
 
 
 def leadership_challenge(state: GameState) -> None:

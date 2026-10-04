@@ -46,6 +46,21 @@ RETIRE_SLOPE = 0.0002        # added probability per week past RETIRE_AGE
 RETIRE_MAX_P = 0.15          # weekly cap
 SENIORITY_W = 0.5            # portfolio weight for seniority (per ~100y normalized)
 
+# --- ministerial performance ---
+# ministry → the conditions dial it owns (None would be a patronage post)
+PORTFOLIO_INDICATOR = {
+    "Finance": "growth",
+    "Labour": "unemployment",
+    "Interior": "crime",
+    "Health": "services",
+    "Foreign": "inflation",
+}
+PORTFOLIO_EFFECT = 0.004       # weekly indicator push at competence 1.0
+PERF_DECAY = 0.98              # weekly decay on a minister's record — recency rules
+MINISTER_TENURE = 16           # weeks before a record is judged
+MINISTER_SACK_RECORD = -0.06   # accumulated indicator loss that gets you fired
+MINISTER_SACK_BRAND = 0.03     # brand hit when the PM admits a bad pick
+
 # --- voting in parliament ---
 W_POLICY = 0.7     # weight on policy distance (higher = more ideological voting)
 W_WHIP = 0.8       # weight on party whip instruction
