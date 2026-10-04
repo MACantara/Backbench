@@ -16,7 +16,7 @@ Approved module boundaries for Phase 3. Each module gets its own spec (`docs/spe
 | courts             | Judicial review: laws carry legal_risk, get struck or upheld after delay  | country-conditions (registry) |
 | treasury           | Government revenue ∝ indicators; bills spend; debt → crisis               | country-conditions           |
 | constitution       | Generated entrenched articles; the object judicial review reviews against  | courts                       |
-| party-dynamism     | Party births: niche entry on unserved space, retuned founding/faction gates — observed duopoly lock-in by ~week 300 | parties, factions, election |
+| party-dynamism ✓    | Party births: niche entry on unserved space, retuned founding/faction gates — observed duopoly lock-in by ~week 300 | parties, factions, election |
 | snap-elections     | Fallen governments dissolve parliament for early elections                 | government (confidence) |
 | fiscal-escalation  | Insolvency recurs: repeated crises, forced austerity — hysteresis re-arm never re-fires once insolvent | treasury |
 
