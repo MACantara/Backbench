@@ -61,7 +61,7 @@ def main() -> None:
         s2.week += 1
     seceded = [e for e in s2.log if e.type == "Secession"]
     assert seceded, "sustained estrangement should produce a secession"
-    assert len(s2.parties) == n_parties + 1
+    assert len(s2.parties) >= n_parties + 1  # other lifecycle births can share the window
     assert 0 in s2.parties, "parent party should survive with its other wing"
     assert len(s2.parties[0].members) >= p.FACTION_MIN_SIZE
 

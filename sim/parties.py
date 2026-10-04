@@ -48,11 +48,16 @@ def _found(state: GameState, founder, followers: list[int]) -> int:
 
 
 def _stay_utility(state: GameState, mp) -> float:
-    """How attractive staying in the current party is."""
+    """How attractive staying in the current party is. Proximity carries the
+    weight — a portfolio-less misfit far from the platform must score low."""
     pt = state.parties[mp.party]
-    return (pt.cohesion * 0.5
-            + max(0, 1 - dist(mp.pos, pt.platform)) * 0.3
-            + (0.2 if mp.portfolio else 0.0))
+    f = next((f for f in pt.factions if f.id == mp.faction), None)
+    d = dist(mp.pos, pt.platform)
+    return (pt.cohesion * 0.35
+            + max(0, 1 - d) * 0.45
+            + (0.2 if mp.portfolio else 0.0)
+            - 0.5 * max(0, d - 0.3)          # ideological alienation bites past 0.3
+            - (0.15 if f is not None and f.estranged > 0 else 0.0))
 
 
 def party_lifecycle(state: GameState) -> None:
