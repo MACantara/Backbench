@@ -37,6 +37,8 @@ class MP:
     party: int | None = None
     faction: int | None = None    # Faction.id within their party, or None
     portfolio: str | None = None
+    perf: float = 0.0             # indicator record on their watch — decays weekly
+    portfolio_weeks: int = 0      # tenure in the current portfolio
     dossier: float = 0.0            # hidden scandal material
     scandal_weeks: int = 0          # weeks remaining of an active scandal; 0 = clean
     relationships: dict[int, float] = field(default_factory=dict)
@@ -162,6 +164,7 @@ class Government:
     weeks_in_office: int = 0
     collapses: int = 0              # confidence losses since the last election
     blocked: set[int] = field(default_factory=set)  # parties barred from re-forming this house
+    sacked: set[int] = field(default_factory=set)   # MPs unappointable until the next election
 
 
 @dataclass

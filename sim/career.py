@@ -7,27 +7,74 @@ from . import params as p
 from .state import GameState, dist
 from .worldgen import make_hopeful
 
-PORTFOLIOS = ["Finance", "Interior", "Foreign", "Health", "Justice"]
+PORTFOLIOS = list(p.PORTFOLIO_INDICATOR)   # the cabinet table — append rows to grow
+
+
+def _seat_queue(state: GameState) -> list[int]:
+    """Portfolio slots dealt to coalition parties by seat share (Gamson-lite)."""
+    seats = {pid: len(state.parties[pid].members)
+             for pid in state.government.parties if pid in state.parties}
+    total = max(sum(seats.values()), 1)
+    return [pid for pid, n in seats.items()
+            for _ in range(round(len(PORTFOLIOS) * n / total))]
+
+
+def _appoint(state: GameState, pid: int, ministry: str, reason: str = "cabinet") -> bool:
+    """Best available MP of a party takes a ministry."""
+    cands = [m for m in state.parties[pid].members
+             if m in state.mps and state.mps[m].portfolio is None
+             and m != state.government.pm and m not in state.government.sacked]
+    if not cands:
+        return False
+    best = max(cands, key=lambda m: (state.mps[m].competence + state.mps[m].loyalty
+                                     + min(state.mps[m].seniority / p.SENIORITY_CAP_WEEKS, 1)
+                                     * p.SENIORITY_W))
+    mp = state.mps[best]
+    mp.portfolio, mp.perf, mp.portfolio_weeks = ministry, 0.0, 0
+    state.emit("Promoted", f"{mp.name} appointed {ministry}.",
+               mp=best, ministry=ministry, reason=reason)
+    return True
 
 
 def assign_portfolios(state: GameState) -> None:
     """PM hands ministries to coalition MPs by competence + loyalty, split by seats."""
     for mp in state.mps.values():
-        mp.portfolio = None
-    seats = {pid: len(state.parties[pid].members) for pid in state.government.parties if pid in state.parties}
-    total = max(sum(seats.values()), 1)
-    queue = []
-    for pid, n in seats.items():
-        queue += [pid] * round(len(PORTFOLIOS) * n / total)
-    for pid, ministry in zip(queue, PORTFOLIOS):
-        cands = [m for m in state.parties[pid].members
-                 if m in state.mps and state.mps[m].portfolio is None and m != state.government.pm]
-        if cands:
-            best = max(cands, key=lambda m: (state.mps[m].competence + state.mps[m].loyalty
-                                             + min(state.mps[m].seniority / 1040, 1) * p.SENIORITY_W))
-            state.mps[best].portfolio = ministry
-            state.emit("Promoted", f"{state.mps[best].name} appointed {ministry}.",
-                       mp=best, ministry=ministry)
+        mp.portfolio, mp.portfolio_weeks = None, 0
+    for pid, ministry in zip(_seat_queue(state), PORTFOLIOS):
+        _appoint(state, pid, ministry)
+
+
+def ministerial_lifecycle(state: GameState) -> None:
+    """Weekly: strip defectors, judge records, refill every dark chair.
+    A reshuffle swaps the person — seat-weighted shares decide the party."""
+    gov = state.government.parties
+    if not gov:
+        return
+    # a portfolio belongs to a government, not the person — defectors lose it
+    for mp in state.mps.values():
+        if mp.portfolio is not None and mp.party not in gov:
+            mp.portfolio, mp.portfolio_weeks = None, 0
+    for mp in state.mps.values():
+        if (mp.portfolio is None or mp.party not in gov
+                or mp.id == state.government.pm):
+            continue
+        if mp.portfolio_weeks >= p.MINISTER_TENURE and mp.perf < p.MINISTER_SACK_RECORD:
+            ministry, pid = mp.portfolio, mp.party
+            mp.portfolio, mp.portfolio_weeks = None, 0
+            state.government.sacked.add(mp.id)   # no same-term re-hire
+            pm = state.mps.get(state.government.pm)
+            if pm is not None and pm.party in state.parties:
+                state.parties[pm.party].brand -= p.MINISTER_SACK_BRAND
+            what = p.PORTFOLIO_INDICATOR.get(ministry) or "ministerial"
+            state.emit("MinisterSacked",
+                       f"{mp.name} is sacked as {ministry} — the {what} numbers got worse.",
+                       mp=mp.id, party=pid, portfolio=ministry, reason="performance")
+    # every dark chair gets a body — sacks, scandals, defections, retirements
+    held = {mp.portfolio for mp in state.mps.values()
+            if mp.portfolio is not None and mp.party in gov}
+    for pid, ministry in zip(_seat_queue(state), PORTFOLIOS):
+        if ministry not in held and _appoint(state, pid, ministry, reason="reshuffle"):
+            held.add(ministry)
 
 
 def leadership_challenge(state: GameState) -> None:

@@ -115,6 +115,7 @@ def resolve_election(state: GameState) -> None:
     state.mps = new_mps
     state.government.collapses = 0
     state.government.blocked = set()  # a new parliament, a new bargaining table
+    state.government.sacked = set()   # a fresh cabinet may bring anyone back
     for pt in state.parties.values():  # leaders who lost their seat leave a dead reference
         if pt.leader not in state.mps:
             pt.leader = max(pt.members, key=lambda m: state.mps[m].ambition) if pt.members else None

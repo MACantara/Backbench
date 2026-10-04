@@ -9,6 +9,7 @@ from .state import Bill, Conditions, GameState, Law
 _FIELDS = ("growth", "unemployment", "inflation", "services", "crime")
 _BOUNDS = {"growth": (-1.0, 1.0), "unemployment": (0.0, 1.0), "inflation": (0.0, 1.0),
            "services": (0.0, 1.0), "crime": (0.0, 1.0)}
+_GOOD_DIR = {"growth": 1, "services": 1, "unemployment": -1, "inflation": -1, "crime": -1}
 _SHOCKS = [  # (indicator, direction, event variant name)
     ("growth", -1, "Recession"),
     ("growth", 1, "Boom"),
@@ -66,9 +67,17 @@ def enact(state: GameState, bill: Bill, yes: int, no: int) -> Law:
     return law
 
 
+def _ministers(state: GameState):
+    """Government MPs holding a portfolio — the push gate is office, not the label."""
+    gov = state.government.parties
+    return [mp for mp in state.mps.values()
+            if mp.portfolio is not None and mp.party in gov]
+
+
 def conditions_lifecycle(state: GameState) -> None:
-    """Weekly: mean-revert, couple, apply laws in force, roll for shocks."""
+    """Weekly: mean-revert, couple, apply laws in force, ministerial push, shocks."""
     c, rng = state.conditions, state.rng
+    before = {f: getattr(c, f) for f in _FIELDS}
     for f in _FIELDS:
         lo, hi = _BOUNDS[f]
         v = getattr(c, f) + p.COND_REVERT * (p.COND_BASE[f] - getattr(c, f)) \
@@ -86,6 +95,17 @@ def conditions_lifecycle(state: GameState) -> None:
             v = getattr(c, ind)
             v += dv * (hi - v) if dv > 0 else dv * (v - lo)
             setattr(c, ind, float(np.clip(v, lo, hi)))
+    # ministers push their own dial — continuous pressure, bound-scaled like laws
+    ministers = _ministers(state)
+    for mp in ministers:
+        ind = p.PORTFOLIO_INDICATOR.get(mp.portfolio)
+        if ind is None:
+            continue
+        lo, hi = _BOUNDS[ind]
+        v = getattr(c, ind)
+        dv = (mp.competence - 0.5) * p.PORTFOLIO_EFFECT * _GOOD_DIR[ind]
+        v += dv * (hi - v) if dv > 0 else dv * (v - lo)
+        setattr(c, ind, float(np.clip(v, lo, hi)))
     # shocks: rare, seeded, legible
     if rng.random() < p.SHOCK_P:
         ind, direction, variant = _SHOCKS[rng.randrange(len(_SHOCKS))]
@@ -95,3 +115,9 @@ def conditions_lifecycle(state: GameState) -> None:
         state.emit("Shock", f"{variant.replace('_', ' ')} — {ind} {direction * mag:+.2f}.",
                    variant=variant, indicator=ind, delta=direction * mag,
                    good=variant == "Boom", big=mag >= p.SHOCK_INTERRUPT)
+    # the record: what their indicator did on their watch, decayed — recency rules
+    for mp in ministers:
+        ind = p.PORTFOLIO_INDICATOR.get(mp.portfolio)
+        if ind is not None:
+            mp.perf = mp.perf * p.PERF_DECAY + _GOOD_DIR[ind] * (getattr(c, ind) - before[ind])
+        mp.portfolio_weeks += 1

@@ -33,13 +33,14 @@ Weekly, in `conditions_lifecycle` (after law effects, before shocks — minister
 
 ### Track record
 
-`MP.perf: float` — accumulates the signed improvement of their indicator while in office (their own push plus the world's, honestly attributed: record what happened on their watch). Sacking a minister freezes their record; it's the career-ladder input later.
+`MP.perf: float` — accumulates the signed improvement of their indicator while in office (their own push plus the world's, honestly attributed: record what happened on their watch), decayed weekly by `PERF_DECAY` (recent weeks count more). `MP.portfolio_weeks` counts tenure. Sacking a minister freezes their record; it's the career-ladder input later.
 
 ### Performance sackings and reshuffles
 
-- A minister with `weeks in office >= MINISTER_TENURE` and `perf < MINISTER_SACK_RECORD` gets sacked by the PM: `MinisterSacked` event with `reason="performance"` (scandal sacks keep `reason="scandal"`), `portfolio=None`, small party-brand hit (the PM bleeds a little credibility admitting a bad pick).
-- A vacant portfolio while a government stands gets refilled the same week — `Reshuffle`-flavored `Promoted` event — using the existing seat-weighted appointment logic extracted into `_appoint(state, party_id, ministry)`.
-- `assign_portfolios` keeps forming fresh cabinets at each formation (reshuffles happen *within* terms via performance/scandal vacancies).
+- A minister with `portfolio_weeks >= MINISTER_TENURE` and `perf < MINISTER_SACK_RECORD` gets sacked by the PM: `MinisterSacked` event with `reason="performance"` (scandal sacks keep `reason="scandal"`), `portfolio=None`, small brand hit on the *PM's party* (the PM bleeds a little credibility admitting a bad pick). The sitting PM is exempt — a PM doesn't sack themselves.
+- A sacked minister can't be re-appointed under the same government — `Government.sacked` (MP ids) excludes them from `_appoint` for the rest of the term, cleared with `blocked`/`collapses` at each election. Scandal sackings join the same set: a reshuffle can't re-hire disgrace.
+- **Any** vacant portfolio while a government stands gets refilled the same week — `Promoted reason="reshuffle"` — via the same seat-weighted queue as formation (a reshuffle swaps the person, not the coalition's shares). This covers performance sacks, scandal sacks, defections, retirements, and expulsions: a minister whose party leaves government loses the portfolio the same week.
+- `assign_portfolios` keeps forming fresh cabinets at each formation (reshuffles happen *within* terms via the vacancy sweep).
 
 ## Events
 
@@ -51,9 +52,10 @@ Weekly, in `conditions_lifecycle` (after law effects, before shocks — minister
 
 ```
 PORTFOLIO_EFFECT = 0.004       # weekly indicator push at competence 1.0
+PERF_DECAY = 0.98              # weekly decay on a minister's record — recency rules
 MINISTER_TENURE = 16           # weeks before a record is judged
 MINISTER_SACK_RECORD = -0.06   # accumulated indicator loss that gets you fired
-MINISTER_SACK_BRAND = 0.03     # brand hit when the PM admits a bad pick
+MINISTER_SACK_BRAND = 0.03     # brand hit the PM's party takes for a bad pick
 ```
 
 ## Deferred
