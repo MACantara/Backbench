@@ -140,6 +140,7 @@ class CourtCase:
     law: Law                        # by identity — the registry drops laws other ways too
     due_week: int
     challenger: int                 # party id of the filer
+    risk: float = 0.0               # the statute's risk as challenged — verdicts use this
 
 
 @dataclass

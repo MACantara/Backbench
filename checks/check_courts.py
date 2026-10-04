@@ -8,6 +8,7 @@ import sim.params as p
 from sim.actions import Action, available_actions
 from sim.conditions import enact
 from sim.courts import courts_lifecycle, legal_risk
+from sim.media import _subjects
 from sim.state import Bill
 from sim.tick import tick
 from sim.treasury import upkeep
@@ -57,24 +58,49 @@ def main() -> None:
     courts_lifecycle(s)
     assert len(s.docket) == 0, "a struck/reviewed law got re-challenged"
 
-    # the verdict is a rule: same statute, different bench
+    # the verdict is a rule: same statute, different bench — and a strike blames
+    # the authors even after they leave office; the filer joining gov mid-case
+    # doesn't stop the case
     outcomes = {}
     for activism, expect in ((1.0, "LawStruck"), (0.0, "LawUpheld")):
         s2 = _gov(4, activism)
-        s2.government.parties = {0}  # set before enact — it's the recorded author
+        author = next(iter(s2.parties))
         law = enact(s2, Bill(pos=(0.5, 0.0), beneficiary_axis=0, cost=0.004), yes=70, no=50)
+        courts_lifecycle(s2)  # file it first
+        assert s2.docket, "fixture law never got challenged"
+        challenger = s2.docket[0].challenger
+        # the author loses office and the filer joins the new government —
+        # the case must proceed regardless
+        s2.government.parties = {challenger}
         for _ in range(p.REVIEW_WEEKS + 1):
             courts_lifecycle(s2)
             s2.week += 1
         verdicts = [e.type for e in s2.log if e.type in ("LawStruck", "LawUpheld")]
         assert verdicts == [expect], f"activism={activism} gave {verdicts}, want {expect}"
-        outcomes[expect] = (s2, law)
-    struck_s, struck_law = outcomes["LawStruck"]
-    author_brand = struck_s.parties[0].brand
-    assert author_brand < 0, "the authoring party took no brand hit"
-    upheld_s, upheld_law = outcomes["LawUpheld"]
-    assert upheld_law.reviewed and upheld_law in upheld_s.laws, \
+        outcomes[expect] = (s2, law, author)
+    struck_s, struck_law, struck_author = outcomes["LawStruck"]
+    assert struck_s.parties[struck_author].brand < 0, \
+        "a struck law didn't bleed its (now opposition) author"
+    struck_ev = next(e for e in struck_s.log if e.type == "LawStruck")
+    assert _subjects(struck_s, struck_ev) == [struck_author], \
+        "the press should blame the authors, not the incumbents"
+    upheld_s, upheld_law, _ = outcomes["LawUpheld"]
+    assert upheld_law.reviewed and any(l is upheld_law for l in upheld_s.laws), \
         "upheld law should stay in force, immune"
+
+    # capacity + hostility gates: full docket blocks new filings; a friendly
+    # opposition can't file no matter the risk
+    s5 = _gov(6, 1.0)
+    for _ in range(3):
+        enact(s5, Bill(pos=(0.95, 0.9), beneficiary_axis=0, cost=0.012), yes=55, no=45)
+        courts_lifecycle(s5)
+    assert len(s5.docket) <= p.COURT_DOCKET_MAX, "docket exceeded bench capacity"
+    s6 = _gov(7, 1.0)
+    law6 = enact(s6, Bill(pos=(0.95, 0.9), beneficiary_axis=0, cost=0.012), yes=55, no=45)
+    for pt in s6.parties.values():
+        pt.platform = law6.pos  # every party loves it — nobody is hostile enough to sue
+    courts_lifecycle(s6)
+    assert not s6.docket, "a case opened without a hostile opposition"
 
     # no opposition, no court: a one-party world never opens a case
     s3 = _gov(5, 1.0)

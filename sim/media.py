@@ -35,12 +35,14 @@ def _subjects(state: GameState, e) -> list[int]:
     """The parties a story is about. Explicit `party=` (stamped at emit time so
     post-removal resolution still works), else the named MP's party, else every
     government party — coalition coverage shouldn't land on one member."""
-    pids = e.data.get("parties")   # plural first — a story can name a coalition
-    if pids is not None:
-        return [i for i in pids if i in state.parties]
     pid = e.data.get("party")
     if pid is not None:
         return [pid] if pid in state.parties else []
+    pids = e.data.get("parties")   # a story can name a coalition — e.g. a struck law's authors
+    if pids is not None:
+        alive = [i for i in pids if i in state.parties]
+        if alive:
+            return alive           # all named parties gone → fall through to government
     mp = state.mps.get(e.data.get("mp", -1))
     if mp is not None:
         return [mp.party] if mp.party in state.parties else []

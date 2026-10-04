@@ -17,7 +17,7 @@ def _verdict(state: GameState, case: CourtCase) -> None:
     """A rule, not a roll: the bench's per-seed character decides the line."""
     if not any(l is case.law for l in state.laws):
         return  # moot — the law left the registry another way
-    risk = legal_risk(case.law)
+    risk = case.risk              # the statute as challenged, not as decayed since
     case.law.reviewed = True
     line = p.COURT_STRIKE_BASE - p.COURT_ACTIVISM_W * (state.court_activism - 0.5)
     if risk >= line:
@@ -38,7 +38,7 @@ def courts_lifecycle(state: GameState) -> None:
     """Weekly: due verdicts land, then the most hostile loser files the next case."""
     for case in list(state.docket):
         if case.due_week <= state.week:
-            state.docket.remove(case)
+            state.docket = [c for c in state.docket if c is not case]
             _verdict(state, case)
     # the venue for losers: hostile opposition drags the riskiest statute in
     if len(state.docket) >= p.COURT_DOCKET_MAX:
@@ -55,13 +55,17 @@ def courts_lifecycle(state: GameState) -> None:
             continue
         challenger = max(filers, key=lambda pid: dist(state.parties[pid].platform, law.pos),
                          default=None)
-        if challenger is None or dist(state.parties[challenger].platform, law.pos) < p.CHALLENGE_DIST:
+        if challenger is None:
+            continue
+        hostility = dist(state.parties[challenger].platform, law.pos)
+        if hostility < p.CHALLENGE_DIST:
             continue
         if best is None or r > best[0]:
             best = (r, law, challenger)
     if best:
         r, law, pid = best
-        case = CourtCase(law=law, due_week=state.week + p.REVIEW_WEEKS, challenger=pid)
+        case = CourtCase(law=law, due_week=state.week + p.REVIEW_WEEKS,
+                         challenger=pid, risk=r)
         state.docket.append(case)
         state.emit("ReviewOpened",
                    f"{state.parties[pid].name} challenges the {law.name} in court (risk {r:.2f}).",
