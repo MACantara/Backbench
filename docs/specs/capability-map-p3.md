@@ -8,7 +8,7 @@ Approved module boundaries for Phase 3. Each module gets its own spec (`docs/spe
 | scandal-lifecycle  | Simmering dossiers, timed releases, resignation cascades                  | ai-careers (vacancies) |
 | factions           | Named wings inside parties: separate whips, feuds, bloc secession         | — (extends parties.py) |
 | country-conditions | Living indicators (growth, unemployment, services, crime) → retrospective voting | — (voter scoring) |
-| ministerial-perf   | Portfolio outcomes (economy, crises) reflect competence, move approval    | country-conditions     |
+| ministerial-perf ✓ | Portfolio outcomes (economy, crises) reflect competence, move approval    | country-conditions     |
 | salience           | Which axis voters care about; bills/speeches shift the weights — SUBSUMED by media-layer (outlet agenda-setting is the mechanism) | — (voter model)        |
 | media-layer        | Outlets with bias + audience; voters observe media, not reality           | salience               |
 | party-variety ✓    | Per-seed starting party pool, generated party names, name library, named bills | — (worldgen + bill emit) |
@@ -20,7 +20,7 @@ Approved module boundaries for Phase 3. Each module gets its own spec (`docs/spe
 | snap-elections ✓   | Fallen governments dissolve parliament for early elections                 | government (confidence) |
 | fiscal-escalation  | Insolvency recurs: repeated crises, forced austerity — hysteresis re-arm never re-fires once insolvent | treasury |
 
-Build order: ai-careers ✓ → scandal-lifecycle ✓ → factions ✓ → media-layer ✓ → country-conditions ✓ → treasury ✓ → party-variety ✓ → party-dynamism ✓ → ministerial-perf → courts → constitution. Flexible: `independents`, `fiscal-escalation` (order negotiable — small modules); `party-dynamism` ✓ done — niche entry, graves/revival, retuned gates, per-voter loyalty fix. `salience` was subsumed by media-layer (outlet agenda-setting is the mechanism).
+Build order: ai-careers ✓ → scandal-lifecycle ✓ → factions ✓ → media-layer ✓ → country-conditions ✓ → treasury ✓ → party-variety ✓ → party-dynamism ✓ → ministerial-perf ✓ → courts → constitution. Flexible: `independents`, `fiscal-escalation` (order negotiable — small modules); `party-dynamism` ✓ done — niche entry, graves/revival, retuned gates, per-voter loyalty fix. `salience` was subsumed by media-layer (outlet agenda-setting is the mechanism).
 
 Deferred: by-elections (vacant seats stay empty until general elections; candidate machinery exists via the hopefuls pool — revisited after scandal-lifecycle: steady-state vacancies measured at ~1–5% of districts, real churn but not crisis-level — defer stands).
 
