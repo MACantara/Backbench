@@ -4,6 +4,7 @@ from __future__ import annotations
 import numpy as np
 
 from . import params as p
+from .courts import legal_risk
 from .state import Bill, Conditions, GameState, Law
 
 _FIELDS = ("growth", "unemployment", "inflation", "services", "crime")
@@ -58,12 +59,12 @@ def enact(state: GameState, bill: Bill, yes: int, no: int) -> Law:
     law = Law(name=bill.name or f"Week-{state.week} Act", pos=bill.pos,
               beneficiary_axis=bill.beneficiary_axis, cost=bill.cost,
               passed_week=state.week, margin=yes / max(yes + no, 1),
-              effect=law_effect(bill))
+              effect=law_effect(bill), enacted_by=set(state.government.parties))
     state.laws.append(law)
     eff = f" — {next(iter(law.effect))} {next(iter(law.effect.values())):+.3f}/wk" \
         if law.effect else ""
     state.emit("LawEnacted", f"{law.name} becomes law{eff} (cost {law.cost:.3f}/wk).",
-               law=law.name, cost=law.cost)
+               law=law.name, cost=law.cost, risk=legal_risk(law))
     return law
 
 

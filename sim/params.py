@@ -133,6 +133,18 @@ RESIGN_BASE_P = 0.02             # weekly resignation probability while burning
 RESIGN_DOSSIER_W = 0.15          # added resignation probability per unit of dossier
 SACK_THRESHOLD = 1.5             # leader expels members past this dossier size
 MINISTER_SACK_FRAC = 0.6         # ministers sacked past this fraction of the threshold
+
+# --- courts ---
+RISK_EXTREMITY_W = 0.6           # radical statutes invite review
+RISK_COST_W      = 0.3           # expensive ones more so
+RISK_MARGIN_W    = 0.2           # thin mandates are contestable
+CHALLENGE_RISK_MIN = 0.45        # below this the courts stay out
+CHALLENGE_DIST   = 0.5           # opposition hostility needed to file
+REVIEW_WEEKS     = 12            # a case sits pending a real interval
+COURT_DOCKET_MAX = 2             # bench capacity — review stays rare
+COURT_STRIKE_BASE  = 0.6         # risk an average court strikes at
+COURT_ACTIVISM_W = 0.4           # per-seed disposition swing
+COURT_BRAND_HIT  = 0.04          # author brand bleed on a strike
 SCANDAL_BRAND_HIT = 0.02         # weekly party brand bleed per active scandal
 MINISTER_BRAND_MULT = 2.0        # minister scandals bleed this much harder
 PARTY_BLEED_MAX = 0.08           # cap on weekly brand loss per party

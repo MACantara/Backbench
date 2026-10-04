@@ -130,6 +130,16 @@ class Law:
     passed_week: int
     margin: float                   # vote share margin it passed by
     effect: dict[str, float]        # weekly indicator nudges while in force
+    enacted_by: set[int] = field(default_factory=set)  # authoring coalition — strikes blame them
+    reviewed: bool = False          # res judicata — challenged at most once, ever
+
+
+@dataclass
+class CourtCase:
+    """A statute under judicial review — sits pending, then a verdict lands."""
+    law: Law                        # by identity — the registry drops laws other ways too
+    due_week: int
+    challenger: int                 # party id of the filer
 
 
 @dataclass
@@ -182,6 +192,8 @@ class GameState:
     laws: list[Law] = field(default_factory=list)  # registry of laws in force
     treasury: Treasury = field(default_factory=Treasury)
     graves: list[Grave] = field(default_factory=list)  # dissolved parties, revivable
+    docket: list[CourtCase] = field(default_factory=list)  # statutes pending review
+    court_activism: float = 0.5     # 0 deferential .. 1 activist — the bench's character
     press_subject: int | None = None  # party id of last week's lead story
     press_weeks: int = 0              # consecutive weeks that subject has led
     government: Government = field(default_factory=Government)
