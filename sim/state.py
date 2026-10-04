@@ -161,6 +161,7 @@ class Government:
     minority: bool = False
     weeks_in_office: int = 0
     collapses: int = 0              # confidence losses since the last election
+    blocked: set[int] = field(default_factory=set)  # parties barred from re-forming this house
 
 
 @dataclass

@@ -7,7 +7,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 import sim.params as p
 from sim.actions import Action, available_actions
 from sim.election import poll
-from sim.government import confidence_vote, strategic_call
+from sim.government import confidence_vote, form_government, strategic_call
 from sim.tick import tick
 from sim.worldgen import new_game
 
@@ -47,15 +47,20 @@ def main() -> None:
     s = _three_party(3, (-0.9, -0.9))
     survived = confidence_vote(s)
     calls = [e for e in s.log if e.type == "ElectionCalled"]
-    assert not survived and s.phase == "campaign"
+    assert not survived and s.weeks_to_election == p.CAMPAIGN_WEEKS
     assert calls and calls[-1].data.get("snap") and calls[-1].data["reason"] == "confidence"
 
-    # constructive re-formation: C+B reach a majority without A → no dissolution
+    # constructive re-formation: C+B reach a majority without A → no dissolution,
+    # and the fallen largest is barred from the successor government
     s2 = _three_party(4, (-0.3, -0.3))
+    fallen = sorted(s2.parties)[0]   # A — the fallen government's largest party
     survived2 = confidence_vote(s2)
     calls2 = [e for e in s2.log if e.type == "ElectionCalled"]
     assert not survived2 and s2.phase == "formation" and not calls2, \
         "a viable alternative should re-form in place, not dissolve"
+    form_government(s2)
+    assert fallen not in s2.government.parties, \
+        "the fallen largest walked straight back into government"
 
     # deadlock: viable alternative exists but collapses hit the cap → dissolve
     s3 = _three_party(5, (-0.3, -0.3))
@@ -78,6 +83,7 @@ def main() -> None:
     s4.government.parties = {s4_pid}
     s4.government.pm = next(iter(s4.parties[s4_pid].members))
     s4.government.weeks_in_office = sum(p.SNAP_WINDOW) // 2
+    s4.phase = "governing"  # strategic calls only exist inside a term
     n_calls = sum(1 for e in s4.log if e.type == "ElectionCalled")  # starts in campaign
     for _ in range(200):
         strategic_call(s4)
