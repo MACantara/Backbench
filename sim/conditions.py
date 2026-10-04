@@ -96,7 +96,8 @@ def conditions_lifecycle(state: GameState) -> None:
             v += dv * (hi - v) if dv > 0 else dv * (v - lo)
             setattr(c, ind, float(np.clip(v, lo, hi)))
     # ministers push their own dial — continuous pressure, bound-scaled like laws
-    for mp in _ministers(state):
+    ministers = _ministers(state)
+    for mp in ministers:
         ind = p.PORTFOLIO_INDICATOR.get(mp.portfolio)
         if ind is None:
             continue
@@ -115,7 +116,7 @@ def conditions_lifecycle(state: GameState) -> None:
                    variant=variant, indicator=ind, delta=direction * mag,
                    good=variant == "Boom", big=mag >= p.SHOCK_INTERRUPT)
     # the record: what their indicator did on their watch, decayed — recency rules
-    for mp in _ministers(state):
+    for mp in ministers:
         ind = p.PORTFOLIO_INDICATOR.get(mp.portfolio)
         if ind is not None:
             mp.perf = mp.perf * p.PERF_DECAY + _GOOD_DIR[ind] * (getattr(c, ind) - before[ind])

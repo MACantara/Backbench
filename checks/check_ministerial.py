@@ -39,11 +39,15 @@ def main() -> None:
     assert hi.perf > lo.perf and hi.portfolio_weeks == 60, \
         "performance record didn't accumulate tenure"
 
-    # performance sacking: a bad record past tenure is fired and refilled same-week
+    # performance sacking: a bad record past tenure is fired and refilled same-week.
+    # `bad` is maxed so they're the argmax — the refill must NOT re-hire them.
     s2 = new_game(7)
     pid2 = next(iter(s2.parties))
     s2.government.parties = {pid2}
-    bad = next(m for m in s2.mps.values() if m.party == pid2 and m != s2.government.pm)
+    s2.government.pm = sorted(s2.parties[pid2].members)[0]
+    pm_brand0 = s2.parties[pid2].brand
+    bad = next(m for m in s2.mps.values() if m.party == pid2 and m.id != s2.government.pm)
+    bad.competence, bad.loyalty, bad.seniority = 1.0, 1.0, 10**6
     bad.portfolio, bad.perf, bad.portfolio_weeks = "Interior", p.MINISTER_SACK_RECORD - 0.01, p.MINISTER_TENURE
     ministerial_lifecycle(s2)
     sack = [e for e in s2.log if e.type == "MinisterSacked"]
@@ -51,25 +55,30 @@ def main() -> None:
     holder = [m for m in s2.mps.values() if m.portfolio == "Interior"]
     assert sack and sack[-1].data["reason"] == "performance" and sack[-1].data["mp"] == bad.id
     assert bad.portfolio is None, "a sacked minister kept the portfolio"
-    assert holder and holder[0] is not bad, "vacated ministry not refilled by someone else"
+    assert holder and holder[0] is not bad, "the reshuffle re-hired the sacked minister"
     assert holder[0].perf == 0.0 and holder[0].portfolio_weeks == 0, \
         "the replacement inherited the predecessor's record"
     assert refill, "reshuffle appointment didn't carry reason='reshuffle'"
+    assert s2.parties[pid2].brand < pm_brand0, "the PM's party didn't bleed for the bad pick"
 
-    # a minister below the record keeps the job; tenure gate protects new appointees
-    ok_mp = next(m for m in s2.mps.values() if m.party == pid2 and m != s2.government.pm
+    # a minister below the record keeps the job
+    ok_mp = next(m for m in s2.mps.values() if m.party == pid2 and m.id != s2.government.pm
                  and m.portfolio is None)
     ok_mp.portfolio, ok_mp.perf, ok_mp.portfolio_weeks = "Health", 0.0, p.MINISTER_TENURE + 50
     ministerial_lifecycle(s2)
     assert ok_mp.portfolio == "Health", "a clean record was sacked"
 
-    # defector sweep: a portfolio belongs to a government, not the person
-    bad2 = next(m for m in s2.mps.values() if m.party == pid2 and m != s2.government.pm
+    # defector sweep: a portfolio belongs to a government, not the person —
+    # and the chair the defector vacated is refilled the same week
+    bad2 = next(m for m in s2.mps.values() if m.party == pid2 and m.id != s2.government.pm
                 and m.portfolio is None)
     bad2.portfolio = "Labour"
-    bad2.party = max(s2.parties)  # an opposition party takes the defector
+    bad2.party = next(pid for pid in s2.parties if pid != pid2)
     ministerial_lifecycle(s2)
     assert bad2.portfolio is None, "a defector kept a government portfolio"
+    labour = [m for m in s2.mps.values() if m.portfolio == "Labour"]
+    assert labour and labour[0] is not bad2 and labour[0].party == pid2, \
+        "the defected ministry wasn't refilled from the coalition"
 
     # long run: performance sackings actually occur, scandal sacks stay distinct
     perf_sacks = scandal_sacks = reshuffles = 0
@@ -89,8 +98,16 @@ def main() -> None:
                 reshuffles += e.data.get("reason") == "reshuffle"
     assert perf_sacks > 0, "no performance sacking fired in four seeds"
     assert reshuffles >= perf_sacks, "a sack didn't produce a same-week refill"
+
+    # determinism: identical seeds produce identical weeks
+    a, b = new_game(11), new_game(11)
+    for _ in range(80):
+        tick(a, _policy(a))
+        tick(b, _policy(b))
+    sig = lambda s: [(e.type, e.text) for e in s.log]
+    assert sig(a) == sig(b), "same seed diverged"
     print(f"ministerial ok: competence diverges, sacks={perf_sacks} refills={reshuffles} "
-          f"scandal_sacks={scandal_sacks}")
+          f"scandal_sacks={scandal_sacks}, deterministic")
 
 
 if __name__ == "__main__":

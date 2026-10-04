@@ -164,6 +164,7 @@ class Government:
     weeks_in_office: int = 0
     collapses: int = 0              # confidence losses since the last election
     blocked: set[int] = field(default_factory=set)  # parties barred from re-forming this house
+    sacked: set[int] = field(default_factory=set)   # MPs unappointable until the next election
 
 
 @dataclass

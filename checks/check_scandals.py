@@ -78,10 +78,11 @@ def main() -> None:
         if minister.id not in s.mps or minister.scandal_weeks:
             break
     assert minister.scandal_weeks > 0, "minister's dossier never broke"
-    sacked = any(e.type == "MinisterSacked" and e.data.get("mp") == minister.id
-                 for e in s.log)
-    assert sacked and minister.portfolio is None, \
-        "ministerial scandal left the minister in post"
+    sacked = [e for e in s.log
+              if e.type == "MinisterSacked" and e.data.get("mp") == minister.id]
+    assert sacked and sacked[-1].data.get("reason") == "scandal", \
+        "ministerial scandal sack missing reason='scandal'"
+    assert minister.portfolio is None, "ministerial scandal left the minister in post"
 
     # resolution: burning ends in resignation (vacancy) or weathering (scar)
     s = new_game(6)

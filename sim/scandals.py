@@ -48,7 +48,8 @@ def scandal_lifecycle(state: GameState) -> None:
         if mp.portfolio is not None and mp.dossier > p.SACK_THRESHOLD * p.MINISTER_SACK_FRAC:
             state.emit("MinisterSacked", f"{mp.name} is sacked as {mp.portfolio}.",
                        mp=mp.id, party=mp.party, portfolio=mp.portfolio, reason="scandal")
-            mp.portfolio = None
+            mp.portfolio, mp.portfolio_weeks = None, 0
+            state.government.sacked.add(mp.id)   # a reshuffle can't re-hire disgrace
 
     # burning: brand bleeds, the district turns, careers end or survive
     bleed: dict[int, float] = {}

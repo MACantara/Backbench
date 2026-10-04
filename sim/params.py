@@ -59,7 +59,8 @@ PORTFOLIO_EFFECT = 0.004       # weekly indicator push at competence 1.0
 PERF_DECAY = 0.98              # weekly decay on a minister's record — recency rules
 MINISTER_TENURE = 16           # weeks before a record is judged
 MINISTER_SACK_RECORD = -0.06   # accumulated indicator loss that gets you fired
-MINISTER_SACK_BRAND = 0.03     # brand hit when the PM admits a bad pick
+MINISTER_SACK_BRAND = 0.03     # brand hit the PM's party takes for a bad pick
+SENIORITY_CAP_WEEKS = 1040     # seniority score saturates ~20y in office
 
 # --- voting in parliament ---
 W_POLICY = 0.7     # weight on policy distance (higher = more ideological voting)

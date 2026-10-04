@@ -59,10 +59,10 @@ def tick(state: GameState, actions: list | None = None) -> list[Event]:
 
     if state.phase != "over":
         mp_lifecycle(state)
-        ministerial_lifecycle(state)
         party_lifecycle(state)
         leadership_challenge(state)
         scandal_lifecycle(state)   # last: dirt settles after the week's politics
+        ministerial_lifecycle(state)  # reshuffles sweep up every kind of vacancy
         conditions_lifecycle(state)  # the country drifts before the press reads it
         treasury_lifecycle(state)    # the books settle on this week's conditions
         media_lifecycle(state, base)  # the press reads the whole week back
