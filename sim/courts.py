@@ -13,8 +13,33 @@ def legal_risk(law: Law) -> float:
             + p.RISK_MARGIN_W * (1 - law.margin))
 
 
+def _verdict(state: GameState, case: CourtCase) -> None:
+    """A rule, not a roll: the bench's per-seed character decides the line."""
+    if not any(l is case.law for l in state.laws):
+        return  # moot — the law left the registry another way
+    risk = legal_risk(case.law)
+    case.law.reviewed = True
+    line = p.COURT_STRIKE_BASE - p.COURT_ACTIVISM_W * (state.court_activism - 0.5)
+    if risk >= line:
+        state.laws = [l for l in state.laws if l is not case.law]
+        authors = [state.parties[i].name for i in sorted(case.law.enacted_by) if i in state.parties]
+        for pid in case.law.enacted_by:
+            if pid in state.parties:
+                state.parties[pid].brand -= p.COURT_BRAND_HIT
+        by = f" — a blow to {'/'.join(authors)}" if authors else ""
+        state.emit("LawStruck", f"The court strikes down the {case.law.name}{by}.",
+                   law=case.law.name, risk=risk, parties=sorted(case.law.enacted_by))
+    else:
+        state.emit("LawUpheld", f"The court upholds the {case.law.name}.",
+                   law=case.law.name, risk=risk, parties=sorted(case.law.enacted_by))
+
+
 def courts_lifecycle(state: GameState) -> None:
-    """Weekly: the most hostile loser drags the riskiest statute into the docket."""
+    """Weekly: due verdicts land, then the most hostile loser files the next case."""
+    for case in list(state.docket):
+        if case.due_week <= state.week:
+            state.docket.remove(case)
+            _verdict(state, case)
     # the venue for losers: hostile opposition drags the riskiest statute in
     if len(state.docket) >= p.COURT_DOCKET_MAX:
         return

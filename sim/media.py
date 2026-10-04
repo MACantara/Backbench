@@ -25,6 +25,8 @@ _NEWS = {
     "VoteResult":       (1.0,  0, False),  # sign resolved from passed
     "Shock":            (2.5,  0, False),  # sign resolved from good
     "LawEnacted":       (1.0, +1, False),
+    "LawStruck":        (2.5, -1, False),  # the bench smacks the authors
+    "LawUpheld":        (1.0, +1, False),
     "DebtCrisis":       (3.0, -1, False),
 }
 
@@ -33,6 +35,9 @@ def _subjects(state: GameState, e) -> list[int]:
     """The parties a story is about. Explicit `party=` (stamped at emit time so
     post-removal resolution still works), else the named MP's party, else every
     government party — coalition coverage shouldn't land on one member."""
+    pids = e.data.get("parties")   # plural first — a story can name a coalition
+    if pids is not None:
+        return [i for i in pids if i in state.parties]
     pid = e.data.get("party")
     if pid is not None:
         return [pid] if pid in state.parties else []
