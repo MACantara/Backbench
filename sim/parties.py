@@ -112,6 +112,7 @@ def party_lifecycle(state: GameState) -> None:
                 continue  # a born-memberless entrant gets until after its first election
             state.graves.append(Grave(name=pt.name, platform=pt.platform, died=state.week))
             state.emit("PartyDissolved", f"{pt.name} dissolves.", party=pid)
+            state.government.parties.discard(pid)
             del state.parties[pid]
         elif pt.leader not in pt.members:
             pt.leader = max(pt.members, key=lambda m: state.mps[m].ambition)
