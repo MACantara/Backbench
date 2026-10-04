@@ -8,6 +8,7 @@ from .actions import apply_action, evaluate_promises
 from .career import (assign_portfolios, leadership_challenge,
                      mp_lifecycle, update_score)
 from .conditions import conditions_lifecycle
+from .dynamism import niche_entry
 from .election import poll, resolve_election
 from .government import confidence_vote, form_government
 from .media import media_lifecycle
@@ -55,6 +56,7 @@ def tick(state: GameState, actions: list | None = None) -> list[Event]:
             state.emit("ElectionCalled", "Term ends — election called.")
             state.phase = "campaign"
             state.weeks_to_election = 8
+            niche_entry(state)  # entrants declare as the campaign opens
 
     if state.phase != "over":
         mp_lifecycle(state)

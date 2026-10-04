@@ -78,6 +78,13 @@ SECESSION_DIST = 0.3             # centroid-platform distance feeding estrangeme
 SECESSION_WEEKS = 6              # consecutive estranged weeks before the wing walks
 FACTION_LEADER_BONUS = 0.2       # leadership-challenge edge for faction leaders
 
+# --- party dynamism ---
+DYNAMIC_GAP_DIST = 0.55          # district centroid this far from every platform is unserved
+DYNAMIC_GAP_MIN_SEATS = 6        # contiguous unserved districts needed to support a party
+DYNAMIC_ENTRIES_PER_ELECTION = 2 # cap on niche entries/revivals per campaign
+DYNAMIC_GRACE_WEEKS = 12         # memberless entrants survive until after their first election
+GRAVE_WEEKS = 520                # a dissolved party stays revivable for ~10 terms
+
 # --- player / career ---
 ACTIONS_PER_WEEK = 2
 LEADERSHIP_COHESION_MIN = 0.45   # leader challengeable below this cohesion

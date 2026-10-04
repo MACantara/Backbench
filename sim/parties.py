@@ -33,7 +33,8 @@ def _found(state: GameState, founder, followers: list[int]) -> int:
         name = party_name_for(tuple(bloc), state.rng, taken)
     else:
         name = f"{state.mps[founder].name.split()[-1]} List"  # a lone founder's vehicle
-    pt = Party(id=pid, name=name, platform=state.mps[founder].pos, leader=founder)
+    pt = Party(id=pid, name=name, platform=state.mps[founder].pos, leader=founder,
+               founded_week=state.week)
     for mid in [founder, *followers]:
         old = state.mps[mid].party
         if old is not None and old in state.parties:
@@ -43,7 +44,8 @@ def _found(state: GameState, founder, followers: list[int]) -> int:
         pt.members.add(mid)
     state.parties[pid] = pt
     state.emit("PartyFormed", f"{name} founded by {state.mps[founder].name} ({len(pt.members)} MPs).",
-               party=pid, founder=founder, size=len(pt.members))
+               party=pid, founder=founder, size=len(pt.members),
+               kind="secession" if followers else "founder")
     return pid
 
 
@@ -101,10 +103,14 @@ def party_lifecycle(state: GameState) -> None:
                            f"Your wing {f.name} secedes — you stay with {pt.name}.", party=pt.id)
             break  # one bloc walks per week
 
-    # leaders who lost their seat get replaced; empty parties die
+    # leaders who lost their seat get replaced; empty parties die (and are buried)
+    state.graves = [g for g in state.graves if state.week - g["died"] < p.GRAVE_WEEKS]
     for pid, pt in list(state.parties.items()):
         pt.members &= set(state.mps)
         if not pt.members:
+            if pt.leader is None and state.week - pt.founded_week <= p.DYNAMIC_GRACE_WEEKS:
+                continue  # a born-memberless entrant gets until after its first election
+            state.graves.append({"name": pt.name, "platform": pt.platform, "died": state.week})
             state.emit("PartyDissolved", f"{pt.name} dissolves.", party=pid)
             del state.parties[pid]
         elif pt.leader not in pt.members:

@@ -81,6 +81,7 @@ class Party:
     leader: int | None = None
     cohesion: float = 1.0           # derived: mean member-platform alignment
     schism_cooldown: int = 0
+    founded_week: int = 0           # for the memberless-entrant grace window
     factions: list[Faction] = field(default_factory=list)
 
     def __post_init__(self) -> None:
@@ -166,6 +167,7 @@ class GameState:
     conditions: Conditions = field(default_factory=Conditions)
     laws: list[Law] = field(default_factory=list)  # registry of laws in force
     treasury: Treasury = field(default_factory=Treasury)
+    graves: list[dict] = field(default_factory=list)  # dissolved parties, revivable
     press_subject: int | None = None  # party id of last week's lead story
     press_weeks: int = 0              # consecutive weeks that subject has led
     government: Government = field(default_factory=Government)
