@@ -86,6 +86,20 @@ def call_election(state: GameState, snap: bool, reason: str) -> None:
     niche_entry(state)
 
 
+def strategic_call(state: GameState) -> None:
+    """A riding-high PM gambles on an early election — scheduling power."""
+    gov = state.government
+    if not gov.parties or not (p.SNAP_WINDOW[0] <= gov.weeks_in_office <= p.SNAP_WINDOW[1]):
+        return
+    # early calls convert a poll surplus into seats — no surplus, no gamble
+    seat_share = sum(len(state.parties[i].members) for i in gov.parties) / max(len(state.mps), 1)
+    poll_share = sum(poll(state).get(pid, 0.0) for pid in gov.parties)
+    if poll_share < seat_share + p.SNAP_POLL_EDGE:
+        return
+    if state.rng.random() < p.SNAP_CALL_P:
+        call_election(state, snap=True, reason="strategic")
+
+
 def confidence_vote(state: GameState) -> bool:
     """A confidence vote is a bill at the government's mean platform.
     On failure the house replaces the government if it can — else it dissolves."""

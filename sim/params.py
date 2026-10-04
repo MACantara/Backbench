@@ -65,6 +65,9 @@ GOVERNING_WEEKS_PER_TERM = 40    # term length before election is due
 
 # --- snap elections ---
 SNAP_COLLAPSE_MAX = 2            # collapses since last election that force dissolution
+SNAP_WINDOW = (20, 32)           # weeks_in_office range where a strategic call is allowed
+SNAP_POLL_EDGE = 0.08            # gov poll share must beat its seat share by this much
+SNAP_CALL_P = 0.10               # per-week chance while the window + poll gate hold
 
 # --- parties ---
 PARTY_COHESION_SPLIT = 0.35      # below this + spread trigger → schism possible
