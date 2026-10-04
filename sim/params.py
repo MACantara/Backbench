@@ -62,6 +62,7 @@ CONFIDENCE_THRESHOLD = 0.5       # fraction of parliament needed
 MINORITY_GOVT_PENALTY = 0.15     # utility discount on bills under minority government
 BUDGET_EVERY_WEEKS = 12          # budget votes double as confidence votes
 GOVERNING_WEEKS_PER_TERM = 40    # term length before election is due
+CAMPAIGN_WEEKS = 8               # weeks between an election call and the vote
 
 # --- snap elections ---
 SNAP_COLLAPSE_MAX = 2            # collapses since last election that force dissolution
