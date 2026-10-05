@@ -25,7 +25,8 @@ SALIENCE_SD = 0.30
 # --- election ---
 VOTE_NOISE_SD = 0.20         # per-voter scoring noise
 LOYALTY_WEIGHT = 0.60        # bonus to last-voted party
-TURNOUT_MODEL_NOISE = 0.05   # extra turnout jitter at election time
+TURNOUT_MODEL_NOISE = 0.05
+INDEPENDENT_P = 0.15   # per-district chance a party-less local stands   # extra turnout jitter at election time
 
 # --- MPs ---
 MP_POS_JITTER = 0.12         # distance of an MP from their party/district anchor

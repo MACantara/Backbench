@@ -9,6 +9,8 @@ from .conditions import mood, responsibility
 from .state import GameState, Hopeful, MP
 from .naming import mp_name
 
+INDEPENDENT = -1  # sentinel pid in the district tally — keeps last_party int-typed
+
 
 def _candidate(state: GameState, district: int, party_id: int,
                incumbent: MP | None) -> tuple[tuple[float, float], Hopeful | None]:
@@ -30,6 +32,11 @@ def _district_scores(state: GameState, mask: np.ndarray, cand_pos: dict, incumbe
     parties = sorted(cand_pos)
     score = np.empty((dpos.shape[0], len(parties)))
     for j, pid in enumerate(parties):
+        if pid == INDEPENDENT:
+            # no label, no brand, no loyalty — voters score the person directly
+            d = dpos - np.asarray(cand_pos[pid])
+            score[:, j] = -np.sqrt((d * d * dsal).sum(axis=1))
+            continue
         pt = state.parties[pid]
         # the candidate is a person; the label is a media-constructed caricature
         eff = ((1 - p.PUB_POS_MIX) * np.asarray(cand_pos[pid])
@@ -61,6 +68,11 @@ def resolve_election(state: GameState) -> None:
         cand, cand_h = {}, {}
         for pid in state.parties:
             cand[pid], cand_h[pid] = _candidate(state, d, pid, inc)
+        inc_indep = inc is not None and inc.party is None
+        if inc_indep or state.rng.random() < p.INDEPENDENT_P:
+            centroid = v.pos[v.district == d].mean(axis=0)
+            cand[INDEPENDENT] = (inc.pos if inc_indep else tuple(float(np.clip(
+                c + state.rng.gauss(0, p.MP_POS_JITTER), -1, 1)) for c in centroid))
         mask = (v.district == d) & turnout_hit
         if not mask.any():  # nobody voted — incumbent survives, else district's nearest party
             if inc is not None:
@@ -81,7 +93,9 @@ def resolve_election(state: GameState) -> None:
             v.last_party[mask] = np.asarray(parties)[picks]
         seat_counts[winner] = seat_counts.get(winner, 0) + 1
 
-        if inc is not None and inc.party == winner:
+        retained = inc is not None and (
+            inc.party == winner or (inc.party is None and winner == INDEPENDENT))
+        if retained:
             inc.seat_safety = margin
             new_mps[inc.id] = inc
         else:
@@ -101,10 +115,15 @@ def resolve_election(state: GameState) -> None:
                 stat = lambda: min(1, max(0, state.rng.gauss(0.5, p.MP_STAT_SD)))
                 mp = MP(id=next_id, name=mp_name(state.rng),
                         pos=cand[winner], ambition=stat(), loyalty=stat(),
-                        competence=stat(), integrity=stat(), district=d, party=winner,
+                        competence=stat(), integrity=stat(), district=d,
+                        party=None if winner == INDEPENDENT else winner,
                         seat_safety=margin, age=state.rng.randint(1400, 2600))
-            state.parties[winner].members.add(next_id)
-            state.parties[winner].seated = True
+                if winner == INDEPENDENT:
+                    state.emit("Newcomer", f"{mp.name}, {mp.age // 52}, wins district {d} "
+                                           "as an independent.", mp=next_id, district=d)
+            if winner != INDEPENDENT:
+                state.parties[winner].members.add(next_id)
+                state.parties[winner].seated = True
             new_mps[next_id] = mp
             next_id += 1
 
@@ -119,7 +138,8 @@ def resolve_election(state: GameState) -> None:
     for pt in state.parties.values():  # leaders who lost their seat leave a dead reference
         if pt.leader not in state.mps:
             pt.leader = max(pt.members, key=lambda m: state.mps[m].ambition) if pt.members else None
-    state.emit("ElectionResult", "Election resolved.", seats=seat_counts)
+    state.emit("ElectionResult", "Election resolved.",
+               seats={"ind" if k == INDEPENDENT else k: n for k, n in seat_counts.items()})
 
 
 def poll(state: GameState) -> dict[int, float]:
