@@ -11,10 +11,11 @@ from .state import GameState, dist
 
 @dataclass
 class Action:
-    kind: str                    # campaign, constituency, speech, promise, media, dig_dirt, lobby, scheme, platform
+    kind: str                    # campaign, constituency, speech, promise, media, dig_dirt, lobby, scheme, platform, vote
     target: int | None = None    # MP id for lobby/dig_dirt
     axis: int | None = None      # 0/1 for speech/promise
     pos: tuple[float, float] | None = None  # for promise
+    vote: int | None = None      # +1/-1/0 on the pending division
 
 
 def available_actions(state: GameState) -> list[str]:
@@ -24,6 +25,8 @@ def available_actions(state: GameState) -> list[str]:
         base += ["campaign", "speech", "promise"]
     else:
         base += ["constituency", "speech"]
+        if state.current_bill is not None:
+            base.append("vote")          # a pending division is a decision
     player = state.mps.get(state.player_id)
     if player and player.party is not None and state.parties.get(player.party) and state.parties[player.party].leader == player.id:
         base.append("platform")

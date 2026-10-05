@@ -101,7 +101,8 @@ def table_bill(state: GameState) -> Bill:
     state.current_bill = bill
     verb = "is forced to table" if bill.austerity else "tables"
     state.emit("BillTabled", f"Government {verb} the {bill.name} — "
-                             f"{describe_pos(bill.pos)} (cost {bill.cost:+.3f}/wk).",
+                             f"{describe_pos(bill.pos)} (cost {bill.cost:+.3f}/wk) "
+                             "— division next week.",
                pos=bill.pos, beneficiary_axis=bill.beneficiary_axis, cost=bill.cost,
                bill=bill.name, austerity=bill.austerity)
     return bill
@@ -143,11 +144,13 @@ def resolve_vote(state: GameState, bill: Bill, player_vote: int | None = None) -
         for i in gov_parties:
             state.parties[i].brand += p.BILL_PASS_BRAND
         state.legacy_bills += state.player_id == state.government.pm
-        state.emit("VoteResult", f"Bill passes {yes}-{no}.", passed=True, yes=yes, no=no, detail=detail)
+        state.emit("VoteResult", f"Bill passes {yes}-{no}.", passed=True, yes=yes,
+                   no=no, detail=detail, player=player_vote)
         if not bill.confidence:  # survival votes aren't legislation
             enact(state, bill, yes, no)
     else:
         for i in gov_parties:
             state.parties[i].brand -= p.BILL_FAIL_BRAND
-        state.emit("VoteResult", f"Bill fails {yes}-{no}.", passed=False, yes=yes, no=no, detail=detail)
+        state.emit("VoteResult", f"Bill fails {yes}-{no}.", passed=False, yes=yes,
+                   no=no, detail=detail, player=player_vote)
     return passed

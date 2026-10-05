@@ -49,8 +49,13 @@ def tick(state: GameState, actions: list | None = None) -> list[Event]:
 
     elif state.phase == "governing":
         state.government.weeks_in_office += 1
-        bill = table_bill(state)
-        resolve_vote(state, bill)
+        # the pending division resolves first — the player saw it all week;
+        # then the government tables next week's business
+        pv = next((a.vote for a in (actions or [])
+                   if a.kind == "vote" and a.vote is not None), None)
+        if state.current_bill is not None:
+            resolve_vote(state, state.current_bill, player_vote=pv)
+        table_bill(state)
         if state.week % p.BUDGET_EVERY_WEEKS == 0:
             confidence_vote(state)
         if state.phase == "governing":

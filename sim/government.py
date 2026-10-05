@@ -90,6 +90,7 @@ def call_election(state: GameState, snap: bool, reason: str,
         party = state.mps[state.government.pm].party
     state.emit("ElectionCalled", _ELECTION_TEXT[reason],
                snap=snap, reason=reason, party=party)
+    state.current_bill = None   # the pending division dies with the parliament
     state.phase = "campaign"
     state.weeks_to_election = p.CAMPAIGN_WEEKS
     niche_entry(state)
