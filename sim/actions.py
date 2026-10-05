@@ -12,7 +12,8 @@ from .state import GameState, dist
 @dataclass
 class Action:
     kind: str                    # campaign, constituency, speech, promise, media, dig_dirt,
-                                 # lobby, scheme, platform, vote, deal, pick_offer, decline_offers
+                                 # lobby, scheme, platform, vote, deal, pick_offer,
+                                 # decline_offers, budget
     target: int | None = None    # MP id for lobby/dig_dirt
     axis: int | None = None      # 0/1 for speech/promise
     pos: tuple[float, float] | None = None  # for promise
@@ -34,6 +35,8 @@ def available_actions(state: GameState) -> list[str]:
     player = state.mps.get(state.player_id)
     if player and player.party is not None and state.parties.get(player.party) and state.parties[player.party].leader == player.id:
         base.append("platform")
+    if state.phase == "governing" and state.government.pm == state.player_id:
+        base.append("budget")        # the PM writes the fiscal posture
     return base
 
 
@@ -125,6 +128,14 @@ def apply_action(state: GameState, action: Action) -> None:
         col = {1: "aye", -1: "no", 0: "abstention"}[v]
         state.emit("DealMade", f"You promise {t.name} your {col} on the "
                                f"{state.current_bill.name}.", mp=t.id, vote=v)
+
+    elif action.kind == "budget" and state.government.pm == player.id \
+            and action.axis in p.BUDGET_STANCES:
+        # the PM signals the next budget's posture — austerity, balance, stimulus
+        state.government.budget_stance = action.axis
+        state.emit("CareerEvent",
+                   f"You signal a {['austerity', 'balanced', 'stimulus'][action.axis]} budget.",
+                   action="budget", stance=action.axis)
 
     elif action.kind == "platform":
         # leaders pull the party platform toward their own position

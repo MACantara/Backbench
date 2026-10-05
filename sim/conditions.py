@@ -126,6 +126,10 @@ def conditions_lifecycle(state: GameState) -> None:
             state.emit("LawLapsed", f"The {law.name} lapses — "
                                     "the statute book quietly prunes itself.",
                        law=law.name)
+    # the standing budget's spend posture leaks into services — austerity starves
+    c.services = float(np.clip(
+        c.services + p.SPEND_SERVICES_W * (state.treasury.posture[1] - 1.0),
+        *_BOUNDS["services"]))
     # ministers push their own dial — continuous pressure, bound-scaled like laws
     ministers = _ministers(state)
     for mp in ministers:

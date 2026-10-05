@@ -10,7 +10,7 @@ from .career import (assign_portfolios, junior_lifecycle, leadership_challenge,
 from .conditions import conditions_lifecycle
 from .courts import courts_lifecycle
 from .election import poll, resolve_election
-from .government import (call_election, confidence_vote, resolve_formation,
+from .government import (call_election, collapse, resolve_formation,
                          strategic_call)
 from .media import media_lifecycle
 from .parliament import resolve_vote, table_bill
@@ -55,11 +55,17 @@ def tick(state: GameState, actions: list | None = None) -> list[Event]:
         pv = next((a.vote for a in (actions or [])
                    if a.kind == "vote" and a.vote is not None), None)
         if state.current_bill is not None:
-            resolve_vote(state, state.current_bill, player_vote=pv)
-        if state.current_bill is None:   # a stalled division carries — no new bill
+            bill = state.current_bill
+            res = resolve_vote(state, bill, player_vote=pv)
+            if res is False and bill.confidence:
+                # a lost confidence/supply division falls the government —
+                # a stall (None) carries the bill, not the cabinet
+                collapse(state, "supply" if bill.budget else "confidence")
+        # a stalled division carries — no new bill; a fallen government
+        # tables nothing (collapse drops current_bill and the phase together)
+        if state.current_bill is None and state.phase == "governing":
             table_bill(state)
-        if state.week % p.BUDGET_EVERY_WEEKS == 0:
-            confidence_vote(state)
+        # insolvency's forced confidence fires from treasury_lifecycle — immediate
         if state.phase == "governing":
             strategic_call(state)
         if state.phase == "governing" and state.government.weeks_in_office >= p.GOVERNING_WEEKS_PER_TERM:

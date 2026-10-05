@@ -8,14 +8,26 @@ from .state import GameState
 
 
 def revenue(state: GameState) -> float:
-    """Weekly intake — the country pays what it earns."""
+    """Weekly intake — the country pays what it earns, times the tax posture."""
     c = state.conditions
-    return p.REV_BASE + p.REV_GROWTH_W * c.growth - p.REV_UE_W * c.unemployment
+    return (p.REV_BASE + p.REV_GROWTH_W * c.growth - p.REV_UE_W * c.unemployment) \
+        * state.treasury.posture[0]
 
 
 def upkeep(state: GameState) -> float:
-    """Weekly cost of every law still in force."""
-    return sum(law.cost for law in state.laws)
+    """Weekly cost of every law still in force, times the spend posture."""
+    return sum(law.cost for law in state.laws) * state.treasury.posture[1]
+
+
+def budget_posture(state: GameState) -> tuple[float, float]:
+    """The (tax, spend) a government would propose: agenda-ward on the econ
+    axis, tightened by debt pressure whatever the ideology."""
+    from .state import gov_platform
+    x = gov_platform(state)[0]  # + market / - redistribution
+    spend = 1.0 - p.BUDGET_AXIS_W * x - p.BUDGET_DEBT_TIGHT * debt_pressure(state)
+    tax = 1.0 - 0.5 * p.BUDGET_AXIS_W * x
+    clip = lambda v: float(np.clip(v, 0.7, 1.3))
+    return clip(tax), clip(spend)
 
 
 def interest(state: GameState) -> float:

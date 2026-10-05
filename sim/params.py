@@ -108,6 +108,13 @@ RETABLE_CD = 26        # weeks before a failed bill can return
 RETABLE_P = 0.10       # weekly chance the agenda revives a cool-off failure
 QUORUM = 0.5           # fraction of the house that must be present to divide
 BILL_PERSUASION = 0.008  # weekly electorate pull toward gov axis per passed bill
+BUDGET_AXIS_W = 0.15    # agenda econ-axis → posture swing (market cuts, left spends)
+BUDGET_DEBT_TIGHT = 0.10  # debt pressure tightens spend regardless of ideology
+BUDGET_COST_SCALE = 0.08  # a stimulus posture reads as bill cost — fiscal term bites
+SPEND_SERVICES_W = 0.01   # weekly services nudge per unit of over/under-spend
+BUDGET_STANCES = {0: (1.00, 0.85),   # austerity — services starve, the books heal
+                  1: (1.00, 1.00),   # balanced
+                  2: (1.05, 1.15)}   # stimulus — spend now, pay later
 
 # --- government ---
 COALITION_MAX_DIST = 1.0         # partners won't join a coalition beyond this platform distance

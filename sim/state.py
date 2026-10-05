@@ -132,6 +132,9 @@ class Bill:
     confidence: bool = False        # a confidence motion — govt parties whip to survive
     austerity: bool = False         # receivership cuts — forced while insolvent
     repeals: "Law | None" = None    # a repeal bill — enact removes the target
+    budget: bool = False            # a supply bill — carries a fiscal posture
+    tax: float = 1.0                # budget: revenue multiplier if enacted
+    spend: float = 1.0              # budget: upkeep multiplier if enacted
     name: str = ""                  # domain-flavored name; confidence motions stay blank
 
 
@@ -181,6 +184,7 @@ class Conditions:
 class Treasury:
     """The public finances: one stock (debt); flows are derived weekly."""
     debt: float = 0.0               # cumulative deficit; floored at 0
+    posture: tuple[float, float] = (1.0, 1.0)  # (tax, spend) — the standing budget
     last_crisis_week: int = -10**9  # insolvency crises recur on a cooldown
     crises: int = 0                 # DebtCrisis count — insolvency outlives parliaments
 
@@ -202,6 +206,7 @@ class Government:
     collapses: int = 0              # confidence losses since the last election
     blocked: set[int] = field(default_factory=set)  # parties barred from re-forming this house
     sacked: set[int] = field(default_factory=set)   # MPs unappointable until the next election
+    budget_stance: int | None = None  # player-PM's posture pick for the next budget
 
 
 @dataclass

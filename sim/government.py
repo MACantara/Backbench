@@ -211,8 +211,38 @@ def strategic_call(state: GameState) -> None:
         call_election(state, snap=True, reason="strategic")
 
 
+def collapse(state: GameState, cause: str = "confidence") -> None:
+    """The government falls — the house replaces it in place if a different
+    majority exists, else it dissolves. cause: 'confidence' | 'supply'."""
+    pm_party = state.mps[state.government.pm].party \
+        if state.government.pm in state.mps else None
+    text = ("Government loses supply — the budget is dead."
+            if cause == "supply"
+            else "Government loses confidence of the house.")
+    state.emit("ConfidenceLost", text,
+               party=pm_party, parties=sorted(state.government.parties))
+    state.government.collapses += 1
+    fallen_largest = max(state.government.parties,
+                         key=lambda pid: len(state.parties[pid].members), default=None)
+    alt = _best_coalition(state, exclude_parties={fallen_largest})
+    state.government.parties = set()
+    state.government.pm = None
+    state.government.platform = None   # the agreement dies with the government
+    state.current_bill = None          # and its pending business dies too
+    state.deals = []                   # promises made on that business lapse
+    state.government.budget_stance = None  # a fallen PM's signals lapse
+    if state.government.collapses >= p.SNAP_COLLAPSE_MAX:
+        call_election(state, snap=True, reason="deadlock", party=pm_party)
+    elif alt is None:
+        call_election(state, snap=True, reason="confidence", party=pm_party)
+    else:
+        if fallen_largest is not None:
+            state.government.blocked = {fallen_largest}
+        state.phase = "formation"   # a different majority exists — it forms in place
+
+
 def confidence_vote(state: GameState) -> bool:
-    """A confidence vote is a bill at the government's mean platform.
+    """A forced confidence motion — resolves immediately; crises can't wait.
     On failure the house replaces the government if it can — else it dissolves."""
     if not state.government.parties:
         return True  # a caretaker void can't lose a vote it never holds
@@ -220,25 +250,5 @@ def confidence_vote(state: GameState) -> bool:
                                    confidence=True))
     survived = res is not False   # a stalled division isn't a lost one
     if not survived:
-        pm_party = state.mps[state.government.pm].party \
-            if state.government.pm in state.mps else None
-        state.emit("ConfidenceLost", "Government loses confidence of the house.",
-                   party=pm_party, parties=sorted(state.government.parties))
-        state.government.collapses += 1
-        fallen_largest = max(state.government.parties,
-                             key=lambda pid: len(state.parties[pid].members), default=None)
-        alt = _best_coalition(state, exclude_parties={fallen_largest})
-        state.government.parties = set()
-        state.government.pm = None
-        state.government.platform = None   # the agreement dies with the government
-        state.current_bill = None          # and its pending business dies too
-        state.deals = []                   # promises made on that business lapse
-        if state.government.collapses >= p.SNAP_COLLAPSE_MAX:
-            call_election(state, snap=True, reason="deadlock", party=pm_party)
-        elif alt is None:
-            call_election(state, snap=True, reason="confidence", party=pm_party)
-        else:
-            if fallen_largest is not None:
-                state.government.blocked = {fallen_largest}
-            state.phase = "formation"   # a different majority exists — it forms in place
+        collapse(state)
     return survived

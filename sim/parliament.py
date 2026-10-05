@@ -7,7 +7,7 @@ from . import params as p
 from .conditions import enact, mood
 from .naming import austerity_name, bill_name, describe_pos
 from .state import Bill, GameState, MP, dist, gov_platform
-from .treasury import debt_pressure
+from .treasury import budget_posture, debt_pressure
 
 
 def whip_direction(state: GameState, party_id: int, bill: Bill) -> int:
@@ -88,7 +88,19 @@ def table_bill(state: GameState) -> Bill:
     repeal IS the government's program); the law's authors defend it through
     their own policy/district terms."""
     bill = None
-    if state.treasury.debt > p.DEBT_CRISIS:
+    if state.week % p.BUDGET_EVERY_WEEKS == 0:
+        # supply day: the government lays its fiscal posture before the house —
+        # a confidence matter, pending like any bill so the week reads it
+        stance = state.government.budget_stance
+        state.government.budget_stance = None
+        tax, spend = (p.BUDGET_STANCES[stance] if stance is not None
+                      else budget_posture(state))
+        label = "austerity" if spend < 0.97 else "stimulus" if spend > 1.03 else "balanced"
+        bill = Bill(pos=(gov_platform(state)[0], 0.0), beneficiary_axis=0,
+                    cost=p.BUDGET_COST_SCALE * (spend - 1.0),
+                    confidence=True, budget=True, tax=tax, spend=spend,
+                    name=f"Budget {state.week // 52 + 1} ({label})")
+    elif state.treasury.debt > p.DEBT_CRISIS:
         bill = Bill(pos=(p.AUSTERITY_POS, 0.0), beneficiary_axis=0,
                     cost=-p.AUSTERITY_SAVING,
                     name=austerity_name(state.rng), austerity=True)
@@ -230,9 +242,15 @@ def resolve_vote(state: GameState, bill: Bill, player_vote: int | None = None) -
         state.voters.pos[:, ax] += p.BILL_PERSUASION * np.sign(agenda[ax] - state.voters.pos[:, ax])
         for i in gov_parties:
             state.parties[i].brand += p.BILL_PASS_BRAND
-        state.emit("VoteResult", f"Bill passes {yes}-{no} ({abstain} abstain).",
+        state.emit("VoteResult", f"{'Budget' if bill.budget else 'Bill'} passes {yes}-{no} ({abstain} abstain).",
                    passed=True, yes=yes, no=no, abstain=abstain,
                    detail=detail, player=player_vote)
+        if bill.budget:
+            state.treasury.posture = (bill.tax, bill.spend)
+            state.emit("BudgetSet",
+                       f"The {bill.name} sets the fiscal stance — "
+                       f"tax ×{bill.tax:.2f}, spend ×{bill.spend:.2f}.",
+                       bill=bill.name, tax=bill.tax, spend=bill.spend)
         if not bill.confidence:  # survival votes aren't legislation
             law = enact(state, bill, yes, no)
             state.legacy_bills += law is not None and law.author == state.player_id
@@ -245,7 +263,8 @@ def resolve_vote(state: GameState, bill: Bill, player_vote: int | None = None) -
                                  "week": state.week, "axis": bill.beneficiary_axis,
                                  "cost": bill.cost})
             del state.failed[:-20]
-        state.emit("VoteResult", f"Bill fails {yes}-{no} ({abstain} abstain).",
+        state.emit("VoteResult",
+                   f"{'Budget' if bill.budget else 'Bill'} fails {yes}-{no} ({abstain} abstain).",
                    passed=False, yes=yes, no=no, abstain=abstain,
                    detail=detail, player=player_vote)
     return passed
