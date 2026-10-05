@@ -34,16 +34,14 @@ def explain_mp(state: GameState, mp_id: int) -> str:
     rel_txt = ", ".join(f"{state.mps[k].name if k in state.mps else k}:{v:+.2f}" for k, v in rels)
     ladder = ""
     if mp_id == state.player_id and pt is not None and pt.leader is not None:
-        from .career import appointment_terms
-        cands = [c for c in pt.members if c in state.mps
-                 and c != state.government.pm and c not in state.government.sacked]
-        ranked = sorted(cands, key=lambda c: -sum(
+        from .career import appointment_terms, cabinet_cands
+        ranked = sorted(cabinet_cands(state, pt.id), key=lambda c: -sum(
             appointment_terms(state, state.mps[c], pt.leader).values()))
-        terms = appointment_terms(state, m, pt.leader)
-        rank = ranked.index(mp_id) + 1 if mp_id in ranked else len(ranked) + 1
-        ladder = ("\n  cabinet candidacy: rank "
-                  f"{rank}/{len(ranked)} — "
-                  + " ".join(f"{k} {v:+.2f}" for k, v in terms.items()))
+        if mp_id in ranked:   # no line for the ineligible — PM or sacked
+            terms = appointment_terms(state, m, pt.leader)
+            ladder = ("\n  cabinet candidacy: rank "
+                      f"{ranked.index(mp_id) + 1}/{len(ranked)} — "
+                      + " ".join(f"{k} {v:+.2f}" for k, v in terms.items()))
     return (f"{m.name} ({pt.name if pt else 'independent'}{wing}{seen}) — district {m.district}\n"
             f"  pos=({m.pos[0]:+.2f},{m.pos[1]:+.2f}) ambition={m.ambition:.2f} "
             f"loyalty={m.loyalty:.2f} competence={m.competence:.2f} integrity={m.integrity:.2f}\n"

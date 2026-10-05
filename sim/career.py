@@ -22,11 +22,13 @@ def _seat_queue(state: GameState) -> list[int]:
 def appointment_terms(state: GameState, mp: MP, appointer: int | None) -> dict[str, float]:
     """Named candidacy terms — the same score decides cabinet and bench picks.
     record is the fixed merit ceiling; standing/backing/rung are movable."""
+    # backing reads the appointer's view of the candidate — the leader picks
+    backer = state.mps.get(appointer) if appointer is not None else None
+    backing = backer.relationships.get(mp.id, 0.0) if backer is not None else 0.0
     return {
         "record": mp.competence + max(0.0, mp.perf),
         "standing": p.STANDING_W * mp.standing,
-        "backing": p.BACKING_W * max(-1.0, min(1.0,
-                     mp.relationships.get(appointer or -1, 0.0))),  # clipped: lobbying helps, can't buy it
+        "backing": p.BACKING_W * max(-1.0, min(1.0, backing)),  # lobbying helps, can't buy it
         "seniority": p.SENIORITY_W * min(mp.seniority / p.SENIORITY_CAP_WEEKS, 1),
         "rung": p.RUNG_W * min(mp.junior_weeks / p.RUNG_CAP_WEEKS, 1),
     }
@@ -60,11 +62,16 @@ def _passed_over(state: GameState, ranked, post: str) -> None:
                winner_terms=wterms, player_terms=pterms)
 
 
+def cabinet_cands(state: GameState, pid: int) -> list[int]:
+    """Members eligible for a ministry — the inspect rank mirrors this pool."""
+    return [m for m in state.parties[pid].members
+            if m in state.mps and state.mps[m].portfolio is None
+            and m != state.government.pm and m not in state.government.sacked]
+
+
 def _appoint(state: GameState, pid: int, ministry: str, reason: str = "cabinet") -> bool:
     """Best-scoring available MP of a party takes a ministry; the leader picks."""
-    cands = [m for m in state.parties[pid].members
-             if m in state.mps and state.mps[m].portfolio is None
-             and m != state.government.pm and m not in state.government.sacked]
+    cands = cabinet_cands(state, pid)
     if not cands:
         return False
     ranked = _ranked(state, cands, state.parties[pid].leader)
@@ -86,6 +93,9 @@ def junior_lifecycle(state: GameState) -> None:
     for pid, pt in state.parties.items():
         if not pt.seated or pt.leader is None or pt.leader not in pt.members:
             continue
+        leader = state.mps[pt.leader]
+        if leader.junior is not None:  # leadership vacates the bench — any path up
+            leader.junior, leader.junior_weeks = None, 0
         held = {state.mps[m].junior for m in pt.members
                 if m in state.mps and state.mps[m].junior is not None}
         for post in p.JUNIOR_POSTS:
