@@ -109,6 +109,20 @@ def make_constitution(rng: random.Random, centroid) -> list:
     return arts
 
 
+def make_bench(rng: random.Random, np_rng: np.random.Generator,
+               centroid, activism: float) -> list:
+    """The inaugural court: doctrine spread around the seed's character,
+    temperament around the country's center, ages spread wide enough that
+    vacancies open during play."""
+    from .state import Justice
+    return [Justice(id=i, name=mp_name(rng),
+                    pos=tuple(np.clip(np.asarray(centroid)
+                                      + np_rng.normal(0, 0.2, 2), -1, 1)),
+                    activism=float(np.clip(rng.gauss(activism, 0.12), 0, 1)),
+                    age=rng.randint(p.JUDGE_APPOINT_AGE[0], p.RETIRE_AGE - 100))
+            for i in range(p.BENCH_SIZE)]
+
+
 def new_game(seed: int) -> GameState:
     rng = random.Random(seed)
     np_rng = np.random.default_rng(seed)
@@ -153,11 +167,14 @@ def new_game(seed: int) -> GameState:
     med = np.argsort(np.linalg.norm(centroids, axis=1))[n_districts // 2]
     conds = {f: float(np.clip(v + np_rng.normal(0, p.COND_JITTER_SD), -1, 1))
              for f, v in p.COND_BASE.items()}
+    activism = rng.random()   # the seed's judicial character — inaugural bench doctrine
+    centroid = voters.pos.mean(axis=0)
     return GameState(
         rng=rng, week=0, phase="campaign", voters=voters, mps=mps, parties=parties,
         hopefuls=hopefuls, outlets=make_outlets(rng, np_rng, parties),
         conditions=Conditions(**conds),
         player_id=int(med), weeks_to_election=p.CAMPAIGN_WEEKS,
-        court_activism=rng.random(),
-        constitution=make_constitution(rng, voters.pos.mean(axis=0)),
+        court_activism=activism,
+        constitution=make_constitution(rng, centroid),
+        bench=make_bench(rng, np_rng, centroid, activism),
     )

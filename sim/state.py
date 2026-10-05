@@ -184,6 +184,17 @@ class Article:
 
 
 @dataclass
+class Justice:
+    """An appointed judge — outlives the PM who chose them."""
+    id: int
+    name: str
+    pos: Vec                        # judicial temperament in ideology space
+    activism: float                 # 0 deferential .. 1 activist — doctrine
+    age: int                        # weeks
+    appointed_by: int | None = None  # the appointing PM's MP id — the legacy trail
+
+
+@dataclass
 class Conditions:
     """The country's objective state — what retrospective voters judge."""
     growth: float = 0.0             # -1 contraction .. 1 boom
@@ -240,7 +251,9 @@ class GameState:
     graves: list[Grave] = field(default_factory=list)  # dissolved parties, revivable
     docket: list[CourtCase] = field(default_factory=list)  # statutes pending review
     constitution: list[Article] = field(default_factory=list)  # the clauses laws answer to
-    court_activism: float = 0.5     # 0 deferential .. 1 activist — the bench's character
+    bench: list[Justice] = field(default_factory=list)  # the sitting court
+    bench_shortlist: list[Justice] = field(default_factory=list)  # player-PM's pending picks
+    court_activism: float = 0.5     # inaugural-bench doctrine seed at worldgen
     press_subject: int | None = None  # party id of last week's lead story
     press_weeks: int = 0              # consecutive weeks that subject has led
     government: Government = field(default_factory=Government)

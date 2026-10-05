@@ -23,6 +23,7 @@ class Action:
     vote: int | None = None      # +1/-1/0 on the pending division
     offer: int | None = None     # pick_offer: index into state.offers
     law: int | None = None       # challenge: index into state.laws
+    judge: int | None = None     # appoint: index into state.bench_shortlist
 
 
 def available_actions(state: GameState) -> list[str]:
@@ -48,6 +49,8 @@ def available_actions(state: GameState) -> list[str]:
         base.append("platform")
     if state.phase == "governing" and state.government.pm == state.player_id:
         base.append("budget")        # the PM writes the fiscal posture
+        if state.bench_shortlist:
+            base.append("appoint")   # a judicial vacancy waits on your pick
     if player is not None and state.phase in ("governing", "formation"):
         if player.party is not None:
             base.append("defect")    # cross the floor — to a party, or none
@@ -253,6 +256,13 @@ def apply_action(state: GameState, action: Action) -> None:
                    f"{len(followers)} walk out with you.",
                    action="found", party=pid, size=len(followers) + 1)
 
+    elif action.kind == "appoint" and action.judge is not None \
+            and state.government.pm == player.id:
+        from .courts import appoint
+        if not appoint(state, action.judge):
+            state.emit("CareerEvent", "The nomination is off the table.",
+                       action="appoint")
+
     elif action.kind == "challenge" and action.law is not None \
             and 0 <= action.law < len(state.laws):
         # sue the statute book — the same gates the AI filers face
@@ -297,6 +307,7 @@ def _leave_party(state: GameState, player, exclude=()) -> None:
     player.party = None
     if was_pm:
         state.government.budget_stance = None   # your signals leave with you
+        state.bench_shortlist = []              # and your pending nominees lapse
         # you can't lead a coalition you left — the office follows the
         # largest coalition party's leader; nobody legitimate → it falls.
         # Successors must be *staying* members — a pending walker can't

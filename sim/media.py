@@ -27,6 +27,7 @@ _NEWS = {
     "LawEnacted":       (1.0, +1, False),
     "LawStruck":        (2.5, -1, False),  # the bench smacks the authors
     "LawUpheld":        (1.0, +1, False),
+    "JusticeAppointed": (1.0, +1, False),  # a bench seat changes hands
     "LawRepealed":      (2.5, -1, False),  # the authors' record dismantled
     "LawLapsed":        (0.5,  0, False),  # quiet pruning barely registers
     "BudgetSet":        (1.5, +1, False),

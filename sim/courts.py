@@ -1,8 +1,11 @@
 """Judicial review: statutes answer to the constitution — docket, delay, verdict."""
 from __future__ import annotations
 
+import numpy as np
+
 from . import params as p
-from .state import Article, CourtCase, GameState, Law, dist
+from .naming import mp_name
+from .state import Article, CourtCase, GameState, Law, dist, gov_platform
 
 _KIND_W = {"pos": p.RISK_EXTREMITY_W, "cost": p.RISK_COST_W,
            "margin": p.RISK_MARGIN_W}
@@ -66,15 +69,23 @@ def challengeable(state: GameState) -> list[Law]:
 
 
 def _verdict(state: GameState, case: CourtCase) -> None:
-    """A rule, not a roll: the bench's per-seed character decides the line."""
+    """A rule, not a roll: each justice votes from doctrine plus ideology,
+    and the bench's majority decides — the court is people, not a scalar."""
     if not any(l is case.law for l in state.laws):
         return  # moot — the law left the registry another way
     risk = case.risk              # the statute as challenged, not as decayed since
     case.law.reviewed = True
     clause = worst_breach(state, case.law)
     plead = clause.name if clause else "general review"
-    line = p.COURT_STRIKE_BASE - p.COURT_ACTIVISM_W * (state.court_activism - 0.5)
-    if risk >= line:
+    votes = []
+    for j in state.bench:
+        line = p.COURT_STRIKE_BASE - p.COURT_ACTIVISM_W * (j.activism - 0.5)
+        u = risk - line + p.BENCH_DIST_W * dist(j.pos, case.law.pos)
+        votes.append({"justice": j.id, "name": j.name, "strike": u > 0,
+                      "u": round(u, 3)})
+    strikes = sum(v["strike"] for v in votes)
+    struck = bool(votes) and strikes * 2 > len(votes)
+    if struck:
         state.laws = [l for l in state.laws if l is not case.law]
         authors = [state.parties[i].name for i in sorted(case.law.enacted_by) if i in state.parties]
         for pid in case.law.enacted_by:
@@ -82,26 +93,110 @@ def _verdict(state: GameState, case: CourtCase) -> None:
                 state.parties[pid].brand -= p.COURT_BRAND_HIT
         by = f" — a blow to {'/'.join(authors)}" if authors else ""
         state.emit("LawStruck",
-                   f"The court strikes down the {case.law.name} — it offends "
-                   f"{plead}{by}.",
+                   f"The court strikes down the {case.law.name} {strikes}-"
+                   f"{len(votes)-strikes} — it offends {plead}{by}.",
                    law=case.law.name, risk=risk,
                    article=clause.id if clause else None,
+                   bench=votes,
                    parties=sorted(case.law.enacted_by))
     else:
         state.emit("LawUpheld",
-                   f"The court upholds the {case.law.name} against a "
-                   f"{plead} challenge.",
+                   f"The court upholds the {case.law.name} {strikes}-"
+                   f"{len(votes)-strikes} against a {plead} challenge.",
                    law=case.law.name, risk=risk,
                    article=clause.id if clause else None,
+                   bench=votes,
                    parties=sorted(case.law.enacted_by))
 
 
+def _retirements(state: GameState) -> None:
+    """Justices age on the MP hazard curve and vacate the bench."""
+    for j in list(state.bench):
+        j.age += 1
+        prob = 0.0
+        if j.age >= p.RETIRE_FLOOR:
+            prob = min(p.RETIRE_MAX_P,
+                       p.RETIRE_BASE_P + max(0, j.age - p.RETIRE_AGE) * p.RETIRE_SLOPE)
+        if state.rng.random() < prob:
+            state.bench.remove(j)
+            state.emit("JusticeRetired",
+                       f"Justice {j.name} leaves the bench at {j.age // 52}.",
+                       justice=j.id, appointed_by=j.appointed_by)
+
+
+def _appoint(state: GameState) -> None:
+    """Vacancies fill on the PM's say-so. AI PMs pick a same-week loyalist;
+    a player PM gets a shortlist that waits in `bench_shortlist` until
+    they appoint — a caretaker fills nothing."""
+    if len(state.bench) >= p.BENCH_SIZE or state.phase != "governing":
+        return
+    pm = state.government.pm
+    if pm is None or pm not in state.mps:
+        return
+    if pm == state.player_id:
+        if not state.bench_shortlist:
+            np_rng = np.random.default_rng(int(state.rng.random() * 2**63))
+            agenda = np.asarray(gov_platform(state))
+            # a loyalist, a half-loyal, a moderate — the classic appointment
+            # tradeoff: how much doctrine do you buy with how much drift?
+            weights = (1.0, 0.5, 0.2)[:p.APPOINT_POOL]
+            state.bench_shortlist = [
+                _candidate(state, np_rng,
+                           near=tuple(np.clip(agenda * w, -1, 1)))
+                for w in weights]
+            state.emit("JusticeNominees",
+                       "A seat on the bench is vacant — your nominees await.",
+                       count=len(state.bench_shortlist))
+        return  # the seat waits on the player's pick
+    state.bench.append(_candidate(state, None, near=gov_platform(state),
+                                  appointed_by=pm))
+    j = state.bench[-1]
+    state.emit("JusticeAppointed",
+               f"Justice {j.name} takes the bench — appointed by the PM.",
+               justice=j.id, appointed_by=pm)
+
+
+def _candidate(state: GameState, np_rng, near=None, appointed_by=None):
+    """A bench nominee: ideology near the appointer's agenda, doctrine drawn."""
+    from .state import Justice
+    rng = state.rng
+    if np_rng is None:
+        np_rng = np.random.default_rng(int(rng.random() * 2**63))
+    base = np.asarray(near if near is not None else gov_platform(state))
+    jid = max((j.id for j in state.bench), default=-1) + 1
+    jid = max(jid, max((j.id for j in state.bench_shortlist), default=-1) + 1)
+    return Justice(
+        id=jid, name=mp_name(rng),
+        pos=tuple(np.clip(base + np_rng.normal(0, 0.25, 2), -1, 1)),
+        activism=float(np.clip(rng.gauss(0.5, 0.15), 0, 1)),
+        age=rng.randint(*p.JUDGE_APPOINT_AGE),
+        appointed_by=appointed_by)
+
+
+def appoint(state: GameState, pick: int) -> bool:
+    """Seat a shortlisted nominee — the player-PM's pick. Returns success."""
+    if not (0 <= pick < len(state.bench_shortlist)) \
+            or len(state.bench) >= p.BENCH_SIZE:
+        return False
+    j = state.bench_shortlist.pop(pick)
+    j.appointed_by = state.player_id
+    state.bench.append(j)
+    state.bench_shortlist = []
+    state.emit("JusticeAppointed",
+               f"You appoint Justice {j.name} to the bench.",
+               justice=j.id, appointed_by=state.player_id)
+    return True
+
+
 def courts_lifecycle(state: GameState) -> None:
-    """Weekly: due verdicts land, then the most hostile loser files the next case."""
+    """Weekly: due verdicts land, the bench ages and fills, then the most
+    hostile loser files the next case."""
     for case in list(state.docket):
         if case.due_week <= state.week:
             state.docket = [c for c in state.docket if c is not case]
             _verdict(state, case)
+    _retirements(state)
+    _appoint(state)
     # the venue for losers: hostile opposition drags the riskiest statute in
     if len(state.docket) >= p.COURT_DOCKET_MAX:
         return

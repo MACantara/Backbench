@@ -9,7 +9,7 @@ from sim.actions import Action, available_actions
 from sim.conditions import enact
 from sim.courts import courts_lifecycle, legal_risk
 from sim.media import _subjects
-from sim.state import Article, Bill
+from sim.state import Article, Bill, Justice
 from sim.tick import tick
 from sim.treasury import upkeep
 from sim.worldgen import new_game
@@ -63,10 +63,13 @@ def main() -> None:
     # doesn't stop the case
     outcomes = {}
     for activism, expect in ((1.0, "LawStruck"), (0.0, "LawUpheld")):
-        s2 = _gov(4, activism)
+        s2 = _gov(4)
         # a controlled constitution: the fixture statute breaches the clause
         s2.constitution = [Article(0, "the Property Clause", "pos",
                                    axis=0, pole=-1, limit=0.4)]
+        # a controlled bench: aligned with the statute, doctrine varies
+        s2.bench = [Justice(i, f"J{i}", (-0.8, 0.0), activism, 2600)
+                    for i in range(p.BENCH_SIZE)]
         author = next(iter(s2.parties))
         law = enact(s2, Bill(pos=(-0.8, 0.0), beneficiary_axis=0, cost=0.004),
                     yes=70, no=50)

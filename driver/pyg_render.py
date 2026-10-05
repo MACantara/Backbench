@@ -236,6 +236,15 @@ def draw_action_panel(drv) -> None:
             w = 16 + 9 * len(lab)
             _button(drv, f"law:{i}", lab, pygame.Rect(x, H - 88, w, 28))
             x += w + 8
+    elif drv.need_judge:
+        from sim.naming import describe_pos
+        _text(drv, "seat the nominee:", (34, H - 114), GOLD)
+        x = 34
+        for i, j in enumerate(drv.state.bench_shortlist):
+            lab = f"{j.name.split()[-1]} {describe_pos(j.pos)[:8]} {j.age // 52}y"
+            w = 16 + 9 * len(lab)
+            _button(drv, f"jdg:{i}", lab, pygame.Rect(x, H - 88, w, 28))
+            x += w + 8
     else:
         x = 34
         for kind in available_actions(drv.state):

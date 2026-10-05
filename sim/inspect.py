@@ -95,6 +95,23 @@ def explain_mp(state: GameState, mp_id: int) -> str:
             f"  top relationships: {rel_txt or 'none'}{ladder}")
 
 
+def explain_bench(state: GameState) -> str:
+    """The sitting court: who holds each seat, their doctrine and lean, and
+    which PM put them there — packing the bench stays legible."""
+    from .naming import describe_pos
+    lines = [f"the bench: {len(state.bench)}/{p.BENCH_SIZE} seats, "
+             f"{len(state.docket)} case(s) pending"]
+    for j in sorted(state.bench, key=lambda j: -j.age):
+        who = (state.mps[j.appointed_by].name
+               if j.appointed_by in state.mps else "the founders")
+        lines.append(f"  J. {j.name:<22} {describe_pos(j.pos):<18} "
+                     f"activism {j.activism:.2f}  {j.age // 52}y  <- {who}")
+    for c in state.bench_shortlist:
+        lines.append(f"  nominee {c.name:<17} {describe_pos(c.pos):<18} "
+                     f"activism {c.activism:.2f}  {c.age // 52}y")
+    return "\n".join(lines)
+
+
 def explain_district(state: GameState, district: int) -> str:
     v = state.voters
     mask = v.district == district

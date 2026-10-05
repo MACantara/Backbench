@@ -53,7 +53,7 @@ def prompt_actions(state) -> list[Action]:
             continue
         if raw.isdigit() and int(raw) < len(menu):
             kind = menu[int(raw)]
-            target = axis = vote = offer = law = None
+            target = axis = vote = offer = law = judge = None
             if kind in ("lobby", "dig_dirt", "deal", "leak"):
                 s = _ask("target mp id > ",
                          lambda s: s.isdigit() and int(s) in state.mps
@@ -87,6 +87,16 @@ def prompt_actions(state) -> list[Action]:
                 if s is None:
                     continue
                 vote = int(s)
+            if kind == "appoint":
+                from sim.naming import describe_pos
+                for i, j in enumerate(state.bench_shortlist):
+                    print(f"  {i}: {j.name} — {describe_pos(j.pos)}, "
+                          f"activism {j.activism:.2f}, {j.age // 52}y")
+                s = _ask("nominee # > ",
+                         lambda s: s.isdigit() and int(s) < len(state.bench_shortlist))
+                if s is None:
+                    continue
+                judge = int(s)
             if kind == "challenge":
                 from sim.courts import challengeable, legal_risk
                 laws = challengeable(state)
@@ -106,7 +116,7 @@ def prompt_actions(state) -> list[Action]:
                     continue
                 offer = int(s) - 1
             picks.append(Action(kind, target=target, axis=axis, vote=vote,
-                                offer=offer, law=law))
+                                offer=offer, law=law, judge=judge))
         else:
             print("?")
     return picks
