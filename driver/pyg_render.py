@@ -245,6 +245,25 @@ def draw_action_panel(drv) -> None:
             w = 16 + 9 * len(lab)
             _button(drv, f"jdg:{i}", lab, pygame.Rect(x, H - 88, w, 28))
             x += w + 8
+    elif drv.need_amend:
+        from sim.worldgen import _CLAUSES
+        fenced = {(a.axis, a.pole) for a in drv.state.constitution
+                  if a.kind == "pos"}
+        _text(drv, "the clause to move:", (34, H - 114), GOLD)
+        x = 34
+        for a in drv.state.constitution:
+            lab = f"repeal {a.name[4:][:14]}"
+            w = 16 + 9 * len(lab)
+            _button(drv, f"amd:r{a.id}", lab, pygame.Rect(x, H - 88, w, 28))
+            x += w + 8
+        for ax in (0, 1):
+            for pole in (-1, 1):
+                if (ax, pole) not in fenced:
+                    lab = f"+{_CLAUSES[(ax, pole)][4:][:14]}"
+                    w = 16 + 9 * len(lab)
+                    _button(drv, f"amd:e{ax}{'+' if pole > 0 else '-'}", lab,
+                            pygame.Rect(x, H - 88, w, 28))
+                    x += w + 8
     else:
         x = 34
         for kind in available_actions(drv.state):

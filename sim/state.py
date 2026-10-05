@@ -136,6 +136,8 @@ class Bill:
     tax: float = 1.0                # budget: revenue multiplier if enacted
     spend: float = 1.0              # budget: upkeep multiplier if enacted
     amended: bool = False           # one amendment per bill — the house moves on
+    amends: "Article | None" = None   # repeals this clause — two-thirds to carry
+    entrenches: "Article | None" = None  # writes this clause — two-thirds to carry
     author: int | None = None       # sponsor's MP id (private bills); None = the PM's
     name: str = ""                  # domain-flavored name; confidence motions stay blank
 
@@ -231,6 +233,8 @@ class Government:
     blocked: set[int] = field(default_factory=set)  # parties barred from re-forming this house
     sacked: set[int] = field(default_factory=set)   # MPs unappointable until the next election
     budget_stance: int | None = None  # player-PM's posture pick for the next budget
+    amend_attempted: set[int] = field(default_factory=set)  # clause ids already moved this term
+    amend_move: "Bill | None" = None      # player-PM's queued amendment — tables next week
 
 
 @dataclass

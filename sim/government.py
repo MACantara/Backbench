@@ -103,6 +103,8 @@ def _form(state: GameState, offer: dict) -> None:
     state.government.minority = False
     state.government.weeks_in_office = 0
     state.government.budget_stance = None  # the new cabinet writes its own budget
+    state.government.amend_attempted = set()  # its own grievances with the book
+    state.government.amend_move = None        # and owns its pending moves
     state.bench_shortlist = []               # and picks its own nominees
     names = [state.parties[i].name for i in coalition]
     state.emit("CoalitionFormed", f"{' + '.join(names)} form a government ({bloc} seats).",
@@ -123,6 +125,8 @@ def _minority(state: GameState, exclude_parties: set[int] | None = None) -> None
     state.government.minority = True
     state.government.weeks_in_office = 0
     state.government.budget_stance = None
+    state.government.amend_attempted = set()
+    state.government.amend_move = None
     state.bench_shortlist = []
     state.emit("CoalitionFormed", f"{state.parties[biggest].name} forms a minority government ({seats[biggest]} seats).",
                parties=[biggest], seats=seats[biggest], minority=True)
@@ -197,6 +201,7 @@ def call_election(state: GameState, snap: bool, reason: str,
     state.offers = []           # dead slates die with it too
     state.deals = []            # and promises made to a dissolved house lapse
     state.government.budget_stance = None  # a caretaker's signals lapse too
+    state.government.amend_move = None       # and its pending amendment
     state.bench_shortlist = []               # no caretaker appointments
     state.phase = "campaign"
     state.weeks_to_election = p.CAMPAIGN_WEEKS
@@ -237,6 +242,7 @@ def collapse(state: GameState, cause: str = "confidence") -> None:
     state.current_bill = None          # and its pending business dies too
     state.deals = []                   # promises made on that business lapse
     state.government.budget_stance = None  # a fallen PM's signals lapse
+    state.government.amend_move = None       # and their queued amendment
     state.bench_shortlist = []               # and a fallen PM's nominees lapse
     if state.government.collapses >= p.SNAP_COLLAPSE_MAX:
         call_election(state, snap=True, reason="deadlock", party=pm_party)

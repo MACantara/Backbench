@@ -16,7 +16,7 @@ class Action:
     kind: str                    # campaign, constituency, speech, promise, media, dig_dirt,
                                  # lobby, scheme, platform, vote, deal, pick_offer,
                                  # decline_offers, budget, attack, amend, table,
-                                 # defect, found, challenge
+                                 # defect, found, challenge, appoint, amendment
     target: int | None = None    # MP id for lobby/dig_dirt; party id for defect
     axis: int | None = None      # 0/1 for speech/promise/table; 0-2 stance for budget
     pos: tuple[float, float] | None = None  # for promise
@@ -24,6 +24,8 @@ class Action:
     offer: int | None = None     # pick_offer: index into state.offers
     law: int | None = None       # challenge: index into state.laws
     judge: int | None = None     # appoint: index into state.bench_shortlist
+    article: int | None = None   # amendment: constitution article id to repeal
+    entrench: tuple[int, int] | None = None  # amendment: (axis, pole) to fence
 
 
 def available_actions(state: GameState) -> list[str]:
@@ -51,6 +53,8 @@ def available_actions(state: GameState) -> list[str]:
         base.append("budget")        # the PM writes the fiscal posture
         if state.bench_shortlist:
             base.append("appoint")   # a judicial vacancy waits on your pick
+        if state.constitution:
+            base.append("amendment") # the PM can move the constitution itself
     if player is not None and state.phase in ("governing", "formation"):
         if player.party is not None:
             base.append("defect")    # cross the floor — to a party, or none
@@ -202,9 +206,14 @@ def apply_action(state: GameState, action: Action) -> None:
         # a private member's bill — your name on it, divided at once
         from .parliament import resolve_vote
         ax = action.axis if action.axis is not None else rng.randrange(2)
+        amends = None
+        if action.article is not None:
+            amends = next((a for a in state.constitution if a.id == action.article),
+                          None)
         bill = Bill(pos=tuple(player.pos), beneficiary_axis=ax,
                     cost=float(max(0.0, p.COST_BASE + p.COST_EXTREMITY_W * abs(player.pos[ax])
                                    + rng.gauss(0, p.COST_JITTER))),
+                    amends=amends,
                     name=bill_name(player.pos, ax, rng), author=player.id)
         state.emit("BillTabled",
                    f"You table the {bill.name} — a private member's bill, "
@@ -255,6 +264,38 @@ def apply_action(state: GameState, action: Action) -> None:
                    f"You found {state.parties[pid].name} — "
                    f"{len(followers)} walk out with you.",
                    action="found", party=pid, size=len(followers) + 1)
+
+    elif action.kind == "amendment" and state.government.pm == player.id \
+            and state.phase == "governing":
+        # move the constitution itself: repeal a clause, or entrench a fence
+        # on an open pole — the move queues, then rides the pending cadence
+        from .worldgen import _CLAUSES
+        bill = None
+        if action.article is not None:
+            art = next((a for a in state.constitution if a.id == action.article), None)
+            if art is not None:
+                bill = Bill(pos=tuple(player.pos), beneficiary_axis=0,
+                            amends=art, name=f"Repeal of {art.name}")
+        elif action.entrench is not None:
+            ax, pole = action.entrench
+            if ax in (0, 1) and pole in (-1, 1) and not any(
+                    a.kind == "pos" and a.axis == ax and a.pole == pole
+                    for a in state.constitution):
+                from .state import Article
+                art = Article(-1, _CLAUSES[(ax, pole)], "pos", axis=ax,
+                              pole=pole, limit=p.AMEND_ENTRENCH_LIMIT)
+                bill = Bill(pos=tuple(player.pos), beneficiary_axis=0,
+                            entrenches=art, name=f"Entrenchment of {art.name}")
+        if bill is None:
+            state.emit("CareerEvent", "That amendment cannot be moved.",
+                       action="amendment")
+        else:
+            state.government.amend_move = bill   # the house sees it this week
+            what = (f"the repeal of {bill.amends.name}" if bill.amends
+                    else f"the entrenchment of {bill.entrenches.name}")
+            state.emit("CareerEvent",
+                       f"You prepare a constitutional amendment — {what}.",
+                       action="amendment")
 
     elif action.kind == "appoint" and action.judge is not None \
             and state.government.pm == player.id:
@@ -307,6 +348,7 @@ def _leave_party(state: GameState, player, exclude=()) -> None:
     player.party = None
     if was_pm:
         state.government.budget_stance = None   # your signals leave with you
+        state.government.amend_move = None      # and your pending amendment
         state.bench_shortlist = []              # and your pending nominees lapse
         # you can't lead a coalition you left — the office follows the
         # largest coalition party's leader; nobody legitimate → it falls.

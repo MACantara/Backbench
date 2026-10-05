@@ -54,6 +54,7 @@ def prompt_actions(state) -> list[Action]:
         if raw.isdigit() and int(raw) < len(menu):
             kind = menu[int(raw)]
             target = axis = vote = offer = law = judge = None
+            article = entrench = None
             if kind in ("lobby", "dig_dirt", "deal", "leak"):
                 s = _ask("target mp id > ",
                          lambda s: s.isdigit() and int(s) in state.mps
@@ -108,6 +109,29 @@ def prompt_actions(state) -> list[Action]:
                     continue
                 pick = laws[int(s)]
                 law = next(i for i, lw in enumerate(state.laws) if lw is pick)
+            if kind == "amendment":
+                from sim.worldgen import _CLAUSES
+                fenced = {(a.axis, a.pole) for a in state.constitution
+                          if a.kind == "pos"}
+                for a in state.constitution:
+                    print(f"  r{a.id}: repeal {a.name}")
+                for ax in (0, 1):
+                    for pole in (-1, 1):
+                        if (ax, pole) not in fenced:
+                            side = "economic" if ax == 0 else "social"
+                            print(f"  e{ax}{'+-'[pole > 0]}: entrench "
+                                  f"{_CLAUSES[(ax, pole)]} ({side} pole)")
+                s = _ask("clause > ",
+                         lambda s: (s.startswith("r") and s[1:].isdigit()
+                                    and any(a.id == int(s[1:]) for a in state.constitution))
+                                   or (s.startswith("e") and len(s) == 3
+                                       and s[1] in "01" and s[2] in "-+"))
+                if s is None:
+                    continue
+                if s[0] == "r":
+                    article = int(s[1:])
+                else:
+                    entrench = (int(s[1]), 1 if s[2] == "+" else -1)
             if kind == "pick_offer":
                 for e in [e for e in state.log if e.type == "OfferMade"][-len(state.offers):]:
                     print(" ", e.text)
@@ -116,7 +140,8 @@ def prompt_actions(state) -> list[Action]:
                     continue
                 offer = int(s) - 1
             picks.append(Action(kind, target=target, axis=axis, vote=vote,
-                                offer=offer, law=law, judge=judge))
+                                offer=offer, law=law, judge=judge,
+                                article=article, entrench=entrench))
         else:
             print("?")
     return picks
