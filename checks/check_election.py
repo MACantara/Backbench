@@ -54,6 +54,20 @@ def main() -> None:
     resolve_election(d)
     assert d.log[-1].data["seats"].get(4, 0) > 0
 
+    # independents: a party-less local can win and sits with party=None —
+    # force fielding everywhere so proximity decides crowded districts
+    ind = new_game(7)
+    saved_p = p.INDEPENDENT_P
+    p.INDEPENDENT_P = 1.0
+    try:
+        resolve_election(ind)
+    finally:
+        p.INDEPENDENT_P = saved_p
+    ind_seats = ind.log[-1].data["seats"].get("ind", 0)
+    ind_mps = [m for m in ind.mps.values() if m.party is None]
+    assert ind_seats > 0 and len(ind_mps) == ind_seats, \
+        f"independents fielded everywhere but seated none (seats={ind_seats})"
+
     # poll returns shares summing to 1
     s = poll(new_game(7))
     assert abs(sum(s.values()) - 1.0) < 1e-9

@@ -27,7 +27,7 @@ DEFAULT_COLOR = (140, 140, 150)
 INTERRUPTS = {"ConfidenceLost", "CoalitionFormed", "PartyFormed", "Defection",
               "PartyDissolved", "Scandal", "ElectionCalled", "ElectionResult", "SeatLost",
               "ScandalBreaks", "Expelled", "Resigned", "MinisterSacked",
-              "PressCycle"}
+              "PressCycle", "OfferMade", "OfferDeclined"}
 
 
 def party_color(state, pid) -> tuple:
@@ -121,9 +121,9 @@ def draw_parliament(drv, pos) -> None:
     for mid, (x, y) in pos.items():
         mp = s.mps[mid]
         col = party_color(s, mp.party) if mp.party is not None else DEFAULT_COLOR
-        vote = drv.vote_flash.get(mid)  # "yes"/"no" during vote cascade
+        vote = drv.vote_flash.get(mid)  # "yes"/"no"/"abs" during vote cascade
         if vote:
-            col = GREEN if vote == "yes" else RED
+            col = GREEN if vote == "yes" else RED if vote == "no" else DIM
         pygame.draw.circle(drv.screen, col, (int(x), int(y)), SEAT_R)
         if mid == s.player_id:
             pygame.draw.circle(drv.screen, WHITE, (int(x), int(y)), SEAT_R + 3, 2)
@@ -197,6 +197,20 @@ def draw_action_panel(drv) -> None:
         _text(drv, f"{drv.need_axis}: pick an axis", (34, H - 114), GOLD)
         _button(drv, "axis:0", "economic", pygame.Rect(34, H - 88, 110, 28))
         _button(drv, "axis:1", "social", pygame.Rect(154, H - 88, 110, 28))
+    elif drv.need_vote:
+        from sim.inspect import explain_bill
+        _text(drv, explain_bill(drv.state).split("\n")[0][:95], (34, H - 114), GOLD)
+        _button(drv, "col:1", "aye", pygame.Rect(34, H - 88, 90, 28))
+        _button(drv, "col:-1", "no", pygame.Rect(134, H - 88, 90, 28))
+        _button(drv, "col:0", "abstain", pygame.Rect(234, H - 88, 110, 28))
+    elif drv.need_offer:
+        _text(drv, "coalitions on the table:", (34, H - 114), GOLD)
+        x = 34
+        for i, o in enumerate(drv.state.offers):
+            name = drv.state.parties[o["proposer"]].name[:18]
+            _button(drv, f"offer:{i}", f"{i+1}. {name} ({o['bloc']})",
+                    pygame.Rect(x, H - 88, 170, 28))
+            x += 178
     else:
         x = 34
         for kind in available_actions(drv.state):

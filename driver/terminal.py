@@ -9,14 +9,14 @@ sys.stdout.reconfigure(encoding="utf-8", errors="replace")  # cp1252 consoles
 
 from sim.actions import Action, available_actions
 from sim.career import final_score
-from sim.inspect import explain_mp, explain_vote
+from sim.inspect import explain_bill, explain_mp, explain_vote
 from sim.tick import tick
 from sim.worldgen import new_game
 
 INTERRUPTS = {"ConfidenceLost", "CoalitionFormed", "PartyFormed", "Defection",
               "PartyDissolved", "Scandal", "ElectionCalled", "ElectionResult", "SeatLost",
               "ScandalBreaks", "Expelled", "Resigned", "MinisterSacked",
-              "PressCycle"}
+              "PressCycle", "OfferMade", "OfferDeclined"}
 
 
 def prompt_actions(state) -> list[Action]:
@@ -39,14 +39,23 @@ def prompt_actions(state) -> list[Action]:
             continue
         if raw.isdigit() and int(raw) < len(menu):
             kind = menu[int(raw)]
-            target = axis = None
-            if kind in ("lobby", "dig_dirt"):
+            target = axis = vote = offer = None
+            if kind in ("lobby", "dig_dirt", "deal"):
                 t = input("target mp id > ").strip()
                 target = int(t) if t.isdigit() else None
             if kind in ("speech", "promise"):
                 a = input("axis 0=economic 1=social > ").strip()
                 axis = int(a) if a in "01" else None
-            picks.append(Action(kind, target=target, axis=axis))
+            if kind in ("vote", "deal"):
+                print(explain_bill(state))
+                v = input("vote 1=aye -1=no 0=abstain > ").strip()
+                vote = int(v) if v in ("1", "0", "-1") else None
+            if kind == "pick_offer":
+                for e in [e for e in state.log if e.type == "OfferMade"][-len(state.offers):]:
+                    print(" ", e.text)
+                o = input("offer # > ").strip()
+                offer = int(o) - 1 if o.isdigit() else None
+            picks.append(Action(kind, target=target, axis=axis, vote=vote, offer=offer))
         else:
             print("?")
     return picks
