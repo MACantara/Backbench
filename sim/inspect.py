@@ -29,7 +29,9 @@ def explain_vote(state: GameState, event_index: int = -1) -> str:
         name = mp.name if mp else f"MP#{mp_id}"
         terms = ", ".join(f"{k}={v:+.2f}" for k, v in d["terms"].items() if abs(v) > 0.01)
         dec = decisive_term(d["terms"], d["u"])
-        lines.append(f"  {name:<20} u={d['u']:+.2f} {'YES' if d['u'] > 0 else 'no '}"
+        col = ("YES" if d["u"] > p.ABSTAIN_MARGIN
+               else "no " if d["u"] < -p.ABSTAIN_MARGIN else "abs")
+        lines.append(f"  {name:<20} u={d['u']:+.2f} {col}"
                      f"  <- {dec or '—'} ({terms})")
     return "\n".join(lines)
 
@@ -45,9 +47,10 @@ def explain_bill(state: GameState) -> str:
     for mp in state.mps.values():
         terms = vote_terms(state, mp, bill, noisy=False)
         rows.append((sum(terms.values()), mp, terms))
-    yes = sum(1 for u, _, _ in rows if u > 0)
-    no = sum(1 for u, _, _ in rows if u <= 0)
-    lines = [f"{bill.name} — projected {yes}-{no} "
+    yes = sum(1 for u, _, _ in rows if u > p.ABSTAIN_MARGIN)
+    no = sum(1 for u, _, _ in rows if u < -p.ABSTAIN_MARGIN)
+    abstain = len(rows) - yes - no
+    lines = [f"{bill.name} — projected {yes}-{no} +{abstain} abstain "
              f"({'pass' if yes > no else 'fail'})"]
     for u, mp, terms in sorted((r for r in rows if abs(r[0]) < p.MARGINAL_BAND),
                                key=lambda r: abs(r[0]))[:8]:

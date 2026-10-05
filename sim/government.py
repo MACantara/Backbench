@@ -117,7 +117,8 @@ def confidence_vote(state: GameState) -> bool:
     if not gov:
         return True  # a caretaker void can't lose a vote it never holds
     mean = tuple(np.mean(gov, axis=0))
-    survived = resolve_vote(state, Bill(pos=mean, beneficiary_axis=0, confidence=True))
+    res = resolve_vote(state, Bill(pos=mean, beneficiary_axis=0, confidence=True))
+    survived = res is not False   # a stalled division isn't a lost one
     if not survived:
         pm_party = state.mps[state.government.pm].party \
             if state.government.pm in state.mps else None

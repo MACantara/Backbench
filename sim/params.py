@@ -85,6 +85,14 @@ W_SAFETY = 0.6     # weight on district opinion exposure (unsafe seats vote loca
 W_GOV = 0.35       # solidarity bonus for coalition MPs backing their own government's bill
 VOTE_NOISE = 0.05  # per-MP ballot noise
 MARGINAL_BAND = 0.15  # |u| under this reads as a swing vote in projections
+ABSTAIN_MARGIN = 0.08  # |u| under this → abstain, torn between the whips
+STANDING_WHIP_ABSTAIN = 0.02   # abstaining a whipped vote: half a rebel's price
+ATTEND_BASE = 0.05     # weekly absentee probability
+ATTEND_LATE = 0.08     # added when the scheduled election looms
+ATTEND_ELECTION_WEEKS = 8  # absenteeism ramps inside this of term end
+ATTEND_SCANDAL = 0.10  # added while a scandal burns — the member lies low
+ATTEND_AGE = 0.05      # added past RETIRE_AGE
+QUORUM = 0.5           # fraction of the house that must be present to divide
 BILL_PERSUASION = 0.008  # weekly electorate pull toward gov axis per passed bill
 
 # --- government ---
