@@ -61,6 +61,7 @@ def run_seed(seed: int) -> dict:
             "turnover": turnover, "counts": counts,
             "pin_rate": pin_slots / max(weeks_run * 5, 1), "debt_max": debt_max,
             "debt_med": float(np.median(debts)), "laws_end": len(s.laws),
+            "juniors": sum(1 for m in s.mps.values() if m.junior),
             "parties_end": len(s.parties), "week": s.week}
 
 
@@ -103,8 +104,9 @@ def main() -> None:
           f"{'':<14} {pin:.2f} / {debt_med:.2f} / {debt_max:.1f}")
     print(f"{'legislation':<13} median laws in force / struck"
           f"{'':<19} {laws:.0f} / {sum(r['counts']['LawStruck'] for r in runs)}")
-    print(f"{'careers':<13} promoted / sacked / retired"
-          f"{'':<24} {promoted} / {sacked} / {retired}")
+    juniors = _med([r["juniors"] for r in runs])
+    print(f"{'careers':<13} promoted / sacked / retired / bench posts"
+          f"{'':<11} {promoted} / {sacked} / {retired} / {juniors:.0f}")
     print(f"{'player':<13} median week reached (passive)"
           f"{'':<19} {player:.0f}")
     print(f"{'':<13} debt crises total{'':<41} {crises}")
@@ -119,6 +121,7 @@ def main() -> None:
     assert debt_max < 50, f"debt ran to {debt_max:.0f} — the spiral has no exit"
     assert laws < 500, f"median {laws:.0f} laws in force — the registry ratchets"
     assert promoted > 0 and retired > 0, "career churn died"
+    assert juniors > 0, "the bench went unstaffed — junior rungs died"
     assert crises > 0 or debt_max < p.DEBT_CRISIS + 0.5, \
         "insolvency went silent again"
     print("sweep ok")

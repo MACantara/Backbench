@@ -5,7 +5,7 @@ import numpy as np
 
 from . import params as p
 from .actions import apply_action, evaluate_promises
-from .career import (assign_portfolios, leadership_challenge,
+from .career import (assign_portfolios, junior_lifecycle, leadership_challenge,
                      ministerial_lifecycle, mp_lifecycle, update_score)
 from .conditions import conditions_lifecycle
 from .courts import courts_lifecycle
@@ -64,6 +64,7 @@ def tick(state: GameState, actions: list | None = None) -> list[Event]:
         leadership_challenge(state)
         scandal_lifecycle(state)   # last: dirt settles after the week's politics
         ministerial_lifecycle(state)  # reshuffles sweep up every kind of vacancy
+        junior_lifecycle(state)       # party benches refill — in power or out
         courts_lifecycle(state)    # the bench sits even when parliament doesn't
         conditions_lifecycle(state)  # the country drifts before the press reads it
         treasury_lifecycle(state)    # the books settle on this week's conditions

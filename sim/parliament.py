@@ -59,7 +59,8 @@ def vote_terms(state: GameState, mp: MP, bill: Bill) -> dict[str, float]:
         "policy": -p.W_POLICY * dist(mp.pos, bill.pos),
         "whip": p.W_WHIP * whip * mp.loyalty,
         "gov": p.W_GOV * in_gov,
-        "rel": p.W_REL * (mp.relationships.get(state.government.pm or -1, 0.0) if in_gov else 0.0),
+        "rel": p.W_REL * (mp.relationships.get(state.government.pm, 0.0)
+                        if in_gov and state.government.pm is not None else 0.0),
         "district": p.W_SAFETY * (1 - mp.seat_safety) * district_opinion(state, mp.district, bill),
         "fiscal": -p.W_FISCAL * (bill.cost / (p.COST_BASE + p.COST_EXTREMITY_W))
                   * debt_pressure(state),  # stingy house when the books are red
@@ -115,6 +116,13 @@ def resolve_vote(state: GameState, bill: Bill, player_vote: int | None = None) -
         detail[mp.id] = {"u": u, "terms": terms}
         yes += u > 0
         no += u <= 0
+        # the whip remembers: standing accrues on the actual vote, override included.
+        # A faction whip is organized rebellion — the party line still marks you.
+        whip = whip_direction(state, mp.party, bill) if mp.party is not None else 0
+        if whip:
+            agree = (u > 0) == (whip > 0)
+            mp.standing = float(np.clip(
+                mp.standing + (p.STANDING_WHIP_YES if agree else -p.STANDING_WHIP_NO), -1, 1))
     passed = yes > no
     state.current_bill = None
     for fid, pid in rebels.items():

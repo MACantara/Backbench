@@ -62,6 +62,21 @@ MINISTER_SACK_RECORD = -0.06   # accumulated indicator loss that gets you fired
 MINISTER_SACK_BRAND = 0.03     # brand hit the PM's party takes for a bad pick
 SENIORITY_CAP_WEEKS = 1040     # seniority score saturates ~20y in office
 
+# --- career ladder: standing ---
+STANDING_WHIP_YES = 0.02       # credit for voting a whipped line
+STANDING_WHIP_NO = 0.04        # rebelling a whipped vote costs more than loyalty earns
+STANDING_SERVICE = 0.05        # constituency action — visible party service
+STANDING_OFFICE = 0.01         # weekly trickle for holding office
+STANDING_SACK_HIT = 0.3        # a sack burns standing
+STANDING_SCANDAL_WK = 0.02     # standing bleed per burning scandal week
+STANDING_DECAY = 0.98          # drift to neutral — rebels rehabilitate, favor fades
+JUNIOR_POSTS = ("Whip", "Spokesperson", "Committee Chair")  # per-party bench posts
+STANDING_W = 0.6               # appointment weight on earned standing
+BACKING_W = 0.4                # appointment weight on the appointer's relationship
+RUNG_W = 0.4                   # appointment weight on junior service
+RUNG_CAP_WEEKS = 52            # a full term of bench service pays the rung
+LEADERSHIP_STANDING_W = 0.3    # members back proven climbers in challenges
+
 # --- voting in parliament ---
 W_POLICY = 0.7     # weight on policy distance (higher = more ideological voting)
 W_WHIP = 0.8       # weight on party whip instruction

@@ -32,13 +32,24 @@ def explain_mp(state: GameState, mp_id: int) -> str:
             if pt and dist(pt.pub_pos, pt.platform) > 0.05 else "")
     rels = sorted(m.relationships.items(), key=lambda kv: -abs(kv[1]))[:5]
     rel_txt = ", ".join(f"{state.mps[k].name if k in state.mps else k}:{v:+.2f}" for k, v in rels)
+    ladder = ""
+    if mp_id == state.player_id and pt is not None and pt.leader is not None:
+        from .career import appointment_terms, cabinet_cands
+        ranked = sorted(cabinet_cands(state, pt.id), key=lambda c: -sum(
+            appointment_terms(state, state.mps[c], pt.leader).values()))
+        if mp_id in ranked:   # no line for the ineligible — PM or sacked
+            terms = appointment_terms(state, m, pt.leader)
+            ladder = ("\n  cabinet candidacy: rank "
+                      f"{ranked.index(mp_id) + 1}/{len(ranked)} — "
+                      + " ".join(f"{k} {v:+.2f}" for k, v in terms.items()))
     return (f"{m.name} ({pt.name if pt else 'independent'}{wing}{seen}) — district {m.district}\n"
             f"  pos=({m.pos[0]:+.2f},{m.pos[1]:+.2f}) ambition={m.ambition:.2f} "
             f"loyalty={m.loyalty:.2f} competence={m.competence:.2f} integrity={m.integrity:.2f}\n"
             f"  seat_safety={m.seat_safety:.2f} portfolio={m.portfolio or '—'} "
+            f"junior={m.junior or '—'} standing={m.standing:+.2f} "
             f"dossier={m.dossier:.2f}{' BURNING' if m.scandal_weeks else ''} "
             f"{'[YOU]' if mp_id == state.player_id else ''}\n"
-            f"  top relationships: {rel_txt or 'none'}")
+            f"  top relationships: {rel_txt or 'none'}{ladder}")
 
 
 def explain_district(state: GameState, district: int) -> str:

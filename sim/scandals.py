@@ -49,6 +49,7 @@ def scandal_lifecycle(state: GameState) -> None:
             state.emit("MinisterSacked", f"{mp.name} is sacked as {mp.portfolio}.",
                        mp=mp.id, party=mp.party, portfolio=mp.portfolio, reason="scandal")
             mp.portfolio, mp.portfolio_weeks = None, 0
+            mp.standing -= p.STANDING_SACK_HIT
             state.government.sacked.add(mp.id)   # a reshuffle can't re-hire disgrace
 
     # burning: brand bleeds, the district turns, careers end or survive

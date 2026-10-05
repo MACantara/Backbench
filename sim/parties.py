@@ -41,6 +41,7 @@ def _found(state: GameState, founder, followers: list[int]) -> int:
             state.parties[old].members.discard(mid)
         state.mps[mid].party = pid
         state.mps[mid].faction = None
+        state.mps[mid].junior, state.mps[mid].junior_weeks = None, 0  # the post died with the party tie
         pt.members.add(mid)
     state.parties[pid] = pt
     state.emit("PartyFormed", f"{name} founded by {state.mps[founder].name} ({len(pt.members)} MPs).",
