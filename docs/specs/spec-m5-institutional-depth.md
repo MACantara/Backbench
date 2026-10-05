@@ -53,9 +53,11 @@ class Article:
   the Order Clause (authoritarian), the Fiscal Clause, the Mandate Clause.
 - **Player-initiated challenges** — the deferred p3-courts item, now that
   the player surface exists: a `challenge` action targets a law in force;
-  same gates as AI filers (`risk >= CHALLENGE_RISK_MIN`, not reviewed, not
-  docketed, docket not full). The player becomes `challenger` — the venue
-  for losers is a real venue now.
+  the court's own gates apply (`risk >= CHALLENGE_RISK_MIN`, not reviewed,
+  not docketed, docket not full). The player files *personally* — the AI
+  filers' party gates (opposition status, hostility distance) don't bind
+  an individual litigant, and the courts sit in every phase. The player
+  becomes `challenger` — the venue for losers is a real venue now.
 
 ## 2. The bench — court appointments
 
@@ -77,13 +79,13 @@ class Justice:
   inaugural bench around the old `court_activism` seed (activism) and the
   voter centroid + jitter (pos), ages spread across mid-life.
 - **The verdict is a bench vote, still a rule not a roll**: each justice
-  votes strike when `RISK_W*risk + BENCH_DIST_W*dist(pos, law.pos) >
-  BENCH_LINE - activism*COURT_ACTIVISM_W` — a justice doctrinally hostile
-  to judicial reach needs more provocation, and one ideologically far from
-  the statute finds it easier to strike. Majority carries. The verdict
-  event records a per-justice detail list (like `VoteResult.detail`) so
-  `inspect` can show *which* justices killed the law — packing the bench
-  stays legible.
+  votes strike when `risk - line + BENCH_DIST_W*dist(pos, law.pos) > 0`,
+  where `line = COURT_STRIKE_BASE - COURT_ACTIVISM_W*(activism - 0.5)` —
+  a justice doctrinally hostile to judicial reach needs more provocation,
+  and one ideologically far from the statute finds it easier to strike.
+  Majority carries. The verdict event records a per-justice detail list
+  (like `VoteResult.detail`) so `inspect` can show *which* justices killed
+  the law — packing the bench stays legible.
 - **Vacancies**: justices age on the MP hazard curve (`RETIRE` machinery,
   not `remove_mp` — no seat to vacate; death uses the same age hazard).
   `JusticeRetired`/`JusticeDied` events keep the chronicle honest.
@@ -120,7 +122,9 @@ constitution is supposed to be hard to move.
   its own amendment); repeals of clauses don't touch laws already struck —
   no resurrection.
 - Player surfaces: `amendment` action as PM (pick a clause to strike or a
-  pole to entrench); a PMB may carry an amendment via `table` (legal,
+  pole to entrench) — the move queues on `government.amend_move` and is
+  tabled as government business, so it rides the pending cadence like
+  everything else; a PMB may carry an amendment via `table` (legal,
   near-impossible alone — two-thirds is coalition-scale support, which is
   correct); as a voter the supermajority gate is where `vote`/`deal`
   matter most. `legacy_bills` counts an authored amendment — the ultimate
@@ -139,13 +143,14 @@ The outlet landscape becomes playable. `Outlet` gains mutable warmth:
   cost is the action slot; warmth caps at 1.0 — a hostile tabloid courts
   slow, a near-friendly one fast (gain scaled by nothing else; the cap is
   the equalizer).
-- **`leak` gains an `outlet=` param** — you choose who breaks it. A warm
-  outlet buries the story (its pickup weight on the scandal damped — it
-  won't lead with it); a cold or hostile one amplifies and leads. Trace
-  asymmetry: `LEAK_TRACE_P * FRIENDLY_TRACE_MULT` through a warm outlet
-  (they protect sources), `* HOSTILE_TRACE_MULT` through a cold one (you
-  had to approach the enemy). Routing with no outlet keeps current
-  behavior.
+- **`leak` gains an `outlet=` param** — you choose who breaks it. The
+  venue's warmth to the *subject* party damps its pickup weight on the
+  scandal (a friendly outlet won't lead with its friends' dirt); a cold
+  or hostile venue amplifies and leads. Trace asymmetry keys on warmth
+  to *your* party: `LEAK_TRACE_P * FRIENDLY_TRACE_MULT` through a warm
+  outlet (they protect sources), `* HOSTILE_TRACE_MULT` through a cold
+  one (you had to approach the enemy). Routing with no outlet keeps
+  current behavior.
 - **Sponsored polls** — the biased-samples half of the roadmap item:
   `PollShift` gains `outlet=`; a rotating outlet publishes each week and
   the printed shares re-weight voters by audience affinity (`aff`) — a
@@ -180,14 +185,20 @@ ARTICLE_LIMIT      = 0.55   # default positional clause fence
 ARTICLE_COUNT      = (4, 6) # constitution size at worldgen
 BENCH_SIZE         = 7      # justices on the bench
 BENCH_DIST_W       = 0.25   # ideology's weight in a justice's strike vote
-BENCH_LINE         = 0.6    # doctrinal line (was COURT_STRIKE_BASE)
-JUDGE_APPOINT_AGE  = (42,58)# new justices arrive mid-career
+COURT_STRIKE_BASE  = 0.5    # risk line at doctrine 0.5 (kept name)
+COURT_ACTIVISM_W   = 0.4    # doctrine swing per justice
+JUDGE_APPOINT_AGE  = (2184, 3016)  # weeks — new justices arrive mid-career
 APPOINT_POOL       = 3      # shortlist size for the player-PM
 AMEND_MAJORITY     = 2/3    # supermajority of ayes cast
-AMEND_TABLE_P      = 0.4    # weekly tabling odds while a citation stands
+AMEND_TABLE_P      = 0.35   # weekly tabling odds while a citation stands
+AMEND_ENTRENCH_LIMIT = 0.45 # the fence a newly entrenched clause draws
 COURT_WARMTH       = 0.15   # warmth per court action
 WARMTH_DECAY       = 0.01   # weekly warmth fade
 WARMTH_DRIFT       = 0.005  # organic warmth toward nearest party
+WARMTH_DRIFT_CAP   = 0.4    # drift alone never buys what courting buys
+COURT_FRIENDLY_MIN = 0.5    # warmth that counts as friendly to a leaker
+LEAK_COLD_BOOST    = 1.5    # a cold outlet leads the leak harder
+SNAP_POLL_STALE    = 3      # a snap call rides a poll this fresh, no older
 FRIENDLY_TRACE_MULT = 0.5   # warm outlets protect sources
 HOSTILE_TRACE_MULT  = 1.5   # cold outlets burn them
 ```

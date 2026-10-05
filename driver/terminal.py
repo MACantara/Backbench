@@ -9,7 +9,7 @@ sys.stdout.reconfigure(encoding="utf-8", errors="replace")  # cp1252 consoles
 
 from sim.actions import Action, available_actions
 from sim.career import final_score
-from sim.inspect import explain_bill, explain_mp, explain_vote
+from sim.inspect import explain_bench, explain_bill, explain_mp, explain_vote
 from sim.tick import tick
 from sim.worldgen import new_game
 
@@ -38,7 +38,7 @@ def prompt_actions(state) -> list[Action]:
     picks = []
     while len(picks) < 2:
         print("\nActions (pick 2):", ", ".join(f"{i}:{a}" for i, a in enumerate(menu)),
-              "| inspect <mp_id> | why")
+              "| inspect <mp_id|bench> | why")
         try:
             raw = input(f"action {len(picks) + 1}/2 > ").strip()
         except EOFError:
@@ -48,16 +48,42 @@ def prompt_actions(state) -> list[Action]:
             continue
         if raw.startswith("inspect"):
             parts = raw.split()
-            if len(parts) == 2 and parts[1].isdigit() and int(parts[1]) in state.mps:
+            if len(parts) == 2 and parts[1] == "bench":
+                print(explain_bench(state))
+            elif len(parts) == 2 and parts[1].isdigit() and int(parts[1]) in state.mps:
                 print(explain_mp(state, int(parts[1])))
             continue
         if raw.isdigit() and int(raw) < len(menu):
             kind = menu[int(raw)]
-            target = axis = vote = offer = None
+            target = axis = vote = offer = law = judge = None
+            article = entrench = outlet = None
             if kind in ("lobby", "dig_dirt", "deal", "leak"):
                 s = _ask("target mp id > ",
                          lambda s: s.isdigit() and int(s) in state.mps
                          and (kind != "leak" or int(s) != state.player_id))
+                if s is None:
+                    continue
+                target = int(s)
+            if kind == "leak":
+                me = state.mps[state.player_id]
+                for o in state.outlets:
+                    print(f"  {o.id}: {o.name} — warmth "
+                          f"{o.warmth.get(me.party, 0.0):.2f} to your party")
+                s = _ask("route through outlet id (blank = open market) > ",
+                         lambda s: s == "" or (s.isdigit()
+                                 and any(o.id == int(s) for o in state.outlets)))
+                if s is None:
+                    continue
+                outlet = int(s) if s else None
+            if kind == "court":
+                from sim.naming import describe_pos
+                me = state.mps[state.player_id]
+                for o in state.outlets:
+                    print(f"  {o.id}: {o.name} — {describe_pos(o.slant)}, "
+                          f"warmth {o.warmth.get(me.party, 0.0):.2f}")
+                s = _ask("outlet id > ",
+                         lambda s: s.isdigit()
+                         and any(o.id == int(s) for o in state.outlets))
                 if s is None:
                     continue
                 target = int(s)
@@ -87,6 +113,52 @@ def prompt_actions(state) -> list[Action]:
                 if s is None:
                     continue
                 vote = int(s)
+            if kind == "appoint":
+                from sim.naming import describe_pos
+                for i, j in enumerate(state.bench_shortlist):
+                    print(f"  {i}: {j.name} — {describe_pos(j.pos)}, "
+                          f"activism {j.activism:.2f}, {j.age // 52}y")
+                s = _ask("nominee # > ",
+                         lambda s: s.isdigit() and int(s) < len(state.bench_shortlist))
+                if s is None:
+                    continue
+                judge = int(s)
+            if kind == "challenge":
+                from sim.courts import challengeable, legal_risk
+                laws = challengeable(state)
+                for i, lw in enumerate(laws):
+                    print(f"  {i}: {lw.name} (risk {legal_risk(state, lw):.2f})")
+                s = _ask("law # > ",
+                         lambda s: s.isdigit() and int(s) < len(laws))
+                if s is None:
+                    continue
+                pick = laws[int(s)]
+                law = next(i for i, lw in enumerate(state.laws) if lw is pick)
+            if kind == "amendment":
+                from sim.worldgen import _CLAUSES
+                fenced = {(a.axis, a.pole) for a in state.constitution
+                          if a.kind == "pos"}
+                for a in state.constitution:
+                    print(f"  r{a.id}: repeal {a.name}")
+                for ax in (0, 1):
+                    for pole in (-1, 1):
+                        if (ax, pole) not in fenced:
+                            side = "economic" if ax == 0 else "social"
+                            print(f"  e{ax}{'+-'[pole > 0]}: entrench "
+                                  f"{_CLAUSES[(ax, pole)]} ({side} pole)")
+                s = _ask("clause > ",
+                         lambda s: (s.startswith("r") and s[1:].isdigit()
+                                    and any(a.id == int(s[1:]) for a in state.constitution))
+                                   or (s.startswith("e") and len(s) == 3
+                                       and s[1] in "01" and s[2] in "-+"
+                                       and (int(s[1]), 1 if s[2] == "+" else -1)
+                                           not in fenced))
+                if s is None:
+                    continue
+                if s[0] == "r":
+                    article = int(s[1:])
+                else:
+                    entrench = (int(s[1]), 1 if s[2] == "+" else -1)
             if kind == "pick_offer":
                 for e in [e for e in state.log if e.type == "OfferMade"][-len(state.offers):]:
                     print(" ", e.text)
@@ -94,7 +166,10 @@ def prompt_actions(state) -> list[Action]:
                 if s is None:
                     continue
                 offer = int(s) - 1
-            picks.append(Action(kind, target=target, axis=axis, vote=vote, offer=offer))
+            picks.append(Action(kind, target=target, axis=axis, vote=vote,
+                                offer=offer, law=law, judge=judge,
+                                article=article, entrench=entrench,
+                                outlet=outlet))
         else:
             print("?")
     return picks
@@ -103,8 +178,11 @@ def prompt_actions(state) -> list[Action]:
 def show_poll(state) -> None:
     last = next((e for e in reversed(state.log) if e.type == "PollShift"), None)
     if last:
+        oid = last.data.get("outlet")
+        sponsor = next((o.name for o in state.outlets if o.id == oid), None)
+        label = f"{sponsor} poll" if sponsor else "polls"
         shares = {state.parties[pid].name: f"{v:.0%}" for pid, v in last.data["shares"].items() if pid in state.parties}
-        print("  polls:", "  ".join(f"{k} {v}" for k, v in shares.items()))
+        print(f"  {label}:", "  ".join(f"{k} {v}" for k, v in shares.items()))
 
 
 def run(seed: int = 0) -> None:

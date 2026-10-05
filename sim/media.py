@@ -27,6 +27,10 @@ _NEWS = {
     "LawEnacted":       (1.0, +1, False),
     "LawStruck":        (2.5, -1, False),  # the bench smacks the authors
     "LawUpheld":        (1.0, +1, False),
+    "JusticeAppointed": (1.0, +1, False),  # a bench seat changes hands
+    "JusticeRetired":   (0.5,  0, False),  # a vacancy — the story is who fills it
+    "ArticleRepealed":  (3.0, +1, False),  # the constitution itself moves
+    "ArticleEntrenched":(3.0, +1, False),
     "LawRepealed":      (2.5, -1, False),  # the authors' record dismantled
     "LawLapsed":        (0.5,  0, False),  # quiet pruning barely registers
     "BudgetSet":        (1.5, +1, False),
@@ -69,6 +73,12 @@ def media_lifecycle(state: GameState, base: int) -> None:
             w, sign, sens = _NEWS[e.type]
             w = w * (o.sensationalism if sens else 1 - o.sensationalism)
             pids = _subjects(state, e)
+            if e.data.get("routed") == o.id:
+                # a planted story: a friendly outlet buries it, a cold one
+                # was approached by an enemy — it leads the knife in
+                warm = o.warmth.get(pids[0], 0.0) if pids else 0.0
+                w *= max(0.2, 1.0 - warm) if warm >= p.COURT_FRIENDLY_MIN \
+                    else p.LEAK_COLD_BOOST
             if not pids or (best and w <= best[0]):
                 continue
             best = (w, e, pids)
@@ -80,7 +90,8 @@ def media_lifecycle(state: GameState, base: int) -> None:
         for pid in pids:
             pt = state.parties[pid]
             sign = _NEWS[e.type][1] or (1 if e.data.get("passed", e.data.get("good")) else -1)
-            h = min(1.0, dist(o.slant, pt.platform) / 2)   # 0 friendly .. 1 hostile
+            h = (min(1.0, dist(o.slant, pt.platform) / 2)
+                 * (1 - o.warmth.get(pid, 0.0)))  # slant is the floor; warmth is bought goodwill
             pt.brand += (sign * p.COVERAGE_BRAND_W * (w / 2)
                          * (0.5 + (h if sign < 0 else 1 - h)))
             plat = np.asarray(pt.platform)
@@ -99,6 +110,19 @@ def media_lifecycle(state: GameState, base: int) -> None:
                      / (2 * p.AUDIENCE_AFFINITY_SD**2))
         audience = np_rng.random(len(v.pos)) < o.reach * aff
         v.salience[audience, o.focus_axis] += p.AGENDA_SALIENCE_W
+
+    # goodwill decays; the organic drift leans each board toward the party
+    # its slant already sits nearest — cheap courtship, capped below courting
+    for o in state.outlets:
+        for pid in list(o.warmth):
+            o.warmth[pid] -= p.WARMTH_DECAY
+            if o.warmth[pid] <= 0:
+                del o.warmth[pid]
+        if state.parties:
+            near = min(state.parties,
+                       key=lambda i: dist(o.slant, state.parties[i].platform))
+            if o.warmth.get(near, 0.0) < p.WARMTH_DRIFT_CAP:
+                o.warmth[near] = o.warmth.get(near, 0.0) + p.WARMTH_DRIFT
 
     # perceived positions slowly drift back toward the real platform
     for pt in state.parties.values():

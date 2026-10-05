@@ -5,7 +5,6 @@ import numpy as np
 
 from . import params as p
 from .dynamism import niche_entry
-from .election import poll
 from .state import Bill, GameState, dist, gov_platform
 from .parliament import describe_pos, resolve_vote
 
@@ -103,6 +102,9 @@ def _form(state: GameState, offer: dict) -> None:
     state.government.minority = False
     state.government.weeks_in_office = 0
     state.government.budget_stance = None  # the new cabinet writes its own budget
+    state.government.amend_attempted = set()  # its own grievances with the book
+    state.government.amend_move = None        # and owns its pending moves
+    state.bench_shortlist = []               # and picks its own nominees
     names = [state.parties[i].name for i in coalition]
     state.emit("CoalitionFormed", f"{' + '.join(names)} form a government ({bloc} seats).",
                parties=sorted(coalition), seats=bloc)
@@ -122,6 +124,9 @@ def _minority(state: GameState, exclude_parties: set[int] | None = None) -> None
     state.government.minority = True
     state.government.weeks_in_office = 0
     state.government.budget_stance = None
+    state.government.amend_attempted = set()
+    state.government.amend_move = None
+    state.bench_shortlist = []
     state.emit("CoalitionFormed", f"{state.parties[biggest].name} forms a minority government ({seats[biggest]} seats).",
                parties=[biggest], seats=seats[biggest], minority=True)
 
@@ -195,6 +200,8 @@ def call_election(state: GameState, snap: bool, reason: str,
     state.offers = []           # dead slates die with it too
     state.deals = []            # and promises made to a dissolved house lapse
     state.government.budget_stance = None  # a caretaker's signals lapse too
+    state.government.amend_move = None       # and its pending amendment
+    state.bench_shortlist = []               # no caretaker appointments
     state.phase = "campaign"
     state.weeks_to_election = p.CAMPAIGN_WEEKS
     niche_entry(state)
@@ -205,9 +212,14 @@ def strategic_call(state: GameState) -> None:
     gov = state.government
     if not gov.parties or not (p.SNAP_WINDOW[0] <= gov.weeks_in_office <= p.SNAP_WINDOW[1]):
         return
-    # early calls convert a poll surplus into seats — no surplus, no gamble
+    # early calls convert a *published* poll surplus into seats — the number
+    # the country read, sponsor's bias and all; a flattered government can
+    # ride its own friendly press into a doomed snap. No fresh poll, no gamble.
+    lp = state.last_poll
+    if lp is None or state.week - lp["week"] > p.SNAP_POLL_STALE:
+        return
     seat_share = sum(len(state.parties[i].members) for i in gov.parties) / max(len(state.mps), 1)
-    poll_share = sum(poll(state).get(pid, 0.0) for pid in gov.parties)
+    poll_share = sum(lp["shares"].get(pid, 0.0) for pid in gov.parties)
     if poll_share < seat_share + p.SNAP_POLL_EDGE:
         return
     if state.rng.random() < p.SNAP_CALL_P:
@@ -234,6 +246,8 @@ def collapse(state: GameState, cause: str = "confidence") -> None:
     state.current_bill = None          # and its pending business dies too
     state.deals = []                   # promises made on that business lapse
     state.government.budget_stance = None  # a fallen PM's signals lapse
+    state.government.amend_move = None       # and their queued amendment
+    state.bench_shortlist = []               # and a fallen PM's nominees lapse
     if state.government.collapses >= p.SNAP_COLLAPSE_MAX:
         call_election(state, snap=True, reason="deadlock", party=pm_party)
     elif alt is None:

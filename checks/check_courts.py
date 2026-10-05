@@ -9,7 +9,7 @@ from sim.actions import Action, available_actions
 from sim.conditions import enact
 from sim.courts import courts_lifecycle, legal_risk
 from sim.media import _subjects
-from sim.state import Bill
+from sim.state import Article, Bill, Justice
 from sim.tick import tick
 from sim.treasury import upkeep
 from sim.worldgen import new_game
@@ -24,7 +24,11 @@ def _gov(seed: int, activism: float | None = None):
     s.government.parties = {next(iter(s.parties))}
     s.government.pm = None
     if activism is not None:
-        s.court_activism = activism
+        # verdicts read the bench now — pin justices of the requested
+        # doctrine, temperamented opposite the fixture statutes' pole
+        s.bench = [Justice(i, f"J{i}", (-1.0, -1.0), activism,
+                           p.RETIRE_FLOOR - 200, None)
+                   for i in range(p.BENCH_SIZE)]
     return s
 
 
@@ -63,9 +67,16 @@ def main() -> None:
     # doesn't stop the case
     outcomes = {}
     for activism, expect in ((1.0, "LawStruck"), (0.0, "LawUpheld")):
-        s2 = _gov(4, activism)
+        s2 = _gov(4)
+        # a controlled constitution: the fixture statute breaches the clause
+        s2.constitution = [Article(0, "the Property Clause", "pos",
+                                   axis=0, pole=-1, limit=0.4)]
+        # a controlled bench: aligned with the statute, doctrine varies
+        s2.bench = [Justice(i, f"J{i}", (-0.8, 0.0), activism, 2600)
+                    for i in range(p.BENCH_SIZE)]
         author = next(iter(s2.parties))
-        law = enact(s2, Bill(pos=(0.5, 0.0), beneficiary_axis=0, cost=0.004), yes=70, no=50)
+        law = enact(s2, Bill(pos=(-0.8, 0.0), beneficiary_axis=0, cost=0.004),
+                    yes=70, no=50)
         courts_lifecycle(s2)  # file it first
         assert s2.docket, "fixture law never got challenged"
         challenger = s2.docket[0].challenger
@@ -84,6 +95,8 @@ def main() -> None:
     struck_ev = next(e for e in struck_s.log if e.type == "LawStruck")
     assert _subjects(struck_s, struck_ev) == [struck_author], \
         "the press should blame the authors, not the incumbents"
+    assert struck_ev.data["article"] == 0 and "Property Clause" in struck_ev.text, \
+        "a strike must cite the clause it enforces"
     upheld_s, upheld_law, _ = outcomes["LawUpheld"]
     assert upheld_law.reviewed and any(l is upheld_law for l in upheld_s.laws), \
         "upheld law should stay in force, immune"

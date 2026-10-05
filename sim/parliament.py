@@ -84,6 +84,21 @@ def vote_utility(state: GameState, mp: MP, bill: Bill) -> float:
     return sum(vote_terms(state, mp, bill).values())
 
 
+def _struck_article(state: GameState):
+    """The clause that struck down a law of the sitting coalition, if any —
+    the wound that motivates a repeal amendment. Gone clauses don't qualify."""
+    gov = set(state.government.parties)
+    for e in reversed(state.log):
+        if e.type == "LawStruck" and gov & set(e.data.get("parties", ())):
+            art = next((a for a in state.constitution
+                        if a.id == e.data.get("article")), None)
+            # a government gets one swing at a clause per term — a failed
+            # repeal is spent, the wound doesn't refill the agenda forever
+            if art is not None and art.id not in state.government.amend_attempted:
+                return art
+    return None
+
+
 def table_bill(state: GameState) -> Bill:
     """The government tables a bill near the coalition's mean platform —
     or, while insolvent, is forced to table cuts: receivership is agenda capture.
@@ -92,6 +107,7 @@ def table_bill(state: GameState) -> Bill:
     repeal IS the government's program); the law's authors defend it through
     their own policy/district terms."""
     bill = None
+    pm_move = False
     if state.week % p.BUDGET_EVERY_WEEKS == 0:
         # supply day: the government lays its fiscal posture before the house —
         # a confidence matter, pending like any bill so the week reads it
@@ -108,6 +124,31 @@ def table_bill(state: GameState) -> Bill:
         bill = Bill(pos=(p.AUSTERITY_POS, 0.0), beneficiary_axis=0,
                     cost=-p.AUSTERITY_SAVING,
                     name=austerity_name(state.rng), austerity=True)
+    elif state.government.amend_move is not None:
+        # the player-PM's queued amendment takes the floor as government
+        # business — tabled this week, divided next like everything else
+        queued = state.government.amend_move
+        state.government.amend_move = None
+        stale = (queued.amends is not None
+                 and queued.amends not in state.constitution) \
+            or (queued.entrenches is not None and any(
+                a.kind == "pos" and a.axis == queued.entrenches.axis
+                and a.pole == queued.entrenches.pole for a in state.constitution))
+        if stale:
+            # the book moved under the queued amendment — the moment passed
+            state.emit("CareerEvent",
+                       "Your amendment is overtaken — the clause it moved on "
+                       "is gone.", action="amendment")
+        else:
+            bill = queued
+            pm_move = True
+    elif (wounded := _struck_article(state)) is not None \
+            and state.rng.random() < p.AMEND_TABLE_P:
+        # the court struck our flagship citing a clause — try to repeal the
+        # clause itself; the constitution bends at two-thirds, not before
+        bill = Bill(pos=tuple(gov_platform(state)), beneficiary_axis=0,
+                    amends=wounded, name=f"Repeal of {wounded.name}")
+        state.government.amend_attempted.add(wounded.id)
     elif state.laws and state.rng.random() < p.REPEAL_P:
         agenda = gov_platform(state)
         term_start = state.week - state.government.weeks_in_office
@@ -138,7 +179,12 @@ def table_bill(state: GameState) -> Bill:
                                        + state.rng.gauss(0, p.COST_JITTER))),
                         name=bill_name(pos, ax, state.rng))
     state.current_bill = bill
-    if bill.repeals is not None:
+    if bill.amends is not None or bill.entrenches is not None:
+        mover = "You move" if pm_move or bill.author == state.player_id \
+            else "Government tables"
+        text = (f"{mover} the {bill.name} — a constitutional amendment — "
+                "division next week, and it needs two-thirds.")
+    elif bill.repeals is not None:
         text = (f"Government moves to repeal the {bill.repeals.name} "
                 "— division next week.")
     else:
@@ -149,6 +195,8 @@ def table_bill(state: GameState) -> Bill:
     state.emit("BillTabled", text,
                pos=bill.pos, beneficiary_axis=bill.beneficiary_axis, cost=bill.cost,
                bill=bill.name, austerity=bill.austerity,
+               amends=bill.amends.id if bill.amends else None,
+               entrenches=bill.entrenches.name if bill.entrenches else None,
                repeals=bill.repeals.name if bill.repeals else None)
     return bill
 
@@ -215,7 +263,11 @@ def resolve_vote(state: GameState, bill: Bill, player_vote: int | None = None) -
             else:
                 delta = -p.STANDING_WHIP_ABSTAIN
             mp.standing = float(np.clip(mp.standing + delta, -1, 1))
-    passed = yes > no
+    is_amendment = bill.amends is not None or bill.entrenches is not None
+    # amendments need two-thirds of votes cast — the constitution is hard
+    # to move on purpose; abstentions waste the mover
+    passed = (yes > 0 and yes >= p.AMEND_MAJORITY * (yes + no) if is_amendment
+              else yes > no)
     if bill is state.current_bill:
         state.current_bill = None   # a confidence motion isn't the pending bill
     # the player keeps or breaks their word — judged on the cast column
@@ -245,7 +297,7 @@ def resolve_vote(state: GameState, bill: Bill, player_vote: int | None = None) -
     # consequences: voter drift on passage, brand for the government when it
     # owns the bill — a private member's win or loss isn't theirs
     gov_parties = [i for i in state.government.parties if i in state.parties]
-    label = "Budget" if bill.budget else "Bill"
+    label = "Budget" if bill.budget else "Amendment" if is_amendment else "Bill"
     if passed:
         ax = bill.beneficiary_axis
         state.voters.pos[:, ax] += p.BILL_PERSUASION * np.sign(bill.pos[ax] - state.voters.pos[:, ax])
@@ -261,7 +313,28 @@ def resolve_vote(state: GameState, bill: Bill, player_vote: int | None = None) -
                        f"The {bill.name} sets the fiscal stance — "
                        f"tax ×{bill.tax:.2f}, spend ×{bill.spend:.2f}.",
                        bill=bill.name, tax=bill.tax, spend=bill.spend)
-        if not bill.confidence:  # survival votes aren't legislation
+        if bill.amends is not None:
+            state.constitution = [a for a in state.constitution
+                                  if a is not bill.amends]
+            state.emit("ArticleRepealed",
+                       f"{bill.amends.name} is struck from the constitution — "
+                       "the statute book stands past it.",
+                       article=bill.amends.id)
+        if bill.entrenches is not None:
+            art = bill.entrenches
+            art.id = state.article_seq
+            state.article_seq += 1
+            state.constitution.append(art)
+            state.emit("ArticleEntrenched",
+                       f"{art.name} is written into the constitution — "
+                       "the courts gain a new guard.",
+                       article=art.id)
+        state.legacy_bills += is_amendment and (
+            bill.author == state.player_id
+            or (bill.author is None and state.government.pm == state.player_id))
+        if not bill.confidence and not is_amendment:
+            # survival votes aren't legislation; amendments rewrite the book
+            # itself — the bench doesn't review its own charter
             law = enact(state, bill, yes, no)
             state.legacy_bills += law is not None and law.author == state.player_id
     else:
@@ -269,14 +342,15 @@ def resolve_vote(state: GameState, bill: Bill, player_vote: int | None = None) -
             for i in gov_parties:
                 state.parties[i].brand -= p.BILL_FAIL_BRAND
         if not bill.confidence and bill.repeals is None and not bill.austerity \
-                and bill.author is None:
+                and not is_amendment and bill.author is None:
             # defeated *government* bills are remembered — the agenda may retry;
             # a private member's defeat isn't the government's to revive
             state.failed.append({"pos": bill.pos, "name": bill.name or "a bill",
                                  "week": state.week, "axis": bill.beneficiary_axis,
                                  "cost": bill.cost})
             del state.failed[:-p.FAILED_MAX]
-        state.emit("VoteResult", f"{label} fails {yes}-{no} ({abstain} abstain).",
+        short = " — the majority wasn't two-thirds" if is_amendment and yes > no else ""
+        state.emit("VoteResult", f"{label} fails {yes}-{no} ({abstain} abstain).{short}",
                    passed=False, yes=yes, no=no, abstain=abstain,
                    detail=detail, player=player_vote)
     return passed

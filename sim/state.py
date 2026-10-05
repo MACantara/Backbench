@@ -122,6 +122,7 @@ class Outlet:
     reach: float
     sensationalism: float       # 0 policy broadsheet .. 1 scandal tabloid
     focus_axis: int             # the axis it harps on (agenda-setting)
+    warmth: dict[int, float] = field(default_factory=dict)  # cultivated goodwill per party id
 
 
 @dataclass
@@ -136,6 +137,8 @@ class Bill:
     tax: float = 1.0                # budget: revenue multiplier if enacted
     spend: float = 1.0              # budget: upkeep multiplier if enacted
     amended: bool = False           # one amendment per bill — the house moves on
+    amends: "Article | None" = None   # repeals this clause — two-thirds to carry
+    entrenches: "Article | None" = None  # writes this clause — two-thirds to carry
     author: int | None = None       # sponsor's MP id (private bills); None = the PM's
     name: str = ""                  # domain-flavored name; confidence motions stay blank
 
@@ -168,8 +171,30 @@ class CourtCase:
     """A statute under judicial review — sits pending, then a verdict lands."""
     law: Law                        # by identity — the registry drops laws other ways too
     due_week: int
-    challenger: int                 # party id of the filer
+    challenger: int | None          # party id of the filer; None = an independent MP
     risk: float = 0.0               # the statute's risk as challenged — verdicts use this
+
+
+@dataclass
+class Article:
+    """A constitutional clause: a named boundary a statute may not cross."""
+    id: int
+    name: str                       # "the Property Clause"
+    kind: str                       # "pos" | "cost" | "margin"
+    axis: int = 0                   # pos clauses: the guarded axis
+    pole: int = 0                   # pos clauses: -1 or +1 — the fenced pole
+    limit: float = 0.0              # the boundary the clause draws
+
+
+@dataclass
+class Justice:
+    """An appointed judge — outlives the PM who chose them."""
+    id: int
+    name: str
+    pos: Vec                        # judicial temperament in ideology space
+    activism: float                 # 0 deferential .. 1 activist — doctrine
+    age: int                        # weeks
+    appointed_by: int | None = None  # the appointing PM's MP id — the legacy trail
 
 
 @dataclass
@@ -209,6 +234,8 @@ class Government:
     blocked: set[int] = field(default_factory=set)  # parties barred from re-forming this house
     sacked: set[int] = field(default_factory=set)   # MPs unappointable until the next election
     budget_stance: int | None = None  # player-PM's posture pick for the next budget
+    amend_attempted: set[int] = field(default_factory=set)  # clause ids already moved this term
+    amend_move: "Bill | None" = None      # player-PM's queued amendment — tables next week
 
 
 @dataclass
@@ -228,9 +255,15 @@ class GameState:
     treasury: Treasury = field(default_factory=Treasury)
     graves: list[Grave] = field(default_factory=list)  # dissolved parties, revivable
     docket: list[CourtCase] = field(default_factory=list)  # statutes pending review
-    court_activism: float = 0.5     # 0 deferential .. 1 activist — the bench's character
+    constitution: list[Article] = field(default_factory=list)  # the clauses laws answer to
+    article_seq: int = 0    # monotonic clause ids — events cite them; reuse would confuse
+    bench: list[Justice] = field(default_factory=list)  # the sitting court
+    justice_seq: int = 0    # monotonic justice ids, same reason
+    bench_shortlist: list[Justice] = field(default_factory=list)  # player-PM's pending picks
+    court_activism: float = 0.5     # inaugural-bench doctrine seed at worldgen
     press_subject: int | None = None  # party id of last week's lead story
     press_weeks: int = 0              # consecutive weeks that subject has led
+    last_poll: dict | None = None     # the *published* poll — sponsored, biased, dated
     government: Government = field(default_factory=Government)
     current_bill: Bill | None = None
     offers: list = field(default_factory=list)  # coalition slates on the table (formation week)

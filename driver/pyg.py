@@ -56,6 +56,11 @@ class Driver:
         self.need_offer = False     # pick_offer awaiting an offer button
         self.need_budget = False    # "budget" awaiting a stance pick
         self.need_defect = False    # "defect" awaiting a destination pick
+        self.need_law = False       # "challenge" awaiting a statute pick
+        self.need_judge = False     # "appoint" awaiting a nominee pick
+        self.need_amend = False     # "amendment" awaiting a clause pick
+        self.need_outlet = False    # "court" awaiting an outlet pick
+        self.leak_outlet = None     # pending leak target awaiting venue pick
         self.why_text = None        # explain_vote output while paused
         self.viz_rng = random.Random(1)  # visuals only — never touches sim rng
         self.district_prev = {}     # district -> party before the latest tick
@@ -115,9 +120,19 @@ class Driver:
                 self.action_pause = True   # stop the clock for the weekly decision
                 self.paused = True
 
+    def _clear_pending(self) -> None:
+        """A fresh action pick drops any half-finished pick — no stacked
+        prompts waiting on buttons that no longer render."""
+        self.need_target = self.need_axis = self.need_vote = None
+        self.need_offer = self.need_budget = self.need_defect = False
+        self.need_law = self.need_judge = self.need_amend = False
+        self.need_outlet = False
+        self.leak_outlet = None
+
     def on_button(self, bid: str) -> None:
-        from sim.inspect import explain_vote
+        from sim.inspect import explain_bench, explain_vote
         if bid.startswith("act:"):
+            self._clear_pending()
             kind = bid[4:]
             if kind in ("lobby", "dig_dirt", "leak"):
                 self.need_target = kind
@@ -133,6 +148,14 @@ class Driver:
                 self.need_budget = True
             elif kind == "defect":
                 self.need_defect = True
+            elif kind == "challenge":
+                self.need_law = True
+            elif kind == "appoint":
+                self.need_judge = True
+            elif kind == "amendment":
+                self.need_amend = True
+            elif kind == "court":
+                self.need_outlet = True
             else:
                 self.picks.append(Action(kind))
                 self._after_pick()
@@ -163,10 +186,49 @@ class Driver:
                                      target=None if bid[4:] == "i" else int(bid[4:])))
             self.need_defect = False
             self._after_pick()
+        elif bid.startswith("law:") and self.need_law:
+            from sim.courts import challengeable
+            laws = challengeable(self.state)
+            i = int(bid[4:])
+            if 0 <= i < len(laws):
+                pick = laws[i]
+                idx = next(j for j, lw in enumerate(self.state.laws) if lw is pick)
+                self.picks.append(Action("challenge", law=idx))
+            self.need_law = False
+            self._after_pick()
+        elif bid.startswith("jdg:") and self.need_judge:
+            i = int(bid[4:])
+            if 0 <= i < len(self.state.bench_shortlist):
+                self.picks.append(Action("appoint", judge=i))
+            self.need_judge = False
+            self._after_pick()
+        elif bid.startswith("amd:") and self.need_amend:
+            s = bid[4:]
+            if s[:1] == "r" and s[1:].isdigit():
+                self.picks.append(Action("amendment", article=int(s[1:])))
+            elif len(s) == 3 and s[0] == "e":
+                self.picks.append(Action("amendment", entrench=(
+                    int(s[1]), 1 if s[2] == "+" else -1)))
+            self.need_amend = False
+            self._after_pick()
+        elif bid.startswith("otl:") and (self.need_outlet
+                                         or self.leak_outlet is not None):
+            oid = None if bid[4:] == "x" else int(bid[4:])
+            if self.leak_outlet is not None:
+                self.picks.append(Action("leak", target=self.leak_outlet,
+                                         outlet=oid))
+                self.leak_outlet = None
+            else:
+                self.picks.append(Action("court", target=oid))
+                self.need_outlet = False
+            self._after_pick()
         elif bid == "continue":
             self.action_pause, self.paused = False, False
             self.need_target = self.need_axis = self.need_vote = None
             self.need_offer = self.need_budget = self.need_defect = False
+            self.need_law = self.need_judge = self.need_amend = False
+            self.need_outlet = False
+            self.leak_outlet = None
             picks = [pk for pk in self.picks
                      if pk.kind != "deal" or pk.vote is not None]  # unfinished deal = no deal
             self.picks = []
@@ -174,6 +236,8 @@ class Driver:
             self.advance(picks)
         elif bid == "why":
             self.why_text = explain_vote(self.state)
+        elif bid == "bench":
+            self.why_text = explain_bench(self.state)
         elif bid == "auto":
             self.toggle_auto()
         elif bid.startswith("flt:"):
@@ -247,11 +311,14 @@ class Driver:
         if hit is not None and self.need_target:
             if self.need_target == "leak" and hit == self.state.player_id:
                 return  # leaking yourself is a silent no-op — don't bind it
-            self.picks.append(Action(self.need_target, target=hit))
+            if self.need_target == "leak":
+                self.leak_outlet = hit    # venue pick comes next
+            else:
+                self.picks.append(Action(self.need_target, target=hit))
             if self.need_target == "deal":
                 self.need_vote = "deal"   # promised column comes next
             self.need_target = None
-            if self.need_vote is None:
+            if self.need_vote is None and self.leak_outlet is None:
                 self._after_pick()
         else:
             self.inspect_mp = hit  # seat -> card, empty space -> close

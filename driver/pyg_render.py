@@ -193,7 +193,21 @@ def draw_action_panel(drv) -> None:
     pygame.draw.rect(drv.screen, DIM, (20, H - 150, 940, 130), 1)
     _text(drv, f"Actions — pick {2 - len(drv.picks)} more "
                f"(or continue): {[a.kind for a in drv.picks]}", (34, H - 140))
-    if drv.need_target:
+    if drv.need_outlet or drv.leak_outlet is not None:
+        me = drv.state.mps[drv.state.player_id]
+        _text(drv, "choose the venue" if drv.leak_outlet is not None
+              else "court which editorial board?", (34, H - 114), GOLD)
+        x = 34
+        if drv.leak_outlet is not None:
+            _button(drv, "otl:x", "open market", pygame.Rect(x, H - 88, 110, 28))
+            x += 118
+        for o in drv.state.outlets:
+            warm = o.warmth.get(me.party, 0.0)
+            lab = f"{o.name[4:14]} {warm:.1f}"
+            w = 16 + 9 * len(lab)
+            _button(drv, f"otl:{o.id}", lab, pygame.Rect(x, H - 88, w, 28))
+            x += w + 8
+    elif drv.need_target:
         _text(drv, f"{drv.need_target}: click an MP's seat to target", (34, H - 114), GOLD)
     elif drv.need_axis:
         _text(drv, f"{drv.need_axis}: pick an axis", (34, H - 114), GOLD)
@@ -227,6 +241,47 @@ def draw_action_panel(drv) -> None:
             _button(drv, f"dft:{pt.id}", pt.name[:12], pygame.Rect(x, H - 88, w, 28))
             x += w + 8
         _button(drv, "dft:i", "independent", pygame.Rect(x, H - 88, 110, 28))
+    elif drv.need_law:
+        from sim.courts import challengeable, legal_risk
+        _text(drv, "file suit against:", (34, H - 114), GOLD)
+        x = 34
+        laws = challengeable(drv.state)
+        for i, lw in enumerate(laws[:4]):
+            lab = f"{lw.name[:20]} {legal_risk(drv.state, lw):.2f}"
+            w = 16 + 9 * len(lab)
+            _button(drv, f"law:{i}", lab, pygame.Rect(x, H - 88, w, 28))
+            x += w + 8
+        if len(laws) > 4:
+            _text(drv, f"+{len(laws) - 4} more", (x, H - 82), DIM)
+    elif drv.need_judge:
+        from sim.naming import describe_pos
+        _text(drv, "seat the nominee:", (34, H - 114), GOLD)
+        x = 34
+        for i, j in enumerate(drv.state.bench_shortlist):
+            lab = f"{j.name.split()[-1]} {describe_pos(j.pos)[:8]} {j.age // 52}y"
+            w = 16 + 9 * len(lab)
+            _button(drv, f"jdg:{i}", lab, pygame.Rect(x, H - 88, w, 28))
+            x += w + 8
+    elif drv.need_amend:
+        from sim.worldgen import _CLAUSES
+        fenced = {(a.axis, a.pole) for a in drv.state.constitution
+                  if a.kind == "pos"}
+        _text(drv, "the clause to move:", (34, H - 114), GOLD)
+        x, y = 34, H - 88
+        def _amd(bid, lab):
+            nonlocal x, y
+            w = 16 + 9 * len(lab)
+            if x + w > W - 30:          # a full book of clauses wraps
+                x, y = 34, y - 34
+            _button(drv, bid, lab, pygame.Rect(x, y, w, 28))
+            x += w + 8
+        for a in drv.state.constitution:
+            _amd(f"amd:r{a.id}", f"repeal {a.name[4:][:14]}")
+        for ax in (0, 1):
+            for pole in (-1, 1):
+                if (ax, pole) not in fenced:
+                    _amd(f"amd:e{ax}{'+' if pole > 0 else '-'}",
+                         f"+{_CLAUSES[(ax, pole)][4:][:14]}")
     else:
         x = 34
         for kind in available_actions(drv.state):
@@ -235,7 +290,8 @@ def draw_action_panel(drv) -> None:
             x += w + 8
     _button(drv, "continue", "continue >>", pygame.Rect(34, H - 50, 110, 28))
     _button(drv, "why", "why?", pygame.Rect(154, H - 50, 70, 28))
-    _button(drv, "auto", "auto: " + ("on" if drv.auto_play else "off"), pygame.Rect(234, H - 50, 90, 28))
+    _button(drv, "bench", "bench", pygame.Rect(234, H - 50, 70, 28))
+    _button(drv, "auto", "auto: " + ("on" if drv.auto_play else "off"), pygame.Rect(314, H - 50, 90, 28))
 
 
 def draw_inspect(drv) -> None:

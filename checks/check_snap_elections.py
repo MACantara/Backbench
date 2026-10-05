@@ -6,7 +6,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 import sim.params as p
 from sim.actions import Action, available_actions
-from sim.election import poll
+from sim.election import poll, publish_poll
 from sim.government import confidence_vote, resolve_formation, strategic_call
 from sim.tick import tick
 from sim.worldgen import new_game
@@ -72,11 +72,13 @@ def main() -> None:
     calls3 = [e for e in s3.log if e.type == "ElectionCalled"]
     assert calls3 and calls3[-1].data["reason"] == "deadlock" and s3.phase == "campaign"
 
-    # strategic: a government polling above its seat share gambles inside the window
+    # strategic: a government polling above its seat share gambles inside the
+    # window — on the *published* (sponsored) number, not the oracle
     s4 = None
     for seed in range(30):
         cand = new_game(seed)
-        shares = poll(cand)
+        sponsor = cand.outlets[cand.week % len(cand.outlets)] if cand.outlets else None
+        shares = poll(cand, outlet=sponsor)
         pid = max(shares, key=shares.get)
         seat_share = len(cand.parties[pid].members) / max(len(cand.mps), 1)
         if shares[pid] >= seat_share + p.SNAP_POLL_EDGE:
@@ -89,6 +91,7 @@ def main() -> None:
     s4.phase = "governing"  # strategic calls only exist inside a term
     n_calls = sum(1 for e in s4.log if e.type == "ElectionCalled")  # starts in campaign
     for _ in range(200):
+        publish_poll(s4)          # the tick publishes before the PM reads it
         strategic_call(s4)
         if sum(1 for e in s4.log if e.type == "ElectionCalled") > n_calls:
             break

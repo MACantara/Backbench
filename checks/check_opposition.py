@@ -96,10 +96,10 @@ def main() -> None:
     assert s.current_bill is not None, "no bill tabled in 40 weeks"
     bill = s.current_bill
     whipped = next((m for m in s.mps.values()
-                    if m.party is not None and whip_direction(s, m.party, bill)
-                    and m.faction is None),  # a faction whip owns the line
+                    if m.party is not None and whip_direction(s, m.party, bill)),
                    None)
     assert whipped is not None, "no whipped MP found"
+    whipped.faction = None      # party line owns this member for the check
     whipped.scandal_weeks = 3
     terms = vote_terms(s, whipped, bill)
     line = whip_direction(s, whipped.party, bill)
