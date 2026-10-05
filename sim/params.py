@@ -26,6 +26,8 @@ SALIENCE_SD = 0.30
 VOTE_NOISE_SD = 0.20         # per-voter scoring noise
 LOYALTY_WEIGHT = 0.60        # bonus to last-voted party
 TURNOUT_MODEL_NOISE = 0.05   # extra turnout jitter at election time
+INDEPENDENT_P = 0.10   # per-district chance a party-less local stands
+INDEPENDENT_POS_SD = 0.35  # eccentric locals — near the centroid, never exactly on it
 
 # --- MPs ---
 MP_POS_JITTER = 0.12         # distance of an MP from their party/district anchor
@@ -84,10 +86,28 @@ W_REL = 0.4        # weight on relationship with the government/leader
 W_SAFETY = 0.6     # weight on district opinion exposure (unsafe seats vote locally)
 W_GOV = 0.35       # solidarity bonus for coalition MPs backing their own government's bill
 VOTE_NOISE = 0.05  # per-MP ballot noise
+MARGINAL_BAND = 0.15  # |u| under this reads as a swing vote in projections
+ABSTAIN_MARGIN = 0.08  # |u| under this → abstain, torn between the whips
+STANDING_WHIP_ABSTAIN = 0.02   # abstaining a whipped vote: half a rebel's price
+DEAL_REL = 0.10                # counterparty credits you for the promise alone
+DEAL_KEPT_REL = 0.15           # …and again when you keep it
+DEAL_BROKEN_REL = 0.30         # a broken deal costs double what it banked
+DEAL_STANDING = 0.05           # word-keeper standing — visible to the party
+ATTEND_BASE = 0.05     # weekly absentee probability
+ATTEND_LATE = 0.08     # added when the scheduled election looms
+ATTEND_ELECTION_WEEKS = 8  # absenteeism ramps inside this of term end
+ATTEND_SCANDAL = 0.10  # added while a scandal burns — the member lies low
+ATTEND_AGE = 0.05      # added past RETIRE_AGE
+ATTEND_SHOCK_P = 0.04  # some weeks the house is half-empty (flu, a boycott)
+ATTEND_SHOCK = 0.45    # shared absence spike when the shock lands
+QUORUM = 0.5           # fraction of the house that must be present to divide
 BILL_PERSUASION = 0.008  # weekly electorate pull toward gov axis per passed bill
 
 # --- government ---
 COALITION_MAX_DIST = 1.0         # partners won't join a coalition beyond this platform distance
+COALITION_FREE_DIST = 0.35       # partners within this of the proposer join unpriced
+CONCESSION_STEP = 0.15           # far partners extract platform shift ∝ distance past free
+STANDING_CONCESSION = 0.3        # proposer's members pay standing per platform-distance sold
 COALITION_WHIP_TOL = 1.2         # gov bill this far from a partner's platform breaks its whip line
 CONFIDENCE_THRESHOLD = 0.5       # fraction of parliament needed
 MINORITY_GOVT_PENALTY = 0.15     # utility discount on bills under minority government

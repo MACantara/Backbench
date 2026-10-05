@@ -10,7 +10,7 @@ from .career import (assign_portfolios, junior_lifecycle, leadership_challenge,
 from .conditions import conditions_lifecycle
 from .courts import courts_lifecycle
 from .election import poll, resolve_election
-from .government import (call_election, confidence_vote, form_government,
+from .government import (call_election, confidence_vote, resolve_formation,
                          strategic_call)
 from .media import media_lifecycle
 from .parliament import resolve_vote, table_bill
@@ -42,15 +42,22 @@ def tick(state: GameState, actions: list | None = None) -> list[Event]:
                 state.phase = "formation"
 
     elif state.phase == "formation":
-        form_government(state)
-        assign_portfolios(state)
-        state.phase = "governing"
-        state.emit("PollShift", "Post-formation poll.", shares=poll(state))
+        if resolve_formation(state, actions or []):
+            assign_portfolios(state)
+            state.phase = "governing"
+            state.emit("PollShift", "Post-formation poll.", shares=poll(state))
+        # else: offers on the table — the house bargains one more week
 
     elif state.phase == "governing":
         state.government.weeks_in_office += 1
-        bill = table_bill(state)
-        resolve_vote(state, bill)
+        # the pending division resolves first — the player saw it all week;
+        # then the government tables next week's business
+        pv = next((a.vote for a in (actions or [])
+                   if a.kind == "vote" and a.vote is not None), None)
+        if state.current_bill is not None:
+            resolve_vote(state, state.current_bill, player_vote=pv)
+        if state.current_bill is None:   # a stalled division carries — no new bill
+            table_bill(state)
         if state.week % p.BUDGET_EVERY_WEEKS == 0:
             confidence_vote(state)
         if state.phase == "governing":

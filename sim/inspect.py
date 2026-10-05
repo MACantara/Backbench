@@ -1,13 +1,23 @@
 """Legibility tools: explain why MPs voted how they did, why events happened."""
 from __future__ import annotations
 
+from . import params as p
 from .conditions import mood
 from .state import GameState, dist
 from .treasury import flow, interest, revenue, upkeep
 
 
+def decisive_term(terms: dict, u: float) -> str | None:
+    """The term whose removal flips the sign of u — the one that *decided* it.
+    None when no single term alone would flip the call."""
+    for k in sorted(terms, key=lambda k: -abs(terms[k])):
+        if terms[k] and (u - terms[k]) * u <= 0:
+            return k
+    return None
+
+
 def explain_vote(state: GameState, event_index: int = -1) -> str:
-    """Break down a VoteResult/ConfidenceLost event into per-MP term contributions."""
+    """Break down a VoteResult into per-MP terms, marking each vote's decider."""
     votes = [e for e in state.log if e.type in ("VoteResult",)]
     if not votes:
         return "no votes yet"
@@ -18,7 +28,35 @@ def explain_vote(state: GameState, event_index: int = -1) -> str:
         mp = state.mps.get(mp_id)
         name = mp.name if mp else f"MP#{mp_id}"
         terms = ", ".join(f"{k}={v:+.2f}" for k, v in d["terms"].items() if abs(v) > 0.01)
-        lines.append(f"  {name:<20} u={d['u']:+.2f} {'YES' if d['u'] > 0 else 'no '} ({terms})")
+        dec = decisive_term(d["terms"], d["u"])
+        cast = d.get("cast", 1 if d["u"] > 0 else -1)
+        col = "YES" if cast == 1 else "no " if cast == -1 else "abs"
+        lines.append(f"  {name:<20} u={d['u']:+.2f} {col}"
+                     f"  <- {dec or '—'} ({terms})")
+    return "\n".join(lines)
+
+
+def explain_bill(state: GameState) -> str:
+    """Pre-vote stakes on the pending bill: projected tally, the marginals, and
+    what decides each of them. Noise-free — inspect never touches the rng."""
+    bill = state.current_bill
+    if bill is None:
+        return "no bill pending"
+    from .parliament import vote_terms
+    rows = []
+    for mp in state.mps.values():
+        terms = vote_terms(state, mp, bill, noisy=False)
+        rows.append((sum(terms.values()), mp, terms))
+    yes = sum(1 for u, _, _ in rows if u > p.ABSTAIN_MARGIN)
+    no = sum(1 for u, _, _ in rows if u < -p.ABSTAIN_MARGIN)
+    abstain = len(rows) - yes - no
+    lines = [f"{bill.name} — projected {yes}-{no} +{abstain} abstain "
+             f"({'pass' if yes > no else 'fail'})"]
+    for u, mp, terms in sorted((r for r in rows if abs(r[0]) < p.MARGINAL_BAND),
+                               key=lambda r: abs(r[0]))[:8]:
+        you = " [YOU]" if mp.id == state.player_id else ""
+        lines.append(f"  {mp.name:<20}{you} u={u:+.2f} — decided by "
+                     f"{decisive_term(terms, u) or '—'}")
     return "\n".join(lines)
 
 

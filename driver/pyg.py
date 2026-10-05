@@ -52,6 +52,8 @@ class Driver:
         self.picks = []             # actions chosen this week
         self.need_target = None     # action kind awaiting a seat click
         self.need_axis = None       # action kind awaiting an axis button
+        self.need_vote = None       # "vote"/"deal" awaiting the column choice
+        self.need_offer = False     # pick_offer awaiting an offer button
         self.why_text = None        # explain_vote output while paused
         self.viz_rng = random.Random(1)  # visuals only — never touches sim rng
         self.district_prev = {}     # district -> party before the latest tick
@@ -77,7 +79,7 @@ class Driver:
             pos = seat_positions(self.state)
             order = sorted(vote.data["detail"], key=lambda m: pos.get(m, (0, 0))[0])
             self.vote_anim = {"order": order, "t": 0.0,
-                              "votes": {m: ("yes" if d["u"] > 0 else "no")
+                              "votes": {m: {1: "yes", -1: "no"}.get(d.get("cast"), "abs")
                                         for m, d in vote.data["detail"].items()}}
         # ElectionResult gets the map reveal instead of a text banner
         hit = next((e for e in self.events
@@ -117,8 +119,14 @@ class Driver:
             kind = bid[4:]
             if kind in ("lobby", "dig_dirt"):
                 self.need_target = kind
+            elif kind == "deal":
+                self.need_target = kind           # counterparty first, then the column
             elif kind in ("speech", "promise"):
                 self.need_axis = kind
+            elif kind == "vote":
+                self.need_vote = kind
+            elif kind == "pick_offer":
+                self.need_offer = True
             else:
                 self.picks.append(Action(kind))
                 self._after_pick()
@@ -126,9 +134,27 @@ class Driver:
             self.picks.append(Action(self.need_axis, axis=int(bid[5:])))
             self.need_axis = None
             self._after_pick()
+        elif bid.startswith("col:") and self.need_vote:
+            v = int(bid[4:])
+            if self.need_vote == "deal" and self.picks:
+                self.picks[-1].vote = v           # the deal's promised column
+            else:
+                self.picks.append(Action("vote", vote=v))
+            self.need_vote = None
+            self._after_pick()
+        elif bid.startswith("offer:") and self.need_offer:
+            i = int(bid[6:])
+            if 0 <= i < len(self.state.offers):
+                self.picks.append(Action("pick_offer", offer=i))
+            self.need_offer = False
+            self._after_pick()
         elif bid == "continue":
             self.action_pause, self.paused = False, False
-            picks, self.picks = self.picks, []
+            self.need_target = self.need_axis = self.need_vote = None
+            self.need_offer = False
+            picks = [pk for pk in self.picks
+                     if pk.kind != "deal" or pk.vote is not None]  # unfinished deal = no deal
+            self.picks = []
             self.why_text = None
             self.advance(picks)
         elif bid == "why":
@@ -205,8 +231,11 @@ class Driver:
         hit = next((m for m, r in self.seat_rects.items() if r.collidepoint(pos)), None)
         if hit is not None and self.need_target:
             self.picks.append(Action(self.need_target, target=hit))
+            if self.need_target == "deal":
+                self.need_vote = "deal"   # promised column comes next
             self.need_target = None
-            self._after_pick()
+            if self.need_vote is None:
+                self._after_pick()
         else:
             self.inspect_mp = hit  # seat -> card, empty space -> close
 

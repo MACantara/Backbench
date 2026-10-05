@@ -6,7 +6,7 @@ import numpy as np
 from . import params as p
 from .conditions import enact, mood
 from .naming import austerity_name, bill_name, describe_pos
-from .state import Bill, GameState, MP, dist
+from .state import Bill, GameState, MP, dist, gov_platform
 from .treasury import debt_pressure
 
 
@@ -28,11 +28,9 @@ def district_opinion(state: GameState, district: int, bill: Bill) -> float:
     positive when the bill is *closer* to the district than the gov baseline."""
     v = state.voters
     centroid = tuple(v.pos[v.district == district].mean(axis=0))
-    gov = [state.parties[i].platform for i in state.government.parties if i in state.parties]
-    if not gov:
+    if not state.government.parties:
         return -dist(centroid, bill.pos) * 0.3  # no baseline → weak absolute opinion
-    gov_mean = tuple(np.mean(gov, axis=0))
-    return dist(centroid, gov_mean) - dist(centroid, bill.pos)
+    return dist(centroid, gov_platform(state)) - dist(centroid, bill.pos)
 
 
 def _faction_of(state: GameState, mp: MP):
@@ -50,8 +48,10 @@ def faction_whip(state: GameState, mp: MP, bill: Bill) -> int | None:
     return -1 if dist(f.centroid, bill.pos) > p.FACTION_REBEL_DIST else None
 
 
-def vote_terms(state: GameState, mp: MP, bill: Bill) -> dict[str, float]:
-    """Named utility components — the inspector reads these to explain votes."""
+def vote_terms(state: GameState, mp: MP, bill: Bill,
+               noisy: bool = True) -> dict[str, float]:
+    """Named utility components — the inspector reads these to explain votes.
+    noisy=False strips the draw so projections stay off the rng stream."""
     in_gov = mp.party in state.government.parties
     whip = whip_direction(state, mp.party, bill) if mp.party is not None else 0
     fwhip = faction_whip(state, mp, bill)
@@ -64,8 +64,9 @@ def vote_terms(state: GameState, mp: MP, bill: Bill) -> dict[str, float]:
         "district": p.W_SAFETY * (1 - mp.seat_safety) * district_opinion(state, mp.district, bill),
         "fiscal": -p.W_FISCAL * (bill.cost / (p.COST_BASE + p.COST_EXTREMITY_W))
                   * debt_pressure(state),  # stingy house when the books are red
-        "noise": state.rng.gauss(0, p.VOTE_NOISE),
     }
+    if noisy:
+        terms["noise"] = state.rng.gauss(0, p.VOTE_NOISE)
     if bill.confidence and in_gov:
         terms["retro"] = p.W_RETRO_CONF * mood(state.conditions)  # the slump votes too
     if fwhip is not None and fwhip != whip:
@@ -87,8 +88,7 @@ def table_bill(state: GameState) -> Bill:
                     cost=-p.AUSTERITY_SAVING,
                     name=austerity_name(state.rng), austerity=True)
     else:
-        gov = [state.parties[i].platform for i in state.government.parties if i in state.parties]
-        anchor = np.mean(gov, axis=0) if gov else np.array([0.0, 0.0])
+        anchor = np.asarray(gov_platform(state))  # bills ride the agreement
         pos = tuple(np.clip(anchor + np.array([state.rng.gauss(0, 0.05), state.rng.gauss(0, 0.05)]), -1, 1))
         ax = state.rng.randrange(2)
         bill = Bill(pos=pos, beneficiary_axis=ax,
@@ -98,33 +98,92 @@ def table_bill(state: GameState) -> Bill:
     state.current_bill = bill
     verb = "is forced to table" if bill.austerity else "tables"
     state.emit("BillTabled", f"Government {verb} the {bill.name} — "
-                             f"{describe_pos(bill.pos)} (cost {bill.cost:+.3f}/wk).",
+                             f"{describe_pos(bill.pos)} (cost {bill.cost:+.3f}/wk) "
+                             "— division next week.",
                pos=bill.pos, beneficiary_axis=bill.beneficiary_axis, cost=bill.cost,
                bill=bill.name, austerity=bill.austerity)
     return bill
 
 
-def resolve_vote(state: GameState, bill: Bill, player_vote: int | None = None) -> bool:
-    """Every MP votes; player_vote (+1/-1/0) overrides the player's utility."""
-    yes, no, detail = 0, 0, {}
-    rebels: dict[int, int] = {}
+def resolve_vote(state: GameState, bill: Bill, player_vote: int | None = None) -> bool | None:
+    """Every present MP votes — or abstains. player_vote (+1/-1/0) is the
+    player's override; 0 is a real abstain. None return = quorum failed and
+    the division carries to next week."""
+    # attendance: the house isn't always full — absence spikes near term end,
+    # in burning scandal weeks, and late in careers (the player always shows)
+    loom = (state.government.weeks_in_office
+            >= p.GOVERNING_WEEKS_PER_TERM - p.ATTEND_ELECTION_WEEKS)
+    shock = p.ATTEND_SHOCK if state.rng.random() < p.ATTEND_SHOCK_P else 0.0
+    present = []
     for mp in state.mps.values():
+        ap = p.ATTEND_BASE + shock
+        ap += (p.ATTEND_LATE if loom else 0.0) + (p.ATTEND_SCANDAL if mp.scandal_weeks > 0 else 0.0) \
+            + (p.ATTEND_AGE if mp.age >= p.RETIRE_AGE else 0.0)
+        if mp.id == state.player_id or state.rng.random() >= ap:
+            present.append(mp)
+    if len(present) < p.QUORUM * max(len(state.mps), 1):
+        tail = ("the motion lapses — the government survives the empty benches."
+                if bill.confidence else "the division carries over.")
+        state.emit("DivisionStalled",
+                   f"Quorum fails on the {bill.name} — {len(present)} of "
+                   f"{len(state.mps)} present; {tail}",
+                   bill=bill.name, present=len(present), house=len(state.mps))
+        return None
+    yes, no, abstain, detail = 0, 0, 0, {}
+    rebels: dict[int, int] = {}
+    for mp in present:
         terms = vote_terms(state, mp, bill)
         if "fwhip" in terms:
             rebels[mp.faction] = mp.party
-        u = player_vote if (mp.id == state.player_id and player_vote is not None) else sum(terms.values())
-        detail[mp.id] = {"u": u, "terms": terms}
-        yes += u > 0
-        no += u <= 0
-        # the whip remembers: standing accrues on the actual vote, override included.
-        # A faction whip is organized rebellion — the party line still marks you.
+        is_player = mp.id == state.player_id and player_vote is not None
+        u = float(player_vote) if is_player else sum(terms.values())
         whip = whip_direction(state, mp.party, bill) if mp.party is not None else 0
+        # confidence divisions are three-line whips — a whipped MP in the
+        # deadzone falls in with the line (the player still can abstain:
+        # their franchise, rebellion price and all)
+        can_abstain = is_player or not (bill.confidence and whip)
+        if u > p.ABSTAIN_MARGIN:
+            cast = 1
+        elif u < -p.ABSTAIN_MARGIN:
+            cast = -1
+        elif can_abstain:
+            cast = 0
+        else:
+            cast = 1 if whip > 0 else -1   # lukewarm whipped MPs fall in line
+        detail[mp.id] = {"u": u, "cast": cast, "terms": terms}
+        yes, no, abstain = yes + (cast == 1), no + (cast == -1), abstain + (cast == 0)
+        # the whip remembers: standing accrues on the cast column, override
+        # included; an abstain is half a rebellion — the line wasn't delivered.
+        # A faction whip is organized rebellion — the party line still marks you.
         if whip:
-            agree = (u > 0) == (whip > 0)
-            mp.standing = float(np.clip(
-                mp.standing + (p.STANDING_WHIP_YES if agree else -p.STANDING_WHIP_NO), -1, 1))
+            if cast == 1:
+                delta = p.STANDING_WHIP_YES if whip > 0 else -p.STANDING_WHIP_NO
+            elif cast == -1:
+                delta = p.STANDING_WHIP_YES if whip < 0 else -p.STANDING_WHIP_NO
+            else:
+                delta = -p.STANDING_WHIP_ABSTAIN
+            mp.standing = float(np.clip(mp.standing + delta, -1, 1))
     passed = yes > no
-    state.current_bill = None
+    if bill is state.current_bill:
+        state.current_bill = None   # a confidence motion isn't the pending bill
+    # the player keeps or breaks their word — judged on the cast column
+    player = state.mps.get(state.player_id)
+    for deal in [d for d in state.deals if d.bill is bill]:
+        cast = detail.get(state.player_id, {}).get("cast", 0)
+        kept = cast == deal.vote
+        t = state.mps.get(deal.mp)
+        if t is not None:
+            t.relationships[state.player_id] = t.relationships.get(state.player_id, 0.0) \
+                + (p.DEAL_KEPT_REL if kept else -p.DEAL_BROKEN_REL)
+        if player is not None:
+            player.standing = float(np.clip(
+                player.standing + (p.DEAL_STANDING if kept else -p.DEAL_STANDING), -1, 1))
+        who = state.mps[deal.mp].name if deal.mp in state.mps else "a departed member"
+        state.emit("DealKept" if kept else "DealBroken",
+                   f"Your promise to {who} on the {bill.name} — "
+                   + ("kept; your word is banked." if kept else "broken."),
+                   mp=deal.mp, bill=bill.name, kept=kept)
+        state.deals.remove(deal)
     for fid, pid in rebels.items():
         f = next((f for f in state.parties[pid].factions if f.id == fid), None)
         if f is not None:
@@ -134,17 +193,21 @@ def resolve_vote(state: GameState, bill: Bill, player_vote: int | None = None) -
     # consequences: brand + voter drift toward/away from government
     gov_parties = [i for i in state.government.parties if i in state.parties]
     if passed and gov_parties:
-        gov_platform = np.mean([state.parties[i].platform for i in gov_parties], axis=0)
+        agenda = gov_platform(state)
         ax = bill.beneficiary_axis
-        state.voters.pos[:, ax] += p.BILL_PERSUASION * np.sign(gov_platform[ax] - state.voters.pos[:, ax])
+        state.voters.pos[:, ax] += p.BILL_PERSUASION * np.sign(agenda[ax] - state.voters.pos[:, ax])
         for i in gov_parties:
             state.parties[i].brand += p.BILL_PASS_BRAND
         state.legacy_bills += state.player_id == state.government.pm
-        state.emit("VoteResult", f"Bill passes {yes}-{no}.", passed=True, yes=yes, no=no, detail=detail)
+        state.emit("VoteResult", f"Bill passes {yes}-{no} ({abstain} abstain).",
+                   passed=True, yes=yes, no=no, abstain=abstain,
+                   detail=detail, player=player_vote)
         if not bill.confidence:  # survival votes aren't legislation
             enact(state, bill, yes, no)
     else:
         for i in gov_parties:
             state.parties[i].brand -= p.BILL_FAIL_BRAND
-        state.emit("VoteResult", f"Bill fails {yes}-{no}.", passed=False, yes=yes, no=no, detail=detail)
+        state.emit("VoteResult", f"Bill fails {yes}-{no} ({abstain} abstain).",
+                   passed=False, yes=yes, no=no, abstain=abstain,
+                   detail=detail, player=player_vote)
     return passed

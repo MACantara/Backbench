@@ -11,19 +11,26 @@ from .state import GameState, dist
 
 @dataclass
 class Action:
-    kind: str                    # campaign, constituency, speech, promise, media, dig_dirt, lobby, scheme, platform
+    kind: str                    # campaign, constituency, speech, promise, media, dig_dirt,
+                                 # lobby, scheme, platform, vote, deal, pick_offer, decline_offers
     target: int | None = None    # MP id for lobby/dig_dirt
     axis: int | None = None      # 0/1 for speech/promise
     pos: tuple[float, float] | None = None  # for promise
+    vote: int | None = None      # +1/-1/0 on the pending division
+    offer: int | None = None     # pick_offer: index into state.offers
 
 
 def available_actions(state: GameState) -> list[str]:
     """Context menu for the week."""
     base = ["scheme", "lobby", "media", "dig_dirt"]
+    if state.offers:
+        base += ["pick_offer", "decline_offers"]  # a hung parliament is a decision
     if state.phase == "campaign":
         base += ["campaign", "speech", "promise"]
     else:
         base += ["constituency", "speech"]
+        if state.current_bill is not None:
+            base += ["vote", "deal"]     # a pending division is a decision — and currency
     player = state.mps.get(state.player_id)
     if player and player.party is not None and state.parties.get(player.party) and state.parties[player.party].leader == player.id:
         base.append("platform")
@@ -103,6 +110,21 @@ def apply_action(state: GameState, action: Action) -> None:
                         state.mps[mid].relationships.get(player.id, 0) + 0.05
         player.dossier += 0.03
         state.emit("CareerEvent", "You scheme discreetly.", action="scheme")
+
+    elif action.kind == "deal" and action.target in state.mps \
+            and action.target != state.player_id \
+            and action.vote in (-1, 0, 1) \
+            and state.current_bill is not None:
+        # promise your vote on the pending division; the counterparty banks it now
+        from .state import Deal
+        t = state.mps[action.target]
+        v = int(np.sign(action.vote))
+        state.deals = [d for d in state.deals if d.mp != t.id]  # one promise per head
+        state.deals.append(Deal(mp=t.id, vote=v, bill=state.current_bill))
+        t.relationships[player.id] = t.relationships.get(player.id, 0.0) + p.DEAL_REL
+        col = {1: "aye", -1: "no", 0: "abstention"}[v]
+        state.emit("DealMade", f"You promise {t.name} your {col} on the "
+                               f"{state.current_bill.name}.", mp=t.id, vote=v)
 
     elif action.kind == "platform":
         # leaders pull the party platform toward their own position

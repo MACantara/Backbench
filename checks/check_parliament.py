@@ -30,8 +30,8 @@ def main() -> None:
     assert in_rate > 0.6, in_rate
     assert in_rate > out_rate
 
-    # a bill at the corner nobody likes fails
-    assert not resolve_vote(s, far_bill)
+    # a bill at the corner nobody likes fails (is False — a None stall is not a loss)
+    assert resolve_vote(s, far_bill) is False
 
     # utility is monotonic in distance for the same MP
     mp = next(iter(s.mps.values()))
