@@ -84,6 +84,7 @@ W_REL = 0.4        # weight on relationship with the government/leader
 W_SAFETY = 0.6     # weight on district opinion exposure (unsafe seats vote locally)
 W_GOV = 0.35       # solidarity bonus for coalition MPs backing their own government's bill
 VOTE_NOISE = 0.05  # per-MP ballot noise
+MARGINAL_BAND = 0.15  # |u| under this reads as a swing vote in projections
 BILL_PERSUASION = 0.008  # weekly electorate pull toward gov axis per passed bill
 
 # --- government ---

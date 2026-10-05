@@ -50,8 +50,10 @@ def faction_whip(state: GameState, mp: MP, bill: Bill) -> int | None:
     return -1 if dist(f.centroid, bill.pos) > p.FACTION_REBEL_DIST else None
 
 
-def vote_terms(state: GameState, mp: MP, bill: Bill) -> dict[str, float]:
-    """Named utility components — the inspector reads these to explain votes."""
+def vote_terms(state: GameState, mp: MP, bill: Bill,
+               noisy: bool = True) -> dict[str, float]:
+    """Named utility components — the inspector reads these to explain votes.
+    noisy=False strips the draw so projections stay off the rng stream."""
     in_gov = mp.party in state.government.parties
     whip = whip_direction(state, mp.party, bill) if mp.party is not None else 0
     fwhip = faction_whip(state, mp, bill)
@@ -64,8 +66,9 @@ def vote_terms(state: GameState, mp: MP, bill: Bill) -> dict[str, float]:
         "district": p.W_SAFETY * (1 - mp.seat_safety) * district_opinion(state, mp.district, bill),
         "fiscal": -p.W_FISCAL * (bill.cost / (p.COST_BASE + p.COST_EXTREMITY_W))
                   * debt_pressure(state),  # stingy house when the books are red
-        "noise": state.rng.gauss(0, p.VOTE_NOISE),
     }
+    if noisy:
+        terms["noise"] = state.rng.gauss(0, p.VOTE_NOISE)
     if bill.confidence and in_gov:
         terms["retro"] = p.W_RETRO_CONF * mood(state.conditions)  # the slump votes too
     if fwhip is not None and fwhip != whip:
