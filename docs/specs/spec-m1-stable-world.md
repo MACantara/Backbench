@@ -72,3 +72,13 @@ Process, not code: run the invariant table → list every violated band → tune
 - `check_sweep.py` prints and asserts the full seven-area table; long-run debt max is sane (no 1151-class outliers — austerity exits actually work).
 - The balance pass lands real tuning with a written rationale, not a shrug — at least one violated band found and fixed in this milestone.
 - Deterministic by seed; no I/O in `sim/`; all tunables in `params.py`.
+
+## Results (post-implementation)
+
+**Invariant table** (50 seeds × 200 weeks, passive player): ENP median **5.80**, 8 parties at end, 148 formed / 14 dissolved / 19 secessions — the party system is alive. Largest share 0.27; survival med 40 / mean 32 / p10 5; 23 confidence defeats; pin-rate 0.00; median 16 laws in force (the 893-ratchet is dead — courts and cost decay already fixed it); 902 promotions / 156 sackings / 110 retirements; passive player survives ~142 weeks (the M6 spectator gap, known).
+
+**Balance findings.** Three things the table surfaced:
+
+- `debt_max = 2.0` sat exactly at the old `DEBT_CRISIS` line — receivership was asymptotic, reachable only at the envelope's edge. Tuned `DEBT_CRISIS` 2.0 → **1.8** so insolvency is inside the envelope while WARN (1.0) keeps a real warning band. Debt crises stay rare (2 in 50 runs) — correct: the milestone needed insolvency to *recur when entered*, not to be common.
+- `turnover median = 0` — the largest party almost never changes within 200 weeks even at ENP ~6. FPTP + loyalty gives durable incumbency; dominant-party stretches are honest politics, but it's a watch item — if it freezes at 10+ elections, that's a stuck channel.
+- `pin_rate 0.00` and `laws 16` — two earlier ratchets already healed by the courts/cost-decay work; the table now guards against regression.
