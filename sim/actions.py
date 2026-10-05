@@ -11,7 +11,8 @@ from .state import GameState, dist
 
 @dataclass
 class Action:
-    kind: str                    # campaign, constituency, speech, promise, media, dig_dirt, lobby, scheme, platform, vote
+    kind: str                    # campaign, constituency, speech, promise, media, dig_dirt,
+                                 # lobby, scheme, platform, vote, deal, pick_offer, decline_offers
     target: int | None = None    # MP id for lobby/dig_dirt
     axis: int | None = None      # 0/1 for speech/promise
     pos: tuple[float, float] | None = None  # for promise
@@ -111,11 +112,13 @@ def apply_action(state: GameState, action: Action) -> None:
         state.emit("CareerEvent", "You scheme discreetly.", action="scheme")
 
     elif action.kind == "deal" and action.target in state.mps \
+            and action.target != state.player_id \
+            and action.vote in (-1, 0, 1) \
             and state.current_bill is not None:
         # promise your vote on the pending division; the counterparty banks it now
         from .state import Deal
         t = state.mps[action.target]
-        v = int(np.sign(action.vote)) if action.vote is not None else 1
+        v = int(np.sign(action.vote))
         state.deals = [d for d in state.deals if d.mp != t.id]  # one promise per head
         state.deals.append(Deal(mp=t.id, vote=v, bill=state.current_bill))
         t.relationships[player.id] = t.relationships.get(player.id, 0.0) + p.DEAL_REL
