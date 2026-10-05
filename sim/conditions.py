@@ -56,12 +56,31 @@ def law_effect(bill: Bill) -> dict[str, float]:
     return {"crime": -s * bill.pos[1]}
 
 
-def enact(state: GameState, bill: Bill, yes: int, no: int) -> Law:
-    """Register a passed bill as a law in force."""
+def enact(state: GameState, bill: Bill, yes: int, no: int) -> Law | None:
+    """Register a passed bill as a law in force. A repeal bill enacts removal —
+    its target leaves the registry and its authors' record is dismantled."""
+    if bill.repeals is not None:
+        law = bill.repeals
+        if law in state.laws:
+            state.laws.remove(law)
+        flagship = law.author == state.player_id
+        for pid in law.enacted_by:
+            if pid in state.parties:
+                state.parties[pid].brand -= p.REPEAL_BRAND_HIT
+        authors = " + ".join(state.parties[i].name for i in law.enacted_by
+                             if i in state.parties) or "its authors"
+        tail = ("your flagship law is dismantled." if flagship
+                else f"the {authors} record is dismantled.")
+        state.emit("LawRepealed",
+                   f"The {law.name} is repealed — {tail}",
+                   law=law.name, parties=sorted(law.enacted_by), author=law.author,
+                   player=flagship)
+        return None
     law = Law(name=bill.name or f"Week-{state.week} Act", pos=bill.pos,
               beneficiary_axis=bill.beneficiary_axis, cost=bill.cost,
               passed_week=state.week, margin=yes / max(yes + no, 1),
-              effect=law_effect(bill), enacted_by=set(state.government.parties))
+              effect=law_effect(bill), enacted_by=set(state.government.parties),
+              author=state.government.pm)
     state.laws.append(law)
     eff = f" — {next(iter(law.effect))} {next(iter(law.effect.values())):+.3f}/wk" \
         if law.effect else ""

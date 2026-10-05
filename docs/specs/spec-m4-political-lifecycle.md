@@ -27,9 +27,13 @@ courts strike). Three mechanisms make the statute book a living instrument.
   authored (as PM or privately), so score already means "things I built".
 - **AI repeal logic.** In `table_bill`, at `REPEAL_P` per week the government
   tables a repeal of the *most hostile* standing law — max `dist(law.pos,
-  gov_platform)` — excluding laws `enacted_by` its own coalition. Repeal bill
-  `pos = gov_platform` (it's the government's agenda); the house divides on it
-  normally — authors can whip to defend their record.
+  gov_platform)` — excluding laws passed **this term** (a government doesn't
+  repeal its own session's work, but inherited statutes are fair game even
+  when a predecessor shared a party — coalitions re-share core partners, so
+  authorship-exclusion would gate repeal to ~never). Repeal bill
+  `pos = gov_platform` (repealing IS the government's agenda — a mirror
+  position empirically loses the coalition's own whip); the law's authors
+  defend through their policy/district terms.
 - **Sunset.** Statutes past `SUNSET_WEEKS` roll `SUNSET_P` weekly to lapse
   (`LawLapsed` — the book quietly prunes itself). The 893-law ratchet never
   reforms; `debt_max` watch item gets worse before better — flag for the

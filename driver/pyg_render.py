@@ -27,7 +27,8 @@ DEFAULT_COLOR = (140, 140, 150)
 INTERRUPTS = {"ConfidenceLost", "CoalitionFormed", "PartyFormed", "Defection",
               "PartyDissolved", "Scandal", "ElectionCalled", "ElectionResult", "SeatLost",
               "ScandalBreaks", "Expelled", "Resigned", "MinisterSacked",
-              "PressCycle", "OfferMade", "OfferDeclined", "OfferLapsed"}
+              "PressCycle", "OfferMade", "OfferDeclined", "OfferLapsed",
+              "LawRepealed"}
 
 
 def party_color(state, pid) -> tuple:

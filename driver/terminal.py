@@ -16,7 +16,8 @@ from sim.worldgen import new_game
 INTERRUPTS = {"ConfidenceLost", "CoalitionFormed", "PartyFormed", "Defection",
               "PartyDissolved", "Scandal", "ElectionCalled", "ElectionResult", "SeatLost",
               "ScandalBreaks", "Expelled", "Resigned", "MinisterSacked",
-              "PressCycle", "OfferMade", "OfferDeclined", "OfferLapsed"}
+              "PressCycle", "OfferMade", "OfferDeclined", "OfferLapsed",
+              "LawRepealed"}
 
 
 def _ask(prompt: str, ok) -> str | None:

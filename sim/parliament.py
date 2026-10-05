@@ -82,12 +82,27 @@ def vote_utility(state: GameState, mp: MP, bill: Bill) -> float:
 
 def table_bill(state: GameState) -> Bill:
     """The government tables a bill near the coalition's mean platform —
-    or, while insolvent, is forced to table cuts: receivership is agenda capture."""
+    or, while insolvent, is forced to table cuts: receivership is agenda capture.
+    At REPEAL_P the government instead strikes the inherited standing law most
+    hostile to its agenda — the repeal bill rides the agreement itself (a
+    repeal IS the government's program); the law's authors defend it through
+    their own policy/district terms."""
+    bill = None
     if state.treasury.debt > p.DEBT_CRISIS:
         bill = Bill(pos=(p.AUSTERITY_POS, 0.0), beneficiary_axis=0,
                     cost=-p.AUSTERITY_SAVING,
                     name=austerity_name(state.rng), austerity=True)
-    else:
+    elif state.laws and state.rng.random() < p.REPEAL_P:
+        agenda = gov_platform(state)
+        term_start = state.week - state.government.weeks_in_office
+        foreign = [l for l in state.laws if l.passed_week < term_start]
+        if foreign:  # no inherited statutes → falls through to an ordinary week
+            law = max(foreign, key=lambda l: dist(l.pos, agenda))
+            bill = Bill(pos=tuple(agenda),
+                        beneficiary_axis=law.beneficiary_axis,
+                        cost=-law.cost,   # repealing a costly law saves — fiscal term reads it
+                        repeals=law, name=f"Repeal of the {law.name}")
+    if bill is None:
         anchor = np.asarray(gov_platform(state))  # bills ride the agreement
         pos = tuple(np.clip(anchor + np.array([state.rng.gauss(0, 0.05), state.rng.gauss(0, 0.05)]), -1, 1))
         ax = state.rng.randrange(2)
@@ -96,12 +111,18 @@ def table_bill(state: GameState) -> Bill:
                                    + state.rng.gauss(0, p.COST_JITTER))),
                     name=bill_name(pos, ax, state.rng))
     state.current_bill = bill
-    verb = "is forced to table" if bill.austerity else "tables"
-    state.emit("BillTabled", f"Government {verb} the {bill.name} — "
-                             f"{describe_pos(bill.pos)} (cost {bill.cost:+.3f}/wk) "
-                             "— division next week.",
+    if bill.repeals is not None:
+        text = (f"Government moves to repeal the {bill.repeals.name} "
+                "— division next week.")
+    else:
+        verb = "is forced to table" if bill.austerity else "tables"
+        text = (f"Government {verb} the {bill.name} — "
+                f"{describe_pos(bill.pos)} (cost {bill.cost:+.3f}/wk) "
+                "— division next week.")
+    state.emit("BillTabled", text,
                pos=bill.pos, beneficiary_axis=bill.beneficiary_axis, cost=bill.cost,
-               bill=bill.name, austerity=bill.austerity)
+               bill=bill.name, austerity=bill.austerity,
+               repeals=bill.repeals.name if bill.repeals else None)
     return bill
 
 
@@ -198,12 +219,12 @@ def resolve_vote(state: GameState, bill: Bill, player_vote: int | None = None) -
         state.voters.pos[:, ax] += p.BILL_PERSUASION * np.sign(agenda[ax] - state.voters.pos[:, ax])
         for i in gov_parties:
             state.parties[i].brand += p.BILL_PASS_BRAND
-        state.legacy_bills += state.player_id == state.government.pm
         state.emit("VoteResult", f"Bill passes {yes}-{no} ({abstain} abstain).",
                    passed=True, yes=yes, no=no, abstain=abstain,
                    detail=detail, player=player_vote)
         if not bill.confidence:  # survival votes aren't legislation
-            enact(state, bill, yes, no)
+            law = enact(state, bill, yes, no)
+            state.legacy_bills += law is not None and law.author == state.player_id
     else:
         for i in gov_parties:
             state.parties[i].brand -= p.BILL_FAIL_BRAND

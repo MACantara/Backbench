@@ -131,6 +131,7 @@ class Bill:
     cost: float = 0.0
     confidence: bool = False        # a confidence motion — govt parties whip to survive
     austerity: bool = False         # receivership cuts — forced while insolvent
+    repeals: "Law | None" = None    # a repeal bill — enact removes the target
     name: str = ""                  # domain-flavored name; confidence motions stay blank
 
 
@@ -153,6 +154,7 @@ class Law:
     margin: float                   # vote share margin it passed by
     effect: dict[str, float]        # weekly indicator nudges while in force
     enacted_by: set[int] = field(default_factory=set)  # authoring coalition — strikes blame them
+    author: int | None = None       # PM's id at enact; the MP's id for private bills
     reviewed: bool = False          # res judicata — challenged at most once, ever
 
 

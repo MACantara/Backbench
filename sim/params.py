@@ -100,6 +100,8 @@ ATTEND_SCANDAL = 0.10  # added while a scandal burns — the member lies low
 ATTEND_AGE = 0.05      # added past RETIRE_AGE
 ATTEND_SHOCK_P = 0.04  # some weeks the house is half-empty (flu, a boycott)
 ATTEND_SHOCK = 0.45    # shared absence spike when the shock lands
+REPEAL_P = 0.12        # weekly chance the government tables a repeal instead
+REPEAL_BRAND_HIT = 0.04  # a dismantled law bleeds its authors' brand
 QUORUM = 0.5           # fraction of the house that must be present to divide
 BILL_PERSUASION = 0.008  # weekly electorate pull toward gov axis per passed bill
 
