@@ -16,7 +16,19 @@ from sim.worldgen import new_game
 INTERRUPTS = {"ConfidenceLost", "CoalitionFormed", "PartyFormed", "Defection",
               "PartyDissolved", "Scandal", "ElectionCalled", "ElectionResult", "SeatLost",
               "ScandalBreaks", "Expelled", "Resigned", "MinisterSacked",
-              "PressCycle", "OfferMade", "OfferDeclined"}
+              "PressCycle", "OfferMade", "OfferDeclined", "OfferLapsed"}
+
+
+def _ask(prompt: str, ok) -> str | None:
+    """Re-prompt until ok(input); None on EOF — the pick is abandoned."""
+    try:
+        while True:
+            s = input(prompt).strip()
+            if ok(s):
+                return s
+            print("?")
+    except EOFError:
+        return None
 
 
 def prompt_actions(state) -> list[Action]:
@@ -41,20 +53,28 @@ def prompt_actions(state) -> list[Action]:
             kind = menu[int(raw)]
             target = axis = vote = offer = None
             if kind in ("lobby", "dig_dirt", "deal"):
-                t = input("target mp id > ").strip()
-                target = int(t) if t.isdigit() else None
+                s = _ask("target mp id > ", lambda s: s.isdigit() and int(s) in state.mps)
+                if s is None:
+                    continue
+                target = int(s)
             if kind in ("speech", "promise"):
-                a = input("axis 0=economic 1=social > ").strip()
-                axis = int(a) if a in "01" else None
+                s = _ask("axis 0=economic 1=social > ", lambda s: s in ("0", "1"))
+                if s is None:
+                    continue
+                axis = int(s)
             if kind in ("vote", "deal"):
                 print(explain_bill(state))
-                v = input("vote 1=aye -1=no 0=abstain > ").strip()
-                vote = int(v) if v in ("1", "0", "-1") else None
+                s = _ask("vote 1=aye -1=no 0=abstain > ", lambda s: s in ("1", "0", "-1"))
+                if s is None:
+                    continue
+                vote = int(s)
             if kind == "pick_offer":
                 for e in [e for e in state.log if e.type == "OfferMade"][-len(state.offers):]:
                     print(" ", e.text)
-                o = input("offer # > ").strip()
-                offer = int(o) - 1 if o.isdigit() else None
+                s = _ask("offer # > ", lambda s: s.isdigit() and 1 <= int(s) <= len(state.offers))
+                if s is None:
+                    continue
+                offer = int(s) - 1
             picks.append(Action(kind, target=target, axis=axis, vote=vote, offer=offer))
         else:
             print("?")

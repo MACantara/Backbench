@@ -78,11 +78,8 @@ class Driver:
         if vote and "detail" in vote.data:
             pos = seat_positions(self.state)
             order = sorted(vote.data["detail"], key=lambda m: pos.get(m, (0, 0))[0])
-            from sim import params as p
             self.vote_anim = {"order": order, "t": 0.0,
-                              "votes": {m: ("yes" if d["u"] > p.ABSTAIN_MARGIN
-                                            else "no" if d["u"] < -p.ABSTAIN_MARGIN
-                                            else "abs")
+                              "votes": {m: {1: "yes", -1: "no"}.get(d.get("cast"), "abs")
                                         for m, d in vote.data["detail"].items()}}
         # ElectionResult gets the map reveal instead of a text banner
         hit = next((e for e in self.events
@@ -153,7 +150,11 @@ class Driver:
             self._after_pick()
         elif bid == "continue":
             self.action_pause, self.paused = False, False
-            picks, self.picks = self.picks, []
+            self.need_target = self.need_axis = self.need_vote = None
+            self.need_offer = False
+            picks = [pk for pk in self.picks
+                     if pk.kind != "deal" or pk.vote is not None]  # unfinished deal = no deal
+            self.picks = []
             self.why_text = None
             self.advance(picks)
         elif bid == "why":

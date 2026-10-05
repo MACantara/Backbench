@@ -27,7 +27,7 @@ DEFAULT_COLOR = (140, 140, 150)
 INTERRUPTS = {"ConfidenceLost", "CoalitionFormed", "PartyFormed", "Defection",
               "PartyDissolved", "Scandal", "ElectionCalled", "ElectionResult", "SeatLost",
               "ScandalBreaks", "Expelled", "Resigned", "MinisterSacked",
-              "PressCycle", "OfferMade", "OfferDeclined"}
+              "PressCycle", "OfferMade", "OfferDeclined", "OfferLapsed"}
 
 
 def party_color(state, pid) -> tuple:
@@ -205,12 +205,10 @@ def draw_action_panel(drv) -> None:
         _button(drv, "col:0", "abstain", pygame.Rect(234, H - 88, 110, 28))
     elif drv.need_offer:
         _text(drv, "coalitions on the table:", (34, H - 114), GOLD)
-        x = 34
-        for i, o in enumerate(drv.state.offers):
+        for i, o in enumerate(drv.state.offers[:5]):
             name = drv.state.parties[o["proposer"]].name[:18]
             _button(drv, f"offer:{i}", f"{i+1}. {name} ({o['bloc']})",
-                    pygame.Rect(x, H - 88, 170, 28))
-            x += 178
+                    pygame.Rect(34 + i * 178, H - 88, 170, 28))
     else:
         x = 34
         for kind in available_actions(drv.state):
