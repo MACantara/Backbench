@@ -9,7 +9,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 import sim.params as p
 from sim.actions import Action, available_actions
 from sim.inspect import explain_bill
-from sim.parliament import resolve_vote, vote_terms
+from sim.parliament import resolve_vote
 from sim.tick import tick
 from sim.worldgen import new_game
 
@@ -24,37 +24,43 @@ def _governing(seed: int):
     return None
 
 
-def _projected_gap(s, bill) -> int:
-    """Noise-free yes-minus-no on a bill, the player's own u excluded."""
-    yes = no = 0
-    for m in s.mps.values():
-        if m.id == s.player_id:
-            continue
-        u = sum(vote_terms(s, m, bill, noisy=False).values())
-        yes += u > p.ABSTAIN_MARGIN
-        no += u < -p.ABSTAIN_MARGIN
-    return yes - no
+def _quiet_house():
+    """Patch the fixtures free of collapse shocks: no scheduled confidence,
+    no strategic calls — the point under test is division mechanics."""
+    saved = {"BUDGET_EVERY_WEEKS": p.BUDGET_EVERY_WEEKS,
+             "SNAP_CALL_P": p.SNAP_CALL_P}
+    p.BUDGET_EVERY_WEEKS = 10 ** 9
+    p.SNAP_CALL_P = 0.0
+    return saved
+
+
+def _restore(saved: dict) -> None:
+    for k, v in saved.items():
+        setattr(p, k, v)
 
 
 def main() -> None:
-    # --- pending cadence: tabled this week, divided next ---
-    s = _governing(0)
-    assert s is not None
-    tick(s)
-    assert s.current_bill is not None, "no bill tabled in a governing week"
-    assert not any(e.type == "VoteResult" for e in s.log[-5:]
-                   if e.data.get("week") == s.week), \
-        "a bill resolved the week it was tabled — no time to read it"
-    name = s.current_bill.name
-    tick(s)
-    assert s.current_bill is None or s.current_bill.name != name, \
-        "the pending bill never got its division"
-    assert any(e.type == "VoteResult" for e in s.log[-30:]), "division never resolved"
+    saved = _quiet_house()
+    try:
+        # --- pending cadence: tabled this week, divided next ---
+        s = _governing(0)
+        assert s is not None
+        ev = tick(s)
+        assert s.current_bill is not None, "no bill tabled in a governing week"
+        assert not any(e.type == "VoteResult" for e in ev), \
+            "a bill resolved the week it was tabled — no time to read it"
+        name = s.current_bill.name
+        ev = tick(s)
+        assert s.current_bill is None or s.current_bill.name != name, \
+            "the pending bill never got its division"
+        assert any(e.type == "VoteResult" for e in ev), "division never resolved"
+    finally:
+        _restore(saved)
 
     # --- the player's vote flips a thin division ---
     # a division where the player decides is a realized exact tie — build one:
     # party A whipped aye (platform pinned to the bill), party B whipped no,
-    # 60-60 minus the player. The player's ballot is the deciding vote.
+    # 119 backbenchers split 60-59; the player's ballot is the deciding vote.
     c = _governing(0)
     tick(c)
     bill = c.current_bill
@@ -96,8 +102,7 @@ def main() -> None:
         if s2 is None:
             continue
         for _ in range(40):
-            tick(s2)
-            for e in s2.log[-10:]:
+            for e in tick(s2):
                 if e.type == "VoteResult" and e.data.get("abstain", 0) > 0:
                     abstained = True
         if abstained:
@@ -107,18 +112,20 @@ def main() -> None:
     # --- quorum: an empty house stalls the division, the bill carries ---
     s3 = _governing(1)
     assert s3 is not None
-    tick(s3)
+    ev = tick(s3)
     bill = s3.current_bill
+    assert bill is not None, "fixture state has no pending bill"
+    saved = _quiet_house()
     old = p.ATTEND_BASE
     p.ATTEND_BASE = 0.9
     try:
-        res = resolve_vote(s3, bill)
+        ev = tick(s3)   # stall inside the real weekly path: resolve, no re-table
     finally:
         p.ATTEND_BASE = old
-    assert res is None, "a two-thirds-empty house still divided"
+        _restore(saved)
+    assert any(e.type == "DivisionStalled" for e in ev), "no stall event"
     assert s3.current_bill is bill, "a stalled division lost the pending bill"
-    assert any(e.type == "DivisionStalled" for e in s3.log), "no stall event"
-    tick(s3)
+    ev = tick(s3)
     assert s3.current_bill is not bill, "the carried bill never came back for division"
 
     # --- inspection stays off the rng stream ---
@@ -143,8 +150,8 @@ def main() -> None:
     assert t.relationships.get(s5.player_id, 0.0) > rel0, "a kept deal paid nothing"
     tick(s5)  # next bill
     rel1 = t.relationships.get(s5.player_id, 0.0)
-    tick(s5, [Action("deal", target=t.id, vote=1), Action("vote", vote=-1)])
-    assert any(e.type == "DealBroken" for e in s5.log[-20:]), "reneged silently"
+    ev = tick(s5, [Action("deal", target=t.id, vote=1), Action("vote", vote=-1)])
+    assert any(e.type == "DealBroken" for e in ev), "reneged silently"
     assert t.relationships.get(s5.player_id, 0.0) < rel1, "a broken deal cost nothing"
     assert not s5.deals, "judged deals linger on the books"
 

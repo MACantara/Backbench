@@ -46,12 +46,12 @@ def main() -> None:
     # picking a non-default slate seats that coalition
     alt = next((i for i, o in enumerate(offers)
                 if o["proposer"] != offers[0]["proposer"]), None)
-    if alt is not None:
-        tick(s, [Action("pick_offer", offer=alt)])
-        assert s.phase == "governing"
-        assert s.government.parties == offers[alt]["coalition"]
-        assert s.government.pm == s.parties[offers[alt]["proposer"]].leader
-        assert any(e.type == "OfferTaken" for e in s.log[-40:])
+    assert alt is not None, "every offer had the same proposer — nothing to pick between"
+    ev = tick(s, [Action("pick_offer", offer=alt)])
+    assert s.phase == "governing"
+    assert s.government.parties == offers[alt]["coalition"]
+    assert s.government.pm == s.parties[offers[alt]["proposer"]].leader
+    assert any(e.type == "OfferTaken" for e in ev)
 
     # declining all offers sits the player's party out — rival slate or minority
     s2 = None
@@ -60,35 +60,36 @@ def main() -> None:
         if s2 is not None:
             break
     pid2 = s2.mps[s2.player_id].party
-    tick(s2, [Action("decline_offers")])
+    ev = tick(s2, [Action("decline_offers")])
     assert s2.phase == "governing", "declining left parliament suspended"
-    assert pid2 not in s2.government.parties or s2.government.minority, \
+    assert pid2 not in s2.government.parties, \
         "the player's party joined a government it declined"
-    assert any(e.type == "OfferDeclined" for e in s2.log)
+    assert any(e.type == "OfferDeclined" for e in ev)
 
     # AI-vs-AI haggling: a far partner extracts a platform concession and the
     # negotiated agenda reflects it — not just a distance gate
-    found_deal = False
-    for seed in range(12):
+    found_deal = checked_agenda = False
+    for seed in range(20):
         s3 = new_game(seed)
         for _ in range(200):
             if s3.phase == "over":
                 break
             tick(s3)
         deals = [e for e in s3.log if e.type == "CoalitionDeal"]
-        if deals:
-            # if the sitting government's own formation week had deals, the
-            # agreement should be dragged off the plain coalition mean
-            formed_week = s3.week - s3.government.weeks_in_office
-            if (s3.government.platform is not None and not s3.government.minority
-                    and any(d.data.get("week") == formed_week for d in deals)):
-                mean = tuple(np.mean([s3.parties[i].platform
-                                      for i in s3.government.parties], axis=0))
-                assert dist(s3.government.platform, mean) > 0.005, \
-                    "concessions paid but the agreement never moved"
-            found_deal = True
+        found_deal |= bool(deals)
+        # if the sitting government's own formation week had deals, the
+        # agreement should be dragged off the plain coalition mean
+        formed_week = s3.week - s3.government.weeks_in_office
+        if (s3.government.platform is not None and not s3.government.minority
+                and any(d.data.get("week") == formed_week for d in deals)):
+            mean = tuple(np.mean([s3.parties[i].platform
+                                  for i in s3.government.parties], axis=0))
+            assert dist(s3.government.platform, mean) > 0.005, \
+                "concessions paid but the agreement never moved"
+            checked_agenda = True
             break
-    assert found_deal, "no CoalitionDeal fired in 12 runs — joining is still free"
+    assert found_deal, "no CoalitionDeal fired in 20 runs — joining is still free"
+    assert checked_agenda, "deals fired but none belonged to a sitting government's formation"
 
     print("kingmaking ok: offers enumerated, picks honored, decline punished, "
           "AI pays the price")

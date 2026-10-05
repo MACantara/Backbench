@@ -28,7 +28,8 @@ def main() -> None:
         assert len({m.district for m in s.mps.values()}) == len(s.mps), \
             f"seed {seed}: two MPs share a district"
         for m in s.mps.values():
-            assert m.id in s.parties[m.party].members, f"seed {seed}: orphan MP {m.id}"
+            assert m.party is None or m.id in s.parties[m.party].members, \
+                f"seed {seed}: orphan MP {m.id}"
         for pt in s.parties.values():
             assert pt.members <= set(s.mps), f"seed {seed}: ghost member in {pt.name}"
             if pt.leader is not None:
