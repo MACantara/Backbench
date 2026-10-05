@@ -176,6 +176,7 @@ def call_election(state: GameState, snap: bool, reason: str,
                snap=snap, reason=reason, party=party)
     state.current_bill = None   # the pending division dies with the parliament
     state.offers = []           # dead slates die with it too
+    state.deals = []            # and promises made to a dissolved house lapse
     state.phase = "campaign"
     state.weeks_to_election = p.CAMPAIGN_WEEKS
     niche_entry(state)

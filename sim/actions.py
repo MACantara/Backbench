@@ -29,7 +29,7 @@ def available_actions(state: GameState) -> list[str]:
     else:
         base += ["constituency", "speech"]
         if state.current_bill is not None:
-            base.append("vote")          # a pending division is a decision
+            base += ["vote", "deal"]     # a pending division is a decision — and currency
     player = state.mps.get(state.player_id)
     if player and player.party is not None and state.parties.get(player.party) and state.parties[player.party].leader == player.id:
         base.append("platform")
@@ -109,6 +109,19 @@ def apply_action(state: GameState, action: Action) -> None:
                         state.mps[mid].relationships.get(player.id, 0) + 0.05
         player.dossier += 0.03
         state.emit("CareerEvent", "You scheme discreetly.", action="scheme")
+
+    elif action.kind == "deal" and action.target in state.mps \
+            and state.current_bill is not None:
+        # promise your vote on the pending division; the counterparty banks it now
+        from .state import Deal
+        t = state.mps[action.target]
+        v = int(np.sign(action.vote)) if action.vote is not None else 1
+        state.deals = [d for d in state.deals if d.mp != t.id]  # one promise per head
+        state.deals.append(Deal(mp=t.id, vote=v, bill=state.current_bill))
+        t.relationships[player.id] = t.relationships.get(player.id, 0.0) + p.DEAL_REL
+        col = {1: "aye", -1: "no", 0: "abstention"}[v]
+        state.emit("DealMade", f"You promise {t.name} your {col} on the "
+                               f"{state.current_bill.name}.", mp=t.id, vote=v)
 
     elif action.kind == "platform":
         # leaders pull the party platform toward their own position

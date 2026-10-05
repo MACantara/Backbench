@@ -158,6 +158,25 @@ def resolve_vote(state: GameState, bill: Bill, player_vote: int | None = None) -
     passed = yes > no
     if bill is state.current_bill:
         state.current_bill = None   # a confidence motion isn't the pending bill
+    # the player keeps or breaks their word — judged on the cast column
+    player = state.mps.get(state.player_id)
+    for deal in [d for d in state.deals if d.bill is bill]:
+        col = detail.get(state.player_id, {}).get("u", 0.0)
+        cast = 1 if col > p.ABSTAIN_MARGIN else (-1 if col < -p.ABSTAIN_MARGIN else 0)
+        kept = cast == deal.vote
+        t = state.mps.get(deal.mp)
+        if t is not None:
+            t.relationships[state.player_id] = t.relationships.get(state.player_id, 0.0) \
+                + (p.DEAL_KEPT_REL if kept else -p.DEAL_BROKEN_REL)
+        if player is not None:
+            player.standing = float(np.clip(
+                player.standing + (p.DEAL_STANDING if kept else -p.DEAL_STANDING), -1, 1))
+        who = state.mps[deal.mp].name if deal.mp in state.mps else "a departed member"
+        state.emit("DealKept" if kept else "DealBroken",
+                   f"Your promise to {who} on the {bill.name} — "
+                   + ("kept; your word is banked." if kept else "broken."),
+                   mp=deal.mp, bill=bill.name, kept=kept)
+        state.deals.remove(deal)
     for fid, pid in rebels.items():
         f = next((f for f in state.parties[pid].factions if f.id == fid), None)
         if f is not None:
