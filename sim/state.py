@@ -13,6 +13,16 @@ def dist(a: Vec, b: Vec) -> float:
     return float(np.hypot(a[0] - b[0], a[1] - b[1]))
 
 
+def gov_platform(state: "GameState") -> Vec:
+    """The agenda the government runs on: the negotiated agreement struck at
+    formation, or the plain coalition mean when none was bargained."""
+    if state.government is not None and state.government.platform is not None:
+        return state.government.platform
+    gov = [state.parties[i].platform for i in state.government.parties
+           if i in state.parties] if state.government is not None else []
+    return tuple(np.mean(gov, axis=0)) if gov else (0.0, 0.0)
+
+
 @dataclass
 class Voters:
     pos: np.ndarray        # (N, 2) ideology
@@ -178,6 +188,7 @@ class Government:
     pm: int | None = None           # MP id
     minority: bool = False
     weeks_in_office: int = 0
+    platform: Vec | None = None     # negotiated coalition agreement, set at formation
     collapses: int = 0              # confidence losses since the last election
     blocked: set[int] = field(default_factory=set)  # parties barred from re-forming this house
     sacked: set[int] = field(default_factory=set)   # MPs unappointable until the next election
@@ -204,6 +215,7 @@ class GameState:
     press_weeks: int = 0              # consecutive weeks that subject has led
     government: Government = field(default_factory=Government)
     current_bill: Bill | None = None
+    offers: list = field(default_factory=list)  # coalition slates on the table (formation week)
     weeks_to_election: int = 0
     promises: list[dict] = field(default_factory=list)  # player commitments
     log: list[Event] = field(default_factory=list)

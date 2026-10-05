@@ -72,7 +72,7 @@ def resolve_election(state: GameState) -> None:
         if inc_indep or state.rng.random() < p.INDEPENDENT_P:
             centroid = v.pos[v.district == d].mean(axis=0)
             cand[INDEPENDENT] = (inc.pos if inc_indep else tuple(float(np.clip(
-                c + state.rng.gauss(0, p.MP_POS_JITTER), -1, 1)) for c in centroid))
+                c + state.rng.gauss(0, p.INDEPENDENT_POS_SD), -1, 1)) for c in centroid))
         mask = (v.district == d) & turnout_hit
         if not mask.any():  # nobody voted — incumbent survives, else district's nearest party
             if inc is not None:

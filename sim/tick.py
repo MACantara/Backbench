@@ -10,7 +10,7 @@ from .career import (assign_portfolios, junior_lifecycle, leadership_challenge,
 from .conditions import conditions_lifecycle
 from .courts import courts_lifecycle
 from .election import poll, resolve_election
-from .government import (call_election, confidence_vote, form_government,
+from .government import (call_election, confidence_vote, resolve_formation,
                          strategic_call)
 from .media import media_lifecycle
 from .parliament import resolve_vote, table_bill
@@ -42,10 +42,11 @@ def tick(state: GameState, actions: list | None = None) -> list[Event]:
                 state.phase = "formation"
 
     elif state.phase == "formation":
-        form_government(state)
-        assign_portfolios(state)
-        state.phase = "governing"
-        state.emit("PollShift", "Post-formation poll.", shares=poll(state))
+        if resolve_formation(state, actions or []):
+            assign_portfolios(state)
+            state.phase = "governing"
+            state.emit("PollShift", "Post-formation poll.", shares=poll(state))
+        # else: offers on the table — the house bargains one more week
 
     elif state.phase == "governing":
         state.government.weeks_in_office += 1

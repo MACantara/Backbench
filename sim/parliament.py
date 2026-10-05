@@ -6,7 +6,7 @@ import numpy as np
 from . import params as p
 from .conditions import enact, mood
 from .naming import austerity_name, bill_name, describe_pos
-from .state import Bill, GameState, MP, dist
+from .state import Bill, GameState, MP, dist, gov_platform
 from .treasury import debt_pressure
 
 
@@ -28,11 +28,9 @@ def district_opinion(state: GameState, district: int, bill: Bill) -> float:
     positive when the bill is *closer* to the district than the gov baseline."""
     v = state.voters
     centroid = tuple(v.pos[v.district == district].mean(axis=0))
-    gov = [state.parties[i].platform for i in state.government.parties if i in state.parties]
-    if not gov:
+    if not state.government.parties:
         return -dist(centroid, bill.pos) * 0.3  # no baseline → weak absolute opinion
-    gov_mean = tuple(np.mean(gov, axis=0))
-    return dist(centroid, gov_mean) - dist(centroid, bill.pos)
+    return dist(centroid, gov_platform(state)) - dist(centroid, bill.pos)
 
 
 def _faction_of(state: GameState, mp: MP):
@@ -90,8 +88,7 @@ def table_bill(state: GameState) -> Bill:
                     cost=-p.AUSTERITY_SAVING,
                     name=austerity_name(state.rng), austerity=True)
     else:
-        gov = [state.parties[i].platform for i in state.government.parties if i in state.parties]
-        anchor = np.mean(gov, axis=0) if gov else np.array([0.0, 0.0])
+        anchor = np.asarray(gov_platform(state))  # bills ride the agreement
         pos = tuple(np.clip(anchor + np.array([state.rng.gauss(0, 0.05), state.rng.gauss(0, 0.05)]), -1, 1))
         ax = state.rng.randrange(2)
         bill = Bill(pos=pos, beneficiary_axis=ax,
@@ -138,16 +135,18 @@ def resolve_vote(state: GameState, bill: Bill, player_vote: int | None = None) -
         u = float(player_vote) if (mp.id == state.player_id
                                    and player_vote is not None) else sum(terms.values())
         detail[mp.id] = {"u": u, "terms": terms}
-        if u > p.ABSTAIN_MARGIN:
+        whip = whip_direction(state, mp.party, bill) if mp.party is not None else 0
+        # confidence divisions are three-line whips — a whipped MP can't abstain
+        can_abstain = not (bill.confidence and whip)
+        if u > p.ABSTAIN_MARGIN or (u > 0 and not can_abstain):
             yes += 1
-        elif u < -p.ABSTAIN_MARGIN:
+        elif u < -p.ABSTAIN_MARGIN or (u < 0 and not can_abstain):
             no += 1
         else:
             abstain += 1
         # the whip remembers: standing accrues on the actual vote, override
         # included; an abstain is half a rebellion — the line wasn't delivered.
         # A faction whip is organized rebellion — the party line still marks you.
-        whip = whip_direction(state, mp.party, bill) if mp.party is not None else 0
         if whip:
             if u > p.ABSTAIN_MARGIN:
                 delta = p.STANDING_WHIP_YES if whip > 0 else -p.STANDING_WHIP_NO
@@ -168,9 +167,9 @@ def resolve_vote(state: GameState, bill: Bill, player_vote: int | None = None) -
     # consequences: brand + voter drift toward/away from government
     gov_parties = [i for i in state.government.parties if i in state.parties]
     if passed and gov_parties:
-        gov_platform = np.mean([state.parties[i].platform for i in gov_parties], axis=0)
+        agenda = gov_platform(state)
         ax = bill.beneficiary_axis
-        state.voters.pos[:, ax] += p.BILL_PERSUASION * np.sign(gov_platform[ax] - state.voters.pos[:, ax])
+        state.voters.pos[:, ax] += p.BILL_PERSUASION * np.sign(agenda[ax] - state.voters.pos[:, ax])
         for i in gov_parties:
             state.parties[i].brand += p.BILL_PASS_BRAND
         state.legacy_bills += state.player_id == state.government.pm

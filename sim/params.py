@@ -26,7 +26,8 @@ SALIENCE_SD = 0.30
 VOTE_NOISE_SD = 0.20         # per-voter scoring noise
 LOYALTY_WEIGHT = 0.60        # bonus to last-voted party
 TURNOUT_MODEL_NOISE = 0.05
-INDEPENDENT_P = 0.15   # per-district chance a party-less local stands   # extra turnout jitter at election time
+INDEPENDENT_P = 0.10   # per-district chance a party-less local stands
+INDEPENDENT_POS_SD = 0.35  # eccentric locals — near the centroid, never exactly on it   # extra turnout jitter at election time
 
 # --- MPs ---
 MP_POS_JITTER = 0.12         # distance of an MP from their party/district anchor
@@ -98,6 +99,9 @@ BILL_PERSUASION = 0.008  # weekly electorate pull toward gov axis per passed bil
 
 # --- government ---
 COALITION_MAX_DIST = 1.0         # partners won't join a coalition beyond this platform distance
+COALITION_FREE_DIST = 0.35       # partners within this of the proposer join unpriced
+CONCESSION_STEP = 0.15           # far partners extract platform shift ∝ distance past free
+STANDING_CONCESSION = 0.3        # proposer's members pay standing per platform-distance sold
 COALITION_WHIP_TOL = 1.2         # gov bill this far from a partner's platform breaks its whip line
 CONFIDENCE_THRESHOLD = 0.5       # fraction of parliament needed
 MINORITY_GOVT_PENALTY = 0.15     # utility discount on bills under minority government

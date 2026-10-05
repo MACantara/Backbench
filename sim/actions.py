@@ -16,11 +16,14 @@ class Action:
     axis: int | None = None      # 0/1 for speech/promise
     pos: tuple[float, float] | None = None  # for promise
     vote: int | None = None      # +1/-1/0 on the pending division
+    offer: int | None = None     # pick_offer: index into state.offers
 
 
 def available_actions(state: GameState) -> list[str]:
     """Context menu for the week."""
     base = ["scheme", "lobby", "media", "dig_dirt"]
+    if state.offers:
+        base += ["pick_offer", "decline_offers"]  # a hung parliament is a decision
     if state.phase == "campaign":
         base += ["campaign", "speech", "promise"]
     else:

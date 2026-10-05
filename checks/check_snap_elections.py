@@ -7,7 +7,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 import sim.params as p
 from sim.actions import Action, available_actions
 from sim.election import poll
-from sim.government import confidence_vote, form_government, strategic_call
+from sim.government import confidence_vote, resolve_formation, strategic_call
 from sim.tick import tick
 from sim.worldgen import new_game
 
@@ -58,7 +58,10 @@ def main() -> None:
     calls2 = [e for e in s2.log if e.type == "ElectionCalled"]
     assert not survived2 and s2.phase == "formation" and not calls2, \
         "a viable alternative should re-form in place, not dissolve"
-    form_government(s2)
+    for _ in range(3):   # a pivotal-player pause resolves on the next pass
+        if resolve_formation(s2, []):
+            break
+    assert s2.government.parties, "formation stalled even with a viable majority"
     assert fallen not in s2.government.parties, \
         "the fallen largest walked straight back into government"
 
