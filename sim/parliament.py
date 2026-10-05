@@ -73,11 +73,9 @@ def vote_terms(state: GameState, mp: MP, bill: Bill,
         terms["fwhip"] = p.W_WHIP * fwhip * mp.loyalty
         terms["whip"] = 0.0  # the wing overrules the party line
     line = fwhip if fwhip is not None else whip
-    if line:
+    if line and mp.scandal_weeks > 0:
         # a burning member votes to look independent — distance from the line
-        burn = min(1.0, mp.dossier + (0.5 if mp.scandal_weeks > 0 else 0.0))
-        if burn:
-            terms["selfpres"] = -p.W_SELFPRES * line * burn
+        terms["selfpres"] = -p.W_SELFPRES * line
     return terms
 
 
@@ -102,10 +100,10 @@ def table_bill(state: GameState) -> Bill:
         tax, spend = (p.BUDGET_STANCES[stance] if stance is not None
                       else budget_posture(state))
         label = "austerity" if spend < 0.97 else "stimulus" if spend > 1.03 else "balanced"
-        bill = Bill(pos=(gov_platform(state)[0], 0.0), beneficiary_axis=0,
+        bill = Bill(pos=tuple(gov_platform(state)), beneficiary_axis=0,
                     cost=p.BUDGET_COST_SCALE * (spend - 1.0),
                     confidence=True, budget=True, tax=tax, spend=spend,
-                    name=f"Budget {state.week // 52 + 1} ({label})")
+                    name=f"Budget {state.week // p.BUDGET_EVERY_WEEKS} ({label})")
     elif state.treasury.debt > p.DEBT_CRISIS:
         bill = Bill(pos=(p.AUSTERITY_POS, 0.0), beneficiary_axis=0,
                     cost=-p.AUSTERITY_SAVING,
@@ -172,8 +170,12 @@ def resolve_vote(state: GameState, bill: Bill, player_vote: int | None = None) -
         if mp.id == state.player_id or state.rng.random() >= ap:
             present.append(mp)
     if len(present) < p.QUORUM * max(len(state.mps), 1):
-        tail = ("the motion lapses — the government survives the empty benches."
-                if bill.confidence else "the division carries over.")
+        # a pending division (incl. a budget) carries to next week; a
+        # free-standing motion — a forced confidence vote, a private
+        # member's bill — simply lapses
+        tail = ("the division carries over." if bill is state.current_bill
+                else "the motion lapses — the government survives the empty benches."
+                if bill.confidence else "the motion lapses.")
         state.emit("DivisionStalled",
                    f"Quorum fails on the {bill.name} — {len(present)} of "
                    f"{len(state.mps)} present; {tail}",
@@ -240,15 +242,17 @@ def resolve_vote(state: GameState, bill: Bill, player_vote: int | None = None) -
             state.emit("FactionRebels", f"{f.name} whips against the party line on this bill.",
                        party=pid, faction=fid)
 
-    # consequences: brand + voter drift toward/away from government
+    # consequences: voter drift on passage, brand for the government when it
+    # owns the bill — a private member's win or loss isn't theirs
     gov_parties = [i for i in state.government.parties if i in state.parties]
-    if passed and gov_parties:
+    label = "Budget" if bill.budget else "Bill"
+    if passed:
         ax = bill.beneficiary_axis
         state.voters.pos[:, ax] += p.BILL_PERSUASION * np.sign(bill.pos[ax] - state.voters.pos[:, ax])
-        if bill.author is None:  # a private member's win isn't the government's brand
+        if gov_parties and bill.author is None:
             for i in gov_parties:
                 state.parties[i].brand += p.BILL_PASS_BRAND
-        state.emit("VoteResult", f"{'Budget' if bill.budget else 'Bill'} passes {yes}-{no} ({abstain} abstain).",
+        state.emit("VoteResult", f"{label} passes {yes}-{no} ({abstain} abstain).",
                    passed=True, yes=yes, no=no, abstain=abstain,
                    detail=detail, player=player_vote)
         if bill.budget:
@@ -261,17 +265,18 @@ def resolve_vote(state: GameState, bill: Bill, player_vote: int | None = None) -
             law = enact(state, bill, yes, no)
             state.legacy_bills += law is not None and law.author == state.player_id
     else:
-        if bill.author is None:  # a private member's loss isn't theirs either
+        if gov_parties and bill.author is None:
             for i in gov_parties:
                 state.parties[i].brand -= p.BILL_FAIL_BRAND
-        if not bill.confidence and bill.repeals is None:
-            # defeated ordinary bills are remembered — the agenda may retry
+        if not bill.confidence and bill.repeals is None and not bill.austerity \
+                and bill.author is None:
+            # defeated *government* bills are remembered — the agenda may retry;
+            # a private member's defeat isn't the government's to revive
             state.failed.append({"pos": bill.pos, "name": bill.name or "a bill",
                                  "week": state.week, "axis": bill.beneficiary_axis,
                                  "cost": bill.cost})
-            del state.failed[:-20]
-        state.emit("VoteResult",
-                   f"{'Budget' if bill.budget else 'Bill'} fails {yes}-{no} ({abstain} abstain).",
+            del state.failed[:-p.FAILED_MAX]
+        state.emit("VoteResult", f"{label} fails {yes}-{no} ({abstain} abstain).",
                    passed=False, yes=yes, no=no, abstain=abstain,
                    detail=detail, player=player_vote)
     return passed

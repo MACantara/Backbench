@@ -106,6 +106,7 @@ SUNSET_WEEKS = 312     # statutes past ~6y may lapse — the book prunes itself
 SUNSET_P = 0.03        # weekly lapse roll per aged statute
 RETABLE_CD = 26        # weeks before a failed bill can return
 RETABLE_P = 0.10       # weekly chance the agenda revives a cool-off failure
+FAILED_MAX = 20        # the failed-bill registry is a shallow memory
 QUORUM = 0.5           # fraction of the house that must be present to divide
 BILL_PERSUASION = 0.008  # weekly electorate pull toward gov axis per passed bill
 BUDGET_AXIS_W = 0.15    # agenda econ-axis → posture swing (market cuts, left spends)
@@ -259,12 +260,14 @@ AMEND_STEP = 0.25            # an amendment drags the pending bill toward the mo
 ATTACK_P = 0.10              # base chance a scrutiny attack lands
 ATTACK_WEAK_W = 0.5          # each point of government weakness scales it
 ATTACK_BRAND = 0.04          # a landed attack dents every coalition party
+ATTACK_STANDING = 0.1        # and the attacker's profile rises — party service
 ATTACK_WHIFF = 0.05          # a flat attack costs the attacker's standing
 DEFECT_BETRAYAL = 0.35       # crossing the floor — the district remembers
 DEFECT_REL_HIT = 0.4         # old colleagues burn the bridge
-FOUND_FOLLOW_REL = 0.5       # only real loyalty walks out with a founder
+FOUND_REL_MIN = 0.5          # only real loyalty walks out with a founder
 LEAK_TRACE_P = 0.25          # a planted story can be traced back
 LEAK_TRACE_REL = 0.3         # and the target burns the bridge
+LEAK_CAUGHT_DIRT = 0.15      # traced leaking marks the player's own dossier
 
 # --- drift ---
 VOTER_DRIFT_SD = 0.004           # weekly position noise

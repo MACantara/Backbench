@@ -61,8 +61,13 @@ def enact(state: GameState, bill: Bill, yes: int, no: int) -> Law | None:
     its target leaves the registry and its authors' record is dismantled."""
     if bill.repeals is not None:
         law = bill.repeals
-        if law in state.laws:
-            state.laws.remove(law)
+        if law not in state.laws:
+            # the target died between tabling and division — sunset or court
+            state.emit("RepealMoot", f"The {law.name} is already off the "
+                                     "books — the repeal finds nothing.",
+                       law=law.name)
+            return None
+        state.laws.remove(law)
         flagship = law.author == state.player_id
         for pid in law.enacted_by:
             if pid in state.parties:

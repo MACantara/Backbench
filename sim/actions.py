@@ -18,7 +18,7 @@ class Action:
                                  # decline_offers, budget, attack, amend, table,
                                  # defect, found
     target: int | None = None    # MP id for lobby/dig_dirt; party id for defect
-    axis: int | None = None      # 0/1 for speech/promise
+    axis: int | None = None      # 0/1 for speech/promise/table; 0-2 stance for budget
     pos: tuple[float, float] | None = None  # for promise
     vote: int | None = None      # +1/-1/0 on the pending division
     offer: int | None = None     # pick_offer: index into state.offers
@@ -34,9 +34,10 @@ def available_actions(state: GameState) -> list[str]:
         base += ["campaign", "speech", "promise"]
     else:
         base += ["constituency", "speech"]
-        if state.phase == "governing" and player is not None:
+        if state.phase == "governing" and player is not None \
+                and player.party not in state.government.parties:
             base.append("table")       # private member's bill — backbench legacy
-            if player.party not in state.government.parties and state.government.parties:
+            if state.government.parties:
                 base.append("attack")  # scrutiny — lands only on a weak government
         if state.current_bill is not None:
             base += ["vote", "deal"]   # a pending division is a decision — and currency
@@ -120,6 +121,7 @@ def apply_action(state: GameState, action: Action) -> None:
             if rng.random() < p.LEAK_TRACE_P:
                 t.relationships[player.id] = t.relationships.get(player.id, 0.0) \
                     - p.LEAK_TRACE_REL
+                player.dossier += p.LEAK_CAUGHT_DIRT   # fingerprints in the dirt
                 state.emit("Scandal", f"{t.name} traces the leak to you.", mp=t.id)
         else:
             state.emit("CareerEvent",
@@ -167,6 +169,7 @@ def apply_action(state: GameState, action: Action) -> None:
             for pid in state.government.parties:
                 if pid in state.parties:
                     state.parties[pid].brand -= p.ATTACK_BRAND
+            player.standing = float(np.clip(player.standing + p.ATTACK_STANDING, -1, 1))
             state.emit("AttackLands",
                        "Your attack lands — the government reels.", mp=player.id)
         else:
@@ -186,7 +189,8 @@ def apply_action(state: GameState, action: Action) -> None:
                    f"You amend the {bill.name} — it shifts toward your ground.",
                    bill=bill.name)
 
-    elif action.kind == "table":
+    elif action.kind == "table" and state.phase == "governing" \
+            and player.party not in state.government.parties:
         # a private member's bill — your name on it, divided at once
         from .parliament import resolve_vote
         ax = action.axis if action.axis is not None else rng.randrange(2)
@@ -208,10 +212,13 @@ def apply_action(state: GameState, action: Action) -> None:
                    f"You signal a {['austerity', 'balanced', 'stimulus'][action.axis]} budget.",
                    action="budget", stance=action.axis)
 
-    elif action.kind == "defect" and player.party is not None:
+    elif action.kind == "defect" and player.party is not None \
+            and action.target != player.party:
         _leave_party(state, player)
         if action.target in state.parties:
-            state.parties[action.target].members.add(player.id)
+            pt = state.parties[action.target]
+            pt.members.add(player.id)
+            pt.seated = True            # a mid-term joiner makes the shell real
             player.party = action.target
             state.emit("Defection",
                        f"You cross the floor to {state.parties[action.target].name}.",
@@ -222,13 +229,14 @@ def apply_action(state: GameState, action: Action) -> None:
 
     elif action.kind == "found":
         # you walk, and whoever really loves you walks too — a vehicle is born
-        from .parties import _found
+        from .parties import _found, _stay_utility
         old_pid = player.party
-        followers = [m.id for m in state.mps.values()
+        followers = [] if old_pid is None else [m.id for m in state.mps.values()
                      if m.party == old_pid and m.id != player.id
                      and m.id != state.government.pm
-                     and m.relationships.get(player.id, 0.0) >= p.FOUND_FOLLOW_REL]
-        _leave_party(state, player)
+                     and m.relationships.get(player.id, 0.0) >= p.FOUND_REL_MIN
+                     and _stay_utility(state, m) < p.PARTY_FORM_STAY_UTILITY]
+        _leave_party(state, player, exclude=followers)
         pid = _found(state, player.id, followers)
         for mid in followers:   # they pay the same price you did
             m = state.mps[mid]
@@ -247,34 +255,47 @@ def apply_action(state: GameState, action: Action) -> None:
         state.emit("CareerEvent", f"You nudge {pt.name}'s platform.", action="platform")
 
 
-def _leave_party(state: GameState, player) -> None:
+def _leave_party(state: GameState, player, exclude=()) -> None:
     """Floor-crossing bookkeeping: the district calls it betrayal, old
     colleagues burn the bridge, posts and standing die with the tie —
-    and a PM who crosses forfeits the office."""
+    and a PM who crosses forfeits the office. exclude: members walking
+    with you — they don't burn a bridge they're crossing."""
     old = state.parties.get(player.party)
     if old is not None:
         state.voters.betrayal[state.voters.district == player.district] += p.DEFECT_BETRAYAL
         old.members.discard(player.id)
-        for mid in old.members:
+        for mid in old.members - set(exclude):
             if mid in state.mps:
                 state.mps[mid].relationships[player.id] = \
                     state.mps[mid].relationships.get(player.id, 0.0) - p.DEFECT_REL_HIT
-        if old.leader == player.id and old.members:
-            old.leader = max(old.members, key=lambda m: state.mps[m].ambition)
+        if old.leader == player.id:
+            stayers = old.members - set(exclude)   # walkers can't inherit the chair
+            if stayers:
+                old.leader = max(stayers, key=lambda m: state.mps[m].ambition)
     player.faction = None
     player.junior, player.junior_weeks = None, 0
     player.portfolio, player.portfolio_weeks = None, 0   # stripped at once
     player.standing = 0.0                                # no borrowed standing
-    was_pm = state.government.pm == player.id
+    was_pm = state.government.pm == player.id and state.phase == "governing"
     player.party = None
     if was_pm:
+        state.government.budget_stance = None   # your signals leave with you
         # you can't lead a coalition you left — the office follows the
-        # largest coalition party's leader; nobody legitimate → it falls
+        # largest coalition party's leader; nobody legitimate → it falls.
+        # Successors must be *staying* members — a pending walker can't
+        # inherit an office in a coalition they're about to leave.
         largest = max((i for i in state.government.parties if i in state.parties),
                       key=lambda i: len(state.parties[i].members), default=None)
-        succ = state.parties[largest].leader if largest is not None else None
-        if succ is not None and succ != player.id and succ in state.mps:
+        pool = (state.parties[largest].members - set(exclude) - {player.id}
+                if largest is not None else set())
+        succ = (state.parties[largest].leader
+                if pool and state.parties[largest].leader in pool
+                else (max(pool, key=lambda m: state.mps[m].ambition) if pool else None))
+        if succ is not None and succ in state.mps:
             state.government.pm = succ
+            # the premiership vacates any held ministry — one chair per head
+            state.mps[succ].portfolio, state.mps[succ].portfolio_weeks = None, 0
+            state.mps[succ].junior, state.mps[succ].junior_weeks = None, 0
             state.emit("PmChange",
                        f"{state.mps[succ].name} succeeds you as Prime Minister "
                        f"— {state.parties[largest].name} keeps the coalition.",

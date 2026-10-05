@@ -26,8 +26,7 @@ def budget_posture(state: GameState) -> tuple[float, float]:
     x = gov_platform(state)[0]  # + market / - redistribution
     spend = 1.0 - p.BUDGET_AXIS_W * x - p.BUDGET_DEBT_TIGHT * debt_pressure(state)
     tax = 1.0 - 0.5 * p.BUDGET_AXIS_W * x
-    clip = lambda v: float(np.clip(v, 0.7, 1.3))
-    return clip(tax), clip(spend)
+    return float(np.clip(tax, 0.7, 1.3)), float(np.clip(spend, 0.7, 1.3))
 
 
 def interest(state: GameState) -> float:

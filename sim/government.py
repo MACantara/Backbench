@@ -102,6 +102,7 @@ def _form(state: GameState, offer: dict) -> None:
     state.government.platform = tuple(np.clip(agenda, -1, 1))
     state.government.minority = False
     state.government.weeks_in_office = 0
+    state.government.budget_stance = None  # the new cabinet writes its own budget
     names = [state.parties[i].name for i in coalition]
     state.emit("CoalitionFormed", f"{' + '.join(names)} form a government ({bloc} seats).",
                parties=sorted(coalition), seats=bloc)
@@ -120,6 +121,7 @@ def _minority(state: GameState, exclude_parties: set[int] | None = None) -> None
     state.government.platform = state.parties[biggest].platform  # rules alone on its manifesto
     state.government.minority = True
     state.government.weeks_in_office = 0
+    state.government.budget_stance = None
     state.emit("CoalitionFormed", f"{state.parties[biggest].name} forms a minority government ({seats[biggest]} seats).",
                parties=[biggest], seats=seats[biggest], minority=True)
 
@@ -192,6 +194,7 @@ def call_election(state: GameState, snap: bool, reason: str,
     state.current_bill = None   # the pending division dies with the parliament
     state.offers = []           # dead slates die with it too
     state.deals = []            # and promises made to a dissolved house lapse
+    state.government.budget_stance = None  # a caretaker's signals lapse too
     state.phase = "campaign"
     state.weeks_to_election = p.CAMPAIGN_WEEKS
     niche_entry(state)
