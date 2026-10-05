@@ -45,6 +45,7 @@ class MP:
     seat_safety: float = 0.5        # last margin, roughly
     age: int = 2600                 # weeks; 2600 = 50y
     seniority: int = 0              # weeks served in parliament
+    standing: float = 0.0           # party standing — earned on observable behavior, decays
 
 
 @dataclass

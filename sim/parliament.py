@@ -115,6 +115,12 @@ def resolve_vote(state: GameState, bill: Bill, player_vote: int | None = None) -
         detail[mp.id] = {"u": u, "terms": terms}
         yes += u > 0
         no += u <= 0
+        # the whip remembers: standing accrues on the actual vote, override included
+        whip = whip_direction(state, mp.party, bill) if mp.party is not None else 0
+        if whip:
+            agree = (u > 0) == (whip > 0)
+            mp.standing = float(np.clip(
+                mp.standing + (p.STANDING_WHIP_YES if agree else -p.STANDING_WHIP_NO), -1, 1))
     passed = yes > no
     state.current_bill = None
     for fid, pid in rebels.items():

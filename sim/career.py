@@ -61,6 +61,7 @@ def ministerial_lifecycle(state: GameState) -> None:
         if mp.portfolio_weeks >= p.MINISTER_TENURE and mp.perf < p.MINISTER_SACK_RECORD:
             ministry, pid = mp.portfolio, mp.party
             mp.portfolio, mp.portfolio_weeks = None, 0
+            mp.standing -= p.STANDING_SACK_HIT   # a sack burns standing
             state.government.sacked.add(mp.id)   # no same-term re-hire
             pm = state.mps.get(state.government.pm)
             if pm is not None and pm.party in state.parties:
@@ -132,6 +133,10 @@ def mp_lifecycle(state: GameState) -> None:
     for mp in state.mps.values():
         mp.age += 1
         mp.seniority += 1
+        # standing: office pays a trickle, a burning scandal bleeds, the rest decays
+        mp.standing += (p.STANDING_OFFICE if mp.portfolio is not None else 0.0) \
+                     - (p.STANDING_SCANDAL_WK if mp.scandal_weeks > 0 else 0.0)
+        mp.standing = float(np.clip(mp.standing * p.STANDING_DECAY, -1, 1))
     gone = []
     for mp in state.mps.values():
         if mp.id == state.player_id:

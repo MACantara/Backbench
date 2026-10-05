@@ -47,6 +47,7 @@ def apply_action(state: GameState, action: Action) -> None:
         v.betrayal[mask] *= 0.85
         v.loyalty[mask] = np.clip(v.loyalty[mask] + 0.02, 0, 1)
         v.last_party[mask] = player.party
+        player.standing = float(np.clip(player.standing + p.STANDING_SERVICE, -1, 1))
         state.emit("CareerEvent", "You hold constituency surgeries.", action="constituency")
 
     elif action.kind == "speech":
