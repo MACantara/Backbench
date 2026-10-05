@@ -81,10 +81,41 @@ def main() -> None:
     assert any(e.type == "ConfidenceLost" or e.type == "VoteResult"
                for e in s.log[-10:]), "crisis didn't force a confidence vote"
     n1 = len(crises)
-    s.treasury.debt = p.DEBT_CRISIS + 0.5  # still insolvent — must NOT re-fire
+    s.treasury.debt = p.DEBT_CRISIS + 0.5  # still insolvent — cooldown holds it quiet
     treasury_lifecycle(s)
     assert len([e for e in s.log if e.type == "DebtCrisis"]) == n1, \
-        "crisis re-fired while still armed-down (hysteresis broken)"
+        "crisis re-fired inside the cooldown"
+
+    # ...but insolvency recurs: pinned past CRISIS, crises keep coming and the
+    # agenda is captured — every tabled bill is forced austerity
+    from sim.parliament import table_bill
+    from sim.conditions import law_effect
+    s = _to_governing()
+    s.treasury.debt = p.DEBT_CRISIS + 1.0
+    n0 = sum(1 for e in s.log if e.type == "DebtCrisis")
+    # pin insolvency and run real weeks — crises recur through collapse, campaign,
+    # and re-formation; a forced confidence loss mustn't silence the next one
+    for _ in range(80):
+        s.treasury.debt = max(s.treasury.debt, p.DEBT_CRISIS + 1.0)
+        tick(s)
+        if s.phase == "over":
+            break
+    more = [e for e in s.log if e.type == "DebtCrisis"][n0:]
+    assert len(more) >= 3, f"insolvency went quiet ({len(more)} crises in 60w)"
+    assert all(e.data["crises"] == i + 1 for i, e in enumerate(
+        e for e in s.log if e.type == "DebtCrisis")), "crises not counted"
+    bill = table_bill(s)
+    assert bill.austerity and bill.cost < 0 and law_effect(bill)["services"] < 0, \
+        "insolvent government tabled a program bill instead of cuts"
+    assert bill.cost == -p.AUSTERITY_SAVING
+    u0, f0 = upkeep(s), flow(s)
+    from sim.conditions import enact
+    cuts = enact(s, bill, yes=80, no=40)
+    assert upkeep(s) < u0 and flow(s) > f0, \
+        "a passed cuts law didn't relieve the books"
+    s.laws = [l for l in s.laws if l is not cuts]
+    s.treasury.debt = p.DEBT_CRISIS - 0.5  # back under the line — program resumes
+    assert not table_bill(s).austerity, "austerity continued after insolvency ended"
 
     # fiscal term: a dear bill loses the house when the books are red
     s = _to_governing()

@@ -42,18 +42,25 @@ def treasury_lifecycle(state: GameState) -> None:
     if t.debt > p.DEBT_WARN:
         c.inflation = float(np.clip(
             c.inflation + p.DEBT_INFLATION_W * (t.debt - p.DEBT_WARN), 0, 1))
+    # insolvency is a state, not an event: while past CRISIS the crisis re-fires
+    # on a cooldown — each repeat demands confidence again. Solvency is the exit:
+    # a real recovery re-arms the meter so relapse fires promptly, not late.
     if t.debt < p.DEBT_WARN:
-        t.crisis_armed = True  # hysteresis — a crisis doesn't re-fire weekly
-    if t.crisis_armed and t.debt > p.DEBT_CRISIS and state.phase == "governing":
-        t.crisis_armed = False
+        t.last_crisis_week = -10**9
+    if (t.debt > p.DEBT_CRISIS and state.phase == "governing"
+            and state.week - t.last_crisis_week >= p.DEBT_CRISIS_EVERY):
+        t.last_crisis_week, t.crises = state.week, t.crises + 1
         pm_party = state.mps[state.government.pm].party \
             if state.government.pm in state.mps else None
         for i in state.government.parties:
             if i in state.parties:
                 state.parties[i].brand -= p.DEBT_BRAND_HIT
         # stamp the party now — the confidence vote below may clear government state
-        state.emit("DebtCrisis", f"Insolvency — the treasury is {t.debt:.1f} in debt "
-                                 f"and confidence is demanded.", debt=t.debt, party=pm_party)
+        ordinal = {1: "Insolvency", 2: "Second insolvency",
+                   3: "Third insolvency"}.get(t.crises, f"Insolvency no. {t.crises}")
+        state.emit("DebtCrisis", f"{ordinal} — the treasury is {t.debt:.1f} in debt "
+                                 f"and confidence is demanded.",
+                   debt=t.debt, party=pm_party, crises=t.crises)
         # deferred import: government→parliament→treasury is a cycle at module level
         from .government import confidence_vote
         confidence_vote(state)

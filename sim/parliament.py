@@ -5,7 +5,7 @@ import numpy as np
 
 from . import params as p
 from .conditions import enact, mood
-from .naming import bill_name, describe_pos
+from .naming import austerity_name, bill_name, describe_pos
 from .state import Bill, GameState, MP, dist
 from .treasury import debt_pressure
 
@@ -79,20 +79,27 @@ def vote_utility(state: GameState, mp: MP, bill: Bill) -> float:
 
 
 def table_bill(state: GameState) -> Bill:
-    """The government tables a bill near the coalition's mean platform."""
-    gov = [state.parties[i].platform for i in state.government.parties if i in state.parties]
-    anchor = np.mean(gov, axis=0) if gov else np.array([0.0, 0.0])
-    pos = tuple(np.clip(anchor + np.array([state.rng.gauss(0, 0.05), state.rng.gauss(0, 0.05)]), -1, 1))
-    ax = state.rng.randrange(2)
-    bill = Bill(pos=pos, beneficiary_axis=ax,
-                cost=float(max(0.0, p.COST_BASE + p.COST_EXTREMITY_W * abs(pos[ax])
-                               + state.rng.gauss(0, p.COST_JITTER))),
-                name=bill_name(pos, ax, state.rng))
+    """The government tables a bill near the coalition's mean platform —
+    or, while insolvent, is forced to table cuts: receivership is agenda capture."""
+    if state.treasury.debt > p.DEBT_CRISIS:
+        bill = Bill(pos=(p.AUSTERITY_POS, 0.0), beneficiary_axis=0,
+                    cost=-p.AUSTERITY_SAVING,
+                    name=austerity_name(state.rng), austerity=True)
+    else:
+        gov = [state.parties[i].platform for i in state.government.parties if i in state.parties]
+        anchor = np.mean(gov, axis=0) if gov else np.array([0.0, 0.0])
+        pos = tuple(np.clip(anchor + np.array([state.rng.gauss(0, 0.05), state.rng.gauss(0, 0.05)]), -1, 1))
+        ax = state.rng.randrange(2)
+        bill = Bill(pos=pos, beneficiary_axis=ax,
+                    cost=float(max(0.0, p.COST_BASE + p.COST_EXTREMITY_W * abs(pos[ax])
+                                   + state.rng.gauss(0, p.COST_JITTER))),
+                    name=bill_name(pos, ax, state.rng))
     state.current_bill = bill
-    state.emit("BillTabled", f"Government tables the {bill.name} — {describe_pos(pos)}"
-                             f" (cost {bill.cost:.3f}/wk).",
-               pos=pos, beneficiary_axis=bill.beneficiary_axis, cost=bill.cost,
-               bill=bill.name)
+    verb = "is forced to table" if bill.austerity else "tables"
+    state.emit("BillTabled", f"Government {verb} the {bill.name} — "
+                             f"{describe_pos(bill.pos)} (cost {bill.cost:+.3f}/wk).",
+               pos=bill.pos, beneficiary_axis=bill.beneficiary_axis, cost=bill.cost,
+               bill=bill.name, austerity=bill.austerity)
     return bill
 
 

@@ -117,6 +117,7 @@ class Bill:
     beneficiary_axis: int           # 0 or 1 — which voter axis it flatters
     cost: float = 0.0
     confidence: bool = False        # a confidence motion — govt parties whip to survive
+    austerity: bool = False         # receivership cuts — forced while insolvent
     name: str = ""                  # domain-flavored name; confidence motions stay blank
 
 
@@ -157,7 +158,8 @@ class Conditions:
 class Treasury:
     """The public finances: one stock (debt); flows are derived weekly."""
     debt: float = 0.0               # cumulative deficit; floored at 0
-    crisis_armed: bool = True       # hysteresis — re-arms when debt < DEBT_WARN
+    last_crisis_week: int = -10**9  # insolvency crises recur on a cooldown
+    crises: int = 0                 # DebtCrisis count — insolvency outlives parliaments
 
 
 @dataclass

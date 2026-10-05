@@ -47,6 +47,8 @@ def responsibility(state: GameState, pid: int) -> float:
 def law_effect(bill: Bill) -> dict[str, float]:
     """A law's weekly indicator push — legible quadrant map, magnitude ∝ extremity."""
     s, ax = p.LAW_EFFECT_SCALE, bill.beneficiary_axis
+    if bill.austerity:
+        return {"services": -s * abs(bill.pos[ax])}  # cuts: the services dial pays
     if bill.pos[ax] == 0:
         return {}
     if ax == 0:
@@ -63,8 +65,10 @@ def enact(state: GameState, bill: Bill, yes: int, no: int) -> Law:
     state.laws.append(law)
     eff = f" — {next(iter(law.effect))} {next(iter(law.effect.values())):+.3f}/wk" \
         if law.effect else ""
-    state.emit("LawEnacted", f"{law.name} becomes law{eff} (cost {law.cost:.3f}/wk).",
-               law=law.name, cost=law.cost, risk=legal_risk(law))
+    cost_str = f"saves {-law.cost:.3f}/wk" if law.cost < 0 else f"cost {law.cost:.3f}/wk"
+    state.emit("LawEnacted", f"{law.name} becomes law{eff} ({cost_str}).",
+               law=law.name, cost=law.cost, risk=legal_risk(law),
+               austerity=bill.austerity)
     return law
 
 

@@ -9,7 +9,7 @@ def legal_risk(law: Law) -> float:
     """How contestable a statute is: radicalism, expense, thin mandate."""
     extremity = (law.pos[0] ** 2 + law.pos[1] ** 2) ** 0.5
     return (p.RISK_EXTREMITY_W * extremity
-            + p.RISK_COST_W * law.cost / (p.COST_BASE + p.COST_EXTREMITY_W)
+            + p.RISK_COST_W * max(0.0, law.cost) / (p.COST_BASE + p.COST_EXTREMITY_W)
             + p.RISK_MARGIN_W * (1 - law.margin))
 
 
