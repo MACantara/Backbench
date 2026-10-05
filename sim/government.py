@@ -107,11 +107,13 @@ def _form(state: GameState, offer: dict) -> None:
                parties=sorted(coalition), seats=bloc)
 
 
-def _minority(state: GameState) -> None:
+def _minority(state: GameState, exclude_parties: set[int] | None = None) -> None:
     """Nobody built a majority — largest unblocked party tries minority rule."""
     seats = _seats(state)
-    for pid in state.government.blocked:
+    for pid in state.government.blocked | (exclude_parties or set()):
         seats.pop(pid, None)
+    if not seats:
+        return  # a parliament of independents: nobody to seat — caretaker void
     biggest = max(seats, key=seats.get)
     state.government.parties = {biggest}
     state.government.pm = state.parties[biggest].leader
@@ -136,15 +138,27 @@ def resolve_formation(state: GameState, actions: list) -> bool:
         if decline:
             state.emit("OfferDeclined", "You turn down every offer — "
                                         "your party sits this one out.")
-            found = _viable_offers(state, gov.blocked | {_player_party(state)})
-            _form(state, found[0]) if found else _minority(state)
+            out = gov.blocked | {_player_party(state)}
+            found = _viable_offers(state, out)
+            _form(state, found[0]) if found else _minority(state, out)
         else:
-            o = offers[pick] if pick is not None and 0 <= pick < len(offers) else offers[0]
-            if o is not offers[0]:
-                state.emit("OfferTaken",
-                           f"You back {state.parties[o['proposer']].name}'s slate "
-                           f"({o['bloc']} seats).", parties=sorted(o["coalition"]))
-            _form(state, o)
+            wanted = offers[pick] if pick is not None and 0 <= pick < len(offers) else offers[0]
+            # a bargaining week moves the house — re-validate the slate
+            fresh = _viable_offers(state, gov.blocked)
+            o = next((f for f in fresh if f["proposer"] == wanted["proposer"]
+                      and f["coalition"] == wanted["coalition"]), None)
+            if o is None:
+                state.emit("OfferLapsed", "The slate you backed no longer "
+                                          "commands a majority — the table re-deals.")
+                o = fresh[0] if fresh else None
+            if o is None:
+                _minority(state)
+            else:
+                if o["coalition"] != offers[0]["coalition"]:
+                    state.emit("OfferTaken",
+                               f"You back {state.parties[o['proposer']].name}'s slate "
+                               f"({o['bloc']} seats).", parties=sorted(o["coalition"]))
+                _form(state, o)
         gov.blocked = set()
         return True
 
@@ -152,6 +166,7 @@ def resolve_formation(state: GameState, actions: list) -> bool:
     pid = _player_party(state)
     if pid is not None and any(pid in o["coalition"] for o in offers):
         state.offers = offers          # a hung parliament pauses — one week to deal
+        # (prices shown are indicative — the settled deal re-emits as CoalitionDeal)
         for i, o in enumerate(offers):
             con = "; ".join(f"{state.parties[p_].name} takes {pr:.2f}"
                             for p_, pr in o["price"].items() if pr > 0) or "clean hands"
@@ -162,8 +177,8 @@ def resolve_formation(state: GameState, actions: list) -> bool:
                        offer=i, proposer=o["proposer"], parties=sorted(o["coalition"]),
                        bloc=o["bloc"], price={k: v for k, v in o["price"].items() if v > 0})
         return False
-    gov.blocked = set()
     _form(state, offers[0]) if offers else _minority(state)
+    gov.blocked = set()
     return True
 
 
@@ -216,6 +231,8 @@ def confidence_vote(state: GameState) -> bool:
         state.government.parties = set()
         state.government.pm = None
         state.government.platform = None   # the agreement dies with the government
+        state.current_bill = None          # and its pending business dies too
+        state.deals = []                   # promises made on that business lapse
         if state.government.collapses >= p.SNAP_COLLAPSE_MAX:
             call_election(state, snap=True, reason="deadlock", party=pm_party)
         elif alt is None:
