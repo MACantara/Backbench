@@ -5,7 +5,6 @@ import numpy as np
 
 from . import params as p
 from .dynamism import niche_entry
-from .election import poll
 from .state import Bill, GameState, dist, gov_platform
 from .parliament import describe_pos, resolve_vote
 
@@ -213,9 +212,14 @@ def strategic_call(state: GameState) -> None:
     gov = state.government
     if not gov.parties or not (p.SNAP_WINDOW[0] <= gov.weeks_in_office <= p.SNAP_WINDOW[1]):
         return
-    # early calls convert a poll surplus into seats — no surplus, no gamble
+    # early calls convert a *published* poll surplus into seats — the number
+    # the country read, sponsor's bias and all; a flattered government can
+    # ride its own friendly press into a doomed snap. No fresh poll, no gamble.
+    lp = state.last_poll
+    if lp is None or state.week - lp["week"] > p.SNAP_POLL_STALE:
+        return
     seat_share = sum(len(state.parties[i].members) for i in gov.parties) / max(len(state.mps), 1)
-    poll_share = sum(poll(state).get(pid, 0.0) for pid in gov.parties)
+    poll_share = sum(lp["shares"].get(pid, 0.0) for pid in gov.parties)
     if poll_share < seat_share + p.SNAP_POLL_EDGE:
         return
     if state.rng.random() < p.SNAP_CALL_P:

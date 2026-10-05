@@ -9,7 +9,7 @@ from .career import (assign_portfolios, junior_lifecycle, leadership_challenge,
                      ministerial_lifecycle, mp_lifecycle, update_score)
 from .conditions import conditions_lifecycle
 from .courts import courts_lifecycle
-from .election import poll, resolve_election
+from .election import publish_poll, resolve_election
 from .government import (call_election, collapse, resolve_formation,
                          strategic_call)
 from .media import media_lifecycle
@@ -32,7 +32,7 @@ def tick(state: GameState, actions: list | None = None) -> list[Event]:
 
     if state.phase == "campaign":
         state.weeks_to_election -= 1
-        state.emit("PollShift", "Weekly poll.", shares=poll(state))
+        publish_poll(state)
         if state.weeks_to_election <= 0:
             state.phase = "election"
             evaluate_promises(state)
@@ -45,7 +45,7 @@ def tick(state: GameState, actions: list | None = None) -> list[Event]:
         if resolve_formation(state, actions or []):
             assign_portfolios(state)
             state.phase = "governing"
-            state.emit("PollShift", "Post-formation poll.", shares=poll(state))
+            publish_poll(state)
         # else: offers on the table — the house bargains one more week
 
     elif state.phase == "governing":
@@ -67,7 +67,8 @@ def tick(state: GameState, actions: list | None = None) -> list[Event]:
             table_bill(state)
         # insolvency's forced confidence fires from treasury_lifecycle — immediate
         if state.phase == "governing":
-            strategic_call(state)
+            publish_poll(state)     # a sponsor prints the week's numbers
+            strategic_call(state)   # the PM reads the published poll
         if state.phase == "governing" and state.government.weeks_in_office >= p.GOVERNING_WEEKS_PER_TERM:
             call_election(state, snap=False, reason="scheduled")
 

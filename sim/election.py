@@ -145,8 +145,11 @@ def resolve_election(state: GameState) -> None:
                seats={"ind" if k == INDEPENDENT else k: n for k, n in seat_counts.items()})
 
 
-def poll(state: GameState) -> dict[int, float]:
-    """Weekly poll: national vote share of decided voters, turnout-weighted."""
+def poll(state: GameState, outlet=None) -> dict[int, float]:
+    """Weekly poll: national vote share of decided voters, turnout-weighted.
+    With an outlet, the sample is the outlet's audience — readers near its
+    slant over-report, so its polls flatter the parties its slant likes.
+    The ground-truth oracle is `poll(state)` with no outlet."""
     v = state.voters
     decided = v.turnout > 0.3
     ppos = {pid: np.asarray(pt.pub_pos) for pid, pt in state.parties.items()}
@@ -159,5 +162,24 @@ def poll(state: GameState) -> dict[int, float]:
         score[:, j] += p.BRAND_WEIGHT * state.parties[pid].brand
         score[:, j] += p.LOYALTY_WEIGHT * v.loyalty[decided] * (v.last_party[decided] == pid)
         score[:, j] += p.RETRO_WEIGHT * mood(state.conditions) * responsibility(state, pid)
-    pick = np.bincount(score.argmax(axis=1), minlength=len(parties))
-    return {pid: float(pick[i] / max(decided.sum(), 1)) for i, pid in enumerate(parties)}
+    weights = None
+    if outlet is not None:
+        weights = np.exp(-((dpos - np.asarray(outlet.slant)) ** 2).sum(axis=1)
+                         / (2 * p.AUDIENCE_AFFINITY_SD ** 2))
+    pick = np.bincount(score.argmax(axis=1), minlength=len(parties),
+                       weights=weights)
+    total = max(weights.sum() if weights is not None else decided.sum(), 1e-9)
+    return {pid: float(pick[i] / total) for i, pid in enumerate(parties)}
+
+
+def publish_poll(state: GameState) -> None:
+    """An outlet prints the week's numbers — a rotating sponsor, a biased
+    sample, a stamp. `state.last_poll` is what the country *read*, not what
+    the electorate *is* — the snap gate reads the published number."""
+    o = state.outlets[state.week % len(state.outlets)] if state.outlets else None
+    shares = poll(state, outlet=o)
+    state.last_poll = {"shares": shares, "week": state.week,
+                       "outlet": o.id if o else None}
+    state.emit("PollShift",
+               f"{o.name} poll." if o else "Weekly poll.",
+               shares=shares, outlet=state.last_poll["outlet"])

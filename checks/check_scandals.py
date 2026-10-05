@@ -18,11 +18,11 @@ def main() -> None:
     tick(s)
     assert corrupt.dossier > clean.dossier * 3, "growth should track (1-integrity)"
 
-    # surfacing: a fat dossier eventually leaks into a burning scandal
+    # surfacing: a dossier past the purge line detonates — no roll needed
     s = new_game(2)
     target = next(m for m in s.mps.values()
                   if m.id != s.player_id and s.parties[m.party].leader != m.id)
-    target.dossier = 1.0
+    target.dossier = p.SACK_THRESHOLD + 0.1
     target.integrity = 1.0  # isolate: no extra growth muddies the dossier
     broke = None
     for _ in range(60):

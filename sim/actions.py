@@ -16,8 +16,10 @@ class Action:
     kind: str                    # campaign, constituency, speech, promise, media, dig_dirt,
                                  # lobby, scheme, platform, vote, deal, pick_offer,
                                  # decline_offers, budget, attack, amend, table,
-                                 # defect, found, challenge, appoint, amendment
-    target: int | None = None    # MP id for lobby/dig_dirt; party id for defect
+                                 # defect, found, challenge, appoint, amendment,
+                                 # court
+    target: int | None = None    # MP id for lobby/dig_dirt/leak; party id for
+                                 # defect; outlet id for court
     axis: int | None = None      # 0/1 for speech/promise/table; 0-2 stance for budget
     pos: tuple[float, float] | None = None  # for promise
     vote: int | None = None      # +1/-1/0 on the pending division
@@ -26,12 +28,15 @@ class Action:
     judge: int | None = None     # appoint: index into state.bench_shortlist
     article: int | None = None   # amendment: constitution article id to repeal
     entrench: tuple[int, int] | None = None  # amendment: (axis, pole) to fence
+    outlet: int | None = None    # leak: route the story through this outlet
 
 
 def available_actions(state: GameState) -> list[str]:
     """Context menu for the week."""
     base = ["scheme", "lobby", "media", "dig_dirt", "leak"]
     player = state.mps.get(state.player_id)
+    if player is not None and player.party is not None:
+        base.append("court")         # cultivate an editorial board
     if state.offers:
         base += ["pick_offer", "decline_offers"]  # a hung parliament is a decision
     if state.phase == "campaign":
@@ -125,12 +130,25 @@ def apply_action(state: GameState, action: Action) -> None:
 
     elif action.kind == "leak" and action.target in state.mps \
             and action.target != player.id:
-        # detonate a dirty dossier on your schedule — deniable, not free
+        # detonate a dirty dossier on your schedule — deniable, not free.
+        # Routed through an outlet: a friend buries it and protects the
+        # source; an enemy leads with it and may burn you.
         from .scandals import detonate
         t = state.mps[action.target]
+        o = next((x for x in state.outlets if x.id == action.outlet), None)
         if t.dossier > p.LEAK_MIN_DOSSIER and t.scandal_weeks <= 0:
             detonate(state, t)
-            if rng.random() < p.LEAK_TRACE_P:
+            if o is not None:
+                broke = next((e for e in reversed(state.log)
+                              if e.type in ("ScandalBreaks", "Expelled")
+                              and e.data.get("mp") == t.id), None)
+                if broke is not None:
+                    broke.data["routed"] = o.id   # coverage reads the venue
+            warm = o.warmth.get(player.party, 0.0) if o is not None else -1.0
+            mult = 1.0 if o is None else (
+                p.FRIENDLY_TRACE_MULT if warm >= p.COURT_FRIENDLY_MIN
+                else p.HOSTILE_TRACE_MULT)
+            if rng.random() < p.LEAK_TRACE_P * mult:
                 t.relationships[player.id] = t.relationships.get(player.id, 0.0) \
                     - p.LEAK_TRACE_REL
                 player.dossier += p.LEAK_CAUGHT_DIRT   # fingerprints in the dirt
@@ -138,6 +156,18 @@ def apply_action(state: GameState, action: Action) -> None:
         else:
             state.emit("CareerEvent",
                        f"Nothing on {t.name} will move the press.", action="leak")
+
+    elif action.kind == "court" and action.target is not None \
+            and player.party is not None:
+        o = next((x for x in state.outlets if x.id == action.target), None)
+        if o is None:
+            state.emit("CareerEvent", "No such desk to court.", action="court")
+        else:
+            o.warmth[player.party] = min(1.0, o.warmth.get(player.party, 0.0)
+                                         + p.COURT_WARMTH)
+            state.emit("CareerEvent",
+                       f"You wine and dine the editors of {o.name}.",
+                       action="court", outlet=o.id)
 
     elif action.kind == "lobby" and action.target in state.mps:
         t = state.mps[action.target]

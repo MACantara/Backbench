@@ -193,7 +193,21 @@ def draw_action_panel(drv) -> None:
     pygame.draw.rect(drv.screen, DIM, (20, H - 150, 940, 130), 1)
     _text(drv, f"Actions — pick {2 - len(drv.picks)} more "
                f"(or continue): {[a.kind for a in drv.picks]}", (34, H - 140))
-    if drv.need_target:
+    if drv.need_outlet or drv.leak_outlet is not None:
+        me = drv.state.mps[drv.state.player_id]
+        _text(drv, "choose the venue" if drv.leak_outlet is not None
+              else "court which editorial board?", (34, H - 114), GOLD)
+        x = 34
+        if drv.leak_outlet is not None:
+            _button(drv, "otl:x", "open market", pygame.Rect(x, H - 88, 110, 28))
+            x += 118
+        for o in drv.state.outlets:
+            warm = o.warmth.get(me.party, 0.0)
+            lab = f"{o.name[4:14]} {warm:.1f}"
+            w = 16 + 9 * len(lab)
+            _button(drv, f"otl:{o.id}", lab, pygame.Rect(x, H - 88, w, 28))
+            x += w + 8
+    elif drv.need_target:
         _text(drv, f"{drv.need_target}: click an MP's seat to target", (34, H - 114), GOLD)
     elif drv.need_axis:
         _text(drv, f"{drv.need_axis}: pick an axis", (34, H - 114), GOLD)

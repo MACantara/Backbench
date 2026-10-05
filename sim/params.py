@@ -278,7 +278,16 @@ ATTACK_WHIFF = 0.05          # a flat attack costs the attacker's standing
 DEFECT_BETRAYAL = 0.35       # crossing the floor — the district remembers
 DEFECT_REL_HIT = 0.4         # old colleagues burn the bridge
 FOUND_REL_MIN = 0.5          # only real loyalty walks out with a founder
+COURT_WARMTH       = 0.15     # warmth a court action buys an outlet
+WARMTH_DECAY       = 0.01     # weekly warmth fade — keep courting or be forgot
+WARMTH_DRIFT       = 0.005    # organic warmth toward the party nearest the slant
+WARMTH_DRIFT_CAP   = 0.4      # drift alone never buys what courting buys
+COURT_FRIENDLY_MIN = 0.5      # warmth that counts as friendly for routed leaks
+LEAK_COLD_BOOST    = 1.5      # a cold outlet leads the leak harder
 LEAK_TRACE_P = 0.25          # a planted story can be traced back
+FRIENDLY_TRACE_MULT = 0.5    # warm outlets protect their sources
+HOSTILE_TRACE_MULT = 1.5     # cold outlets burn them
+SNAP_POLL_STALE    = 3       # a snap call rides a poll this fresh, no older
 LEAK_TRACE_REL = 0.3         # and the target burns the bridge
 LEAK_CAUGHT_DIRT = 0.15      # traced leaking marks the player's own dossier
 

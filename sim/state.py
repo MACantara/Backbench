@@ -122,6 +122,7 @@ class Outlet:
     reach: float
     sensationalism: float       # 0 policy broadsheet .. 1 scandal tabloid
     focus_axis: int             # the axis it harps on (agenda-setting)
+    warmth: dict[int, float] = field(default_factory=dict)  # cultivated goodwill per party id
 
 
 @dataclass
@@ -260,6 +261,7 @@ class GameState:
     court_activism: float = 0.5     # inaugural-bench doctrine seed at worldgen
     press_subject: int | None = None  # party id of last week's lead story
     press_weeks: int = 0              # consecutive weeks that subject has led
+    last_poll: dict | None = None     # the *published* poll — sponsored, biased, dated
     government: Government = field(default_factory=Government)
     current_bill: Bill | None = None
     offers: list = field(default_factory=list)  # coalition slates on the table (formation week)

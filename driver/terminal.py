@@ -54,11 +54,34 @@ def prompt_actions(state) -> list[Action]:
         if raw.isdigit() and int(raw) < len(menu):
             kind = menu[int(raw)]
             target = axis = vote = offer = law = judge = None
-            article = entrench = None
+            article = entrench = outlet = None
             if kind in ("lobby", "dig_dirt", "deal", "leak"):
                 s = _ask("target mp id > ",
                          lambda s: s.isdigit() and int(s) in state.mps
                          and (kind != "leak" or int(s) != state.player_id))
+                if s is None:
+                    continue
+                target = int(s)
+            if kind == "leak":
+                me = state.mps[state.player_id]
+                for o in state.outlets:
+                    print(f"  {o.id}: {o.name} — warmth "
+                          f"{o.warmth.get(me.party, 0.0):.2f} to you")
+                s = _ask("route through outlet id (blank = open market) > ",
+                         lambda s: s == "" or (s.isdigit()
+                                 and any(o.id == int(s) for o in state.outlets)))
+                if s is None:
+                    continue
+                outlet = int(s) if s else None
+            if kind == "court":
+                from sim.naming import describe_pos
+                me = state.mps[state.player_id]
+                for o in state.outlets:
+                    print(f"  {o.id}: {o.name} — {describe_pos(o.slant)}, "
+                          f"warmth {o.warmth.get(me.party, 0.0):.2f}")
+                s = _ask("outlet id > ",
+                         lambda s: s.isdigit()
+                         and any(o.id == int(s) for o in state.outlets))
                 if s is None:
                     continue
                 target = int(s)
@@ -141,7 +164,8 @@ def prompt_actions(state) -> list[Action]:
                 offer = int(s) - 1
             picks.append(Action(kind, target=target, axis=axis, vote=vote,
                                 offer=offer, law=law, judge=judge,
-                                article=article, entrench=entrench))
+                                article=article, entrench=entrench,
+                                outlet=outlet))
         else:
             print("?")
     return picks
@@ -150,8 +174,11 @@ def prompt_actions(state) -> list[Action]:
 def show_poll(state) -> None:
     last = next((e for e in reversed(state.log) if e.type == "PollShift"), None)
     if last:
+        oid = last.data.get("outlet")
+        sponsor = next((o.name for o in state.outlets if o.id == oid), None)
+        label = f"{sponsor} poll" if sponsor else "polls"
         shares = {state.parties[pid].name: f"{v:.0%}" for pid, v in last.data["shares"].items() if pid in state.parties}
-        print("  polls:", "  ".join(f"{k} {v}" for k, v in shares.items()))
+        print(f"  {label}:", "  ".join(f"{k} {v}" for k, v in shares.items()))
 
 
 def run(seed: int = 0) -> None:
