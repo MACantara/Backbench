@@ -39,7 +39,8 @@ def worst_breach(state: GameState, law: Law) -> Article | None:
     return best[0] if best and best[1] > 0 else None
 
 
-def file_case(state: GameState, law: Law, challenger: int | None) -> CourtCase:
+def file_case(state: GameState, law: Law, challenger: int | None,
+              by_player: bool = False) -> CourtCase:
     """Open a review — AI filers are opposition parties; the player may file
     too (party id, or None for an independent)."""
     risk = legal_risk(state, law)
@@ -48,8 +49,9 @@ def file_case(state: GameState, law: Law, challenger: int | None) -> CourtCase:
     state.docket.append(case)
     clause = worst_breach(state, law)
     plead = f" under {clause.name}" if clause else ""
-    who = (state.parties[challenger].name if challenger in state.parties
-           else "You")
+    who = ("You" if by_player
+           else state.parties[challenger].name if challenger in state.parties
+           else "An independent")
     state.emit("ReviewOpened",
                f"{who} challenge{'s' if who != 'You' else ''} the {law.name} "
                f"in court{plead} (risk {risk:.2f}).",
@@ -73,6 +75,9 @@ def _verdict(state: GameState, case: CourtCase) -> None:
     and the bench's majority decides — the court is people, not a scalar."""
     if not any(l is case.law for l in state.laws):
         return  # moot — the law left the registry another way
+    if not state.bench:
+        return  # nobody sits — the case waits rather than a phantom verdict
+                # marking the statute reviewed forever
     risk = case.risk              # the statute as challenged, not as decayed since
     case.law.reviewed = True
     clause = worst_breach(state, case.law)
@@ -139,7 +144,7 @@ def _appoint(state: GameState) -> None:
             agenda = np.asarray(gov_platform(state))
             # a loyalist, a half-loyal, a moderate — the classic appointment
             # tradeoff: how much doctrine do you buy with how much drift?
-            weights = (1.0, 0.5, 0.2)[:p.APPOINT_POOL]
+            weights = (1.0, 0.5, 0.2)[:p.APPOINT_POOL]  # pools >3 share the tail
             state.bench_shortlist = [
                 _candidate(state, np_rng,
                            near=tuple(np.clip(agenda * w, -1, 1)))
@@ -163,8 +168,8 @@ def _candidate(state: GameState, np_rng, near=None, appointed_by=None):
     if np_rng is None:
         np_rng = np.random.default_rng(int(rng.random() * 2**63))
     base = np.asarray(near if near is not None else gov_platform(state))
-    jid = max((j.id for j in state.bench), default=-1) + 1
-    jid = max(jid, max((j.id for j in state.bench_shortlist), default=-1) + 1)
+    jid = state.justice_seq     # monotonic — verdict and appointment records
+    state.justice_seq += 1      # cite justice ids long after they've gone
     return Justice(
         id=jid, name=mp_name(rng),
         pos=tuple(np.clip(base + np_rng.normal(0, 0.25, 2), -1, 1)),

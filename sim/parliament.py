@@ -107,6 +107,7 @@ def table_bill(state: GameState) -> Bill:
     repeal IS the government's program); the law's authors defend it through
     their own policy/district terms."""
     bill = None
+    pm_move = False
     if state.week % p.BUDGET_EVERY_WEEKS == 0:
         # supply day: the government lays its fiscal posture before the house —
         # a confidence matter, pending like any bill so the week reads it
@@ -126,8 +127,21 @@ def table_bill(state: GameState) -> Bill:
     elif state.government.amend_move is not None:
         # the player-PM's queued amendment takes the floor as government
         # business — tabled this week, divided next like everything else
-        bill = state.government.amend_move
+        queued = state.government.amend_move
         state.government.amend_move = None
+        stale = (queued.amends is not None
+                 and queued.amends not in state.constitution) \
+            or (queued.entrenches is not None and any(
+                a.kind == "pos" and a.axis == queued.entrenches.axis
+                and a.pole == queued.entrenches.pole for a in state.constitution))
+        if stale:
+            # the book moved under the queued amendment — the moment passed
+            state.emit("CareerEvent",
+                       "Your amendment is overtaken — the clause it moved on "
+                       "is gone.", action="amendment")
+        else:
+            bill = queued
+            pm_move = True
     elif (wounded := _struck_article(state)) is not None \
             and state.rng.random() < p.AMEND_TABLE_P:
         # the court struck our flagship citing a clause — try to repeal the
@@ -166,11 +180,9 @@ def table_bill(state: GameState) -> Bill:
                         name=bill_name(pos, ax, state.rng))
     state.current_bill = bill
     if bill.amends is not None or bill.entrenches is not None:
-        what = (f"the repeal of {bill.amends.name}" if bill.amends is not None
-                else f"the entrenchment of {bill.entrenches.name}")
-        mover = "You move" if bill.author == state.player_id \
-            or state.government.pm == state.player_id else "Government tables"
-        text = (f"{mover} a constitutional amendment — {what} — "
+        mover = "You move" if pm_move or bill.author == state.player_id \
+            else "Government tables"
+        text = (f"{mover} the {bill.name} — a constitutional amendment — "
                 "division next week, and it needs two-thirds.")
     elif bill.repeals is not None:
         text = (f"Government moves to repeal the {bill.repeals.name} "
@@ -254,7 +266,7 @@ def resolve_vote(state: GameState, bill: Bill, player_vote: int | None = None) -
     is_amendment = bill.amends is not None or bill.entrenches is not None
     # amendments need two-thirds of votes cast — the constitution is hard
     # to move on purpose; abstentions waste the mover
-    passed = (yes >= p.AMEND_MAJORITY * (yes + no) if is_amendment
+    passed = (yes > 0 and yes >= p.AMEND_MAJORITY * (yes + no) if is_amendment
               else yes > no)
     if bill is state.current_bill:
         state.current_bill = None   # a confidence motion isn't the pending bill
@@ -310,13 +322,16 @@ def resolve_vote(state: GameState, bill: Bill, player_vote: int | None = None) -
                        article=bill.amends.id)
         if bill.entrenches is not None:
             art = bill.entrenches
-            art.id = max((a.id for a in state.constitution), default=-1) + 1
+            art.id = state.article_seq
+            state.article_seq += 1
             state.constitution.append(art)
             state.emit("ArticleEntrenched",
                        f"{art.name} is written into the constitution — "
                        "the courts gain a new guard.",
                        article=art.id)
-        state.legacy_bills += is_amendment and bill.author == state.player_id
+        state.legacy_bills += is_amendment and (
+            bill.author == state.player_id
+            or (bill.author is None and state.government.pm == state.player_id))
         if not bill.confidence and not is_amendment:
             # survival votes aren't legislation; amendments rewrite the book
             # itself — the bench doesn't review its own charter

@@ -256,7 +256,9 @@ class GameState:
     graves: list[Grave] = field(default_factory=list)  # dissolved parties, revivable
     docket: list[CourtCase] = field(default_factory=list)  # statutes pending review
     constitution: list[Article] = field(default_factory=list)  # the clauses laws answer to
+    article_seq: int = 0    # monotonic clause ids — events cite them; reuse would confuse
     bench: list[Justice] = field(default_factory=list)  # the sitting court
+    justice_seq: int = 0    # monotonic justice ids, same reason
     bench_shortlist: list[Justice] = field(default_factory=list)  # player-PM's pending picks
     court_activism: float = 0.5     # inaugural-bench doctrine seed at worldgen
     press_subject: int | None = None  # party id of last week's lead story

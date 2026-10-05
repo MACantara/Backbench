@@ -169,12 +169,14 @@ def new_game(seed: int) -> GameState:
              for f, v in p.COND_BASE.items()}
     activism = rng.random()   # the seed's judicial character — inaugural bench doctrine
     centroid = voters.pos.mean(axis=0)
+    constitution = make_constitution(rng, centroid)
+    bench = make_bench(rng, np_rng, centroid, activism)
     return GameState(
         rng=rng, week=0, phase="campaign", voters=voters, mps=mps, parties=parties,
         hopefuls=hopefuls, outlets=make_outlets(rng, np_rng, parties),
         conditions=Conditions(**conds),
         player_id=int(med), weeks_to_election=p.CAMPAIGN_WEEKS,
         court_activism=activism,
-        constitution=make_constitution(rng, centroid),
-        bench=make_bench(rng, np_rng, centroid, activism),
+        constitution=constitution, article_seq=len(constitution),
+        bench=bench, justice_seq=len(bench),
     )

@@ -50,8 +50,16 @@ def explain_bill(state: GameState) -> str:
     yes = sum(1 for u, _, _ in rows if u > p.ABSTAIN_MARGIN)
     no = sum(1 for u, _, _ in rows if u < -p.ABSTAIN_MARGIN)
     abstain = len(rows) - yes - no
+    is_amendment = bill.amends is not None or bill.entrenches is not None
+    passes = (yes > 0 and yes >= p.AMEND_MAJORITY * (yes + no)) if is_amendment \
+        else yes > no
     lines = [f"{bill.name} — projected {yes}-{no} +{abstain} abstain "
-             f"({'pass' if yes > no else 'fail'})"]
+             f"({'pass' if passes else 'fail'})"]
+    if is_amendment:
+        what = (f"repeal {bill.amends.name}" if bill.amends
+                else f"entrench {bill.entrenches.name}")
+        lines.append(f"  constitutional — {what}; needs two-thirds of "
+                     "votes cast")
     if bill.budget:
         lines.append(f"  supply — tax ×{bill.tax:.2f}, spend ×{bill.spend:.2f} "
                      "if enacted")
@@ -102,8 +110,9 @@ def explain_bench(state: GameState) -> str:
     lines = [f"the bench: {len(state.bench)}/{p.BENCH_SIZE} seats, "
              f"{len(state.docket)} case(s) pending"]
     for j in sorted(state.bench, key=lambda j: -j.age):
-        who = (state.mps[j.appointed_by].name
-               if j.appointed_by in state.mps else "the founders")
+        who = (state.mps[j.appointed_by].name if j.appointed_by in state.mps
+               else "the founders" if j.appointed_by is None
+               else "a departed PM")
         lines.append(f"  J. {j.name:<22} {describe_pos(j.pos):<18} "
                      f"activism {j.activism:.2f}  {j.age // 52}y  <- {who}")
     for c in state.bench_shortlist:

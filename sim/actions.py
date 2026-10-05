@@ -58,8 +58,8 @@ def available_actions(state: GameState) -> list[str]:
         base.append("budget")        # the PM writes the fiscal posture
         if state.bench_shortlist:
             base.append("appoint")   # a judicial vacancy waits on your pick
-        if state.constitution:
-            base.append("amendment") # the PM can move the constitution itself
+        base.append("amendment")     # the PM can move the constitution itself
+                                     # — entrenchment works on an empty book
     if player is not None and state.phase in ("governing", "formation"):
         if player.party is not None:
             base.append("defect")    # cross the floor — to a party, or none
@@ -248,7 +248,10 @@ def apply_action(state: GameState, action: Action) -> None:
         state.emit("BillTabled",
                    f"You table the {bill.name} — a private member's bill, "
                    "divided at once.", bill=bill.name, pos=bill.pos,
-                   beneficiary_axis=ax, cost=bill.cost)
+                   beneficiary_axis=ax, cost=bill.cost,
+                   austerity=False, repeals=None,
+                   amends=bill.amends.id if bill.amends else None,
+                   entrenches=bill.entrenches.name if bill.entrenches else None)
         resolve_vote(state, bill, player_vote=1)
 
     elif action.kind == "budget" and state.government.pm == player.id \
@@ -320,6 +323,15 @@ def apply_action(state: GameState, action: Action) -> None:
             state.emit("CareerEvent", "That amendment cannot be moved.",
                        action="amendment")
         else:
+            if state.government.amend_move is not None:
+                state.emit("CareerEvent",
+                           "Your earlier move is withdrawn — "
+                           "the house sees only the new one.",
+                           action="amendment")
+            if bill.amends is not None:
+                # one swing per clause per term — the player doesn't get
+                # around the memory the AI keeps
+                state.government.amend_attempted.add(bill.amends.id)
             state.government.amend_move = bill   # the house sees it this week
             what = (f"the repeal of {bill.amends.name}" if bill.amends
                     else f"the entrenchment of {bill.entrenches.name}")
@@ -336,11 +348,13 @@ def apply_action(state: GameState, action: Action) -> None:
 
     elif action.kind == "challenge" and action.law is not None \
             and 0 <= action.law < len(state.laws):
-        # sue the statute book — the same gates the AI filers face
+        # sue the statute book — the player files personally, so the AI
+        # filers' party gates (opposition, hostility) don't bind them;
+        # the court's own gates (risk floor, res judicata, docket) do
         from .courts import challengeable, file_case
         law = state.laws[action.law]
-        if law in challengeable(state):
-            file_case(state, law, player.party)
+        if any(l is law for l in challengeable(state)):
+            file_case(state, law, player.party, by_player=True)
         else:
             state.emit("CareerEvent",
                        f"No court will hear a case against the {law.name}.",
