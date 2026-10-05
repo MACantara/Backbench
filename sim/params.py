@@ -260,6 +260,9 @@ ATTACK_P = 0.10              # base chance a scrutiny attack lands
 ATTACK_WEAK_W = 0.5          # each point of government weakness scales it
 ATTACK_BRAND = 0.04          # a landed attack dents every coalition party
 ATTACK_WHIFF = 0.05          # a flat attack costs the attacker's standing
+DEFECT_BETRAYAL = 0.35       # crossing the floor — the district remembers
+DEFECT_REL_HIT = 0.4         # old colleagues burn the bridge
+FOUND_FOLLOW_REL = 0.5       # only real loyalty walks out with a founder
 
 # --- drift ---
 VOTER_DRIFT_SD = 0.004           # weekly position noise

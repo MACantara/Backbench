@@ -15,8 +15,9 @@ from .state import Bill, GameState, dist
 class Action:
     kind: str                    # campaign, constituency, speech, promise, media, dig_dirt,
                                  # lobby, scheme, platform, vote, deal, pick_offer,
-                                 # decline_offers, budget
-    target: int | None = None    # MP id for lobby/dig_dirt
+                                 # decline_offers, budget, attack, amend, table,
+                                 # defect, found
+    target: int | None = None    # MP id for lobby/dig_dirt; party id for defect
     axis: int | None = None      # 0/1 for speech/promise
     pos: tuple[float, float] | None = None  # for promise
     vote: int | None = None      # +1/-1/0 on the pending division
@@ -45,6 +46,10 @@ def available_actions(state: GameState) -> list[str]:
         base.append("platform")
     if state.phase == "governing" and state.government.pm == state.player_id:
         base.append("budget")        # the PM writes the fiscal posture
+    if player is not None and state.phase in ("governing", "formation"):
+        if player.party is not None:
+            base.append("defect")    # cross the floor — to a party, or none
+        base.append("found")         # walk out and name a vehicle
     return base
 
 
@@ -188,11 +193,80 @@ def apply_action(state: GameState, action: Action) -> None:
                    f"You signal a {['austerity', 'balanced', 'stimulus'][action.axis]} budget.",
                    action="budget", stance=action.axis)
 
+    elif action.kind == "defect" and player.party is not None:
+        _leave_party(state, player)
+        if action.target in state.parties:
+            state.parties[action.target].members.add(player.id)
+            player.party = action.target
+            state.emit("Defection",
+                       f"You cross the floor to {state.parties[action.target].name}.",
+                       party=action.target)
+        else:
+            state.emit("Defection",
+                       "You resign the whip — you sit as an independent.")
+
+    elif action.kind == "found":
+        # you walk, and whoever really loves you walks too — a vehicle is born
+        from .parties import _found
+        old_pid = player.party
+        followers = [m.id for m in state.mps.values()
+                     if m.party == old_pid and m.id != player.id
+                     and m.id != state.government.pm
+                     and m.relationships.get(player.id, 0.0) >= p.FOUND_FOLLOW_REL]
+        _leave_party(state, player)
+        pid = _found(state, player.id, followers)
+        for mid in followers:   # they pay the same price you did
+            m = state.mps[mid]
+            state.voters.betrayal[state.voters.district == m.district] += p.DEFECT_BETRAYAL
+            m.portfolio, m.portfolio_weeks = None, 0
+            m.standing = 0.0
+        state.emit("CareerEvent",
+                   f"You found {state.parties[pid].name} — "
+                   f"{len(followers)} walk out with you.",
+                   action="found", party=pid, size=len(followers) + 1)
+
     elif action.kind == "platform":
         # leaders pull the party platform toward their own position
         pt = state.parties[player.party]
         pt.platform = tuple(np.clip(np.asarray(pt.platform) + 0.05 * (np.asarray(player.pos) - np.asarray(pt.platform)), -1, 1))
         state.emit("CareerEvent", f"You nudge {pt.name}'s platform.", action="platform")
+
+
+def _leave_party(state: GameState, player) -> None:
+    """Floor-crossing bookkeeping: the district calls it betrayal, old
+    colleagues burn the bridge, posts and standing die with the tie —
+    and a PM who crosses forfeits the office."""
+    old = state.parties.get(player.party)
+    if old is not None:
+        state.voters.betrayal[state.voters.district == player.district] += p.DEFECT_BETRAYAL
+        old.members.discard(player.id)
+        for mid in old.members:
+            if mid in state.mps:
+                state.mps[mid].relationships[player.id] = \
+                    state.mps[mid].relationships.get(player.id, 0.0) - p.DEFECT_REL_HIT
+        if old.leader == player.id and old.members:
+            old.leader = max(old.members, key=lambda m: state.mps[m].ambition)
+    player.faction = None
+    player.junior, player.junior_weeks = None, 0
+    player.portfolio, player.portfolio_weeks = None, 0   # stripped at once
+    player.standing = 0.0                                # no borrowed standing
+    was_pm = state.government.pm == player.id
+    player.party = None
+    if was_pm:
+        # you can't lead a coalition you left — the office follows the
+        # largest coalition party's leader; nobody legitimate → it falls
+        largest = max((i for i in state.government.parties if i in state.parties),
+                      key=lambda i: len(state.parties[i].members), default=None)
+        succ = state.parties[largest].leader if largest is not None else None
+        if succ is not None and succ != player.id and succ in state.mps:
+            state.government.pm = succ
+            state.emit("PmChange",
+                       f"{state.mps[succ].name} succeeds you as Prime Minister "
+                       f"— {state.parties[largest].name} keeps the coalition.",
+                       mp=succ)
+        else:
+            from .government import collapse
+            collapse(state, "defection")
 
 
 def evaluate_promises(state: GameState) -> None:

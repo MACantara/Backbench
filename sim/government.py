@@ -216,9 +216,9 @@ def collapse(state: GameState, cause: str = "confidence") -> None:
     majority exists, else it dissolves. cause: 'confidence' | 'supply'."""
     pm_party = state.mps[state.government.pm].party \
         if state.government.pm in state.mps else None
-    text = ("Government loses supply — the budget is dead."
-            if cause == "supply"
-            else "Government loses confidence of the house.")
+    text = {"supply": "Government loses supply — the budget is dead.",
+            "defection": "The Prime Minister's defection brings the government down.",
+            }.get(cause, "Government loses confidence of the house.")
     state.emit("ConfidenceLost", text,
                party=pm_party, parties=sorted(state.government.parties))
     state.government.collapses += 1
