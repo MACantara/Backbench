@@ -43,7 +43,10 @@ def treasury_lifecycle(state: GameState) -> None:
         c.inflation = float(np.clip(
             c.inflation + p.DEBT_INFLATION_W * (t.debt - p.DEBT_WARN), 0, 1))
     # insolvency is a state, not an event: while past CRISIS the crisis re-fires
-    # on a cooldown — each repeat demands confidence again. Solvency is the exit.
+    # on a cooldown — each repeat demands confidence again. Solvency is the exit:
+    # a real recovery re-arms the meter so relapse fires promptly, not late.
+    if t.debt < p.DEBT_WARN:
+        t.last_crisis_week = -10**9
     if (t.debt > p.DEBT_CRISIS and state.phase == "governing"
             and state.week - t.last_crisis_week >= p.DEBT_CRISIS_EVERY):
         t.last_crisis_week, t.crises = state.week, t.crises + 1

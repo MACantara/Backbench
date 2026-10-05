@@ -93,10 +93,13 @@ def main() -> None:
     s = _to_governing()
     s.treasury.debt = p.DEBT_CRISIS + 1.0
     n0 = sum(1 for e in s.log if e.type == "DebtCrisis")
-    for _ in range(60):  # pin insolvency: the spiral only exits through solvency
+    # pin insolvency and run real weeks — crises recur through collapse, campaign,
+    # and re-formation; a forced confidence loss mustn't silence the next one
+    for _ in range(80):
         s.treasury.debt = max(s.treasury.debt, p.DEBT_CRISIS + 1.0)
-        treasury_lifecycle(s)
-        s.week += 1
+        tick(s)
+        if s.phase == "over":
+            break
     more = [e for e in s.log if e.type == "DebtCrisis"][n0:]
     assert len(more) >= 3, f"insolvency went quiet ({len(more)} crises in 60w)"
     assert all(e.data["crises"] == i + 1 for i, e in enumerate(
