@@ -201,6 +201,7 @@ LAW_COST_DECAY = 0.98        # programs normalize into baseline spending over ti
 DEBT_WARN = 1.0              # debt above this drags inflation + tightens fiscal votes
 DEBT_INFLATION_W = 0.01      # weekly inflation push per unit of debt past WARN
 DEBT_CRISIS = 2.0            # insolvency: DebtCrisis + forced confidence vote
+DEBT_CRISIS_EVERY = 13       # while insolvent, crises recur on this cooldown
 DEBT_BRAND_HIT = 0.15        # one-time brand drop for gov parties on crisis
 W_FISCAL = 0.6               # vote term weight on bill cost × debt pressure
 
