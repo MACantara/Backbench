@@ -4,7 +4,7 @@ from __future__ import annotations
 import numpy as np
 
 from . import params as p
-from .state import GameState, dist
+from .state import GameState, MP, dist
 from .worldgen import make_hopeful
 
 PORTFOLIOS = list(p.PORTFOLIO_INDICATOR)   # the cabinet table — append rows to grow
@@ -19,21 +19,62 @@ def _seat_queue(state: GameState) -> list[int]:
             for _ in range(round(len(PORTFOLIOS) * n / total))]
 
 
+def appointment_terms(state: GameState, mp: MP, appointer: int | None) -> dict[str, float]:
+    """Named candidacy terms — the same score decides cabinet and bench picks.
+    record is the fixed merit ceiling; standing/backing/rung are movable."""
+    return {
+        "record": mp.competence + max(0.0, mp.perf),
+        "standing": p.STANDING_W * mp.standing,
+        "backing": p.BACKING_W * mp.relationships.get(appointer or -1, 0.0),
+        "seniority": p.SENIORITY_W * min(mp.seniority / p.SENIORITY_CAP_WEEKS, 1),
+        "rung": p.RUNG_W * min(mp.junior_weeks / p.RUNG_CAP_WEEKS, 1),
+    }
+
+
 def _appoint(state: GameState, pid: int, ministry: str, reason: str = "cabinet") -> bool:
-    """Best available MP of a party takes a ministry."""
+    """Best-scoring available MP of a party takes a ministry; the leader picks."""
     cands = [m for m in state.parties[pid].members
              if m in state.mps and state.mps[m].portfolio is None
              and m != state.government.pm and m not in state.government.sacked]
     if not cands:
         return False
-    best = max(cands, key=lambda m: (state.mps[m].competence + state.mps[m].loyalty
-                                     + min(state.mps[m].seniority / p.SENIORITY_CAP_WEEKS, 1)
-                                     * p.SENIORITY_W))
+    appointer = state.parties[pid].leader
+    best = max(cands, key=lambda m: sum(appointment_terms(
+        state, state.mps[m], appointer).values()))
     mp = state.mps[best]
     mp.portfolio, mp.perf, mp.portfolio_weeks = ministry, 0.0, 0
+    mp.junior, mp.junior_weeks = None, 0    # promotion vacates the rung — someone climbs
     state.emit("Promoted", f"{mp.name} appointed {ministry}.",
                mp=best, ministry=ministry, reason=reason)
     return True
+
+
+def junior_lifecycle(state: GameState) -> None:
+    """Weekly while governing: every seated party staffs its bench — in power or
+    out. A cabinet pick or defection vacates a rung; a climber refills it."""
+    if state.phase != "governing":
+        return
+    for pid, pt in state.parties.items():
+        if not pt.seated or pt.leader is None or pt.leader not in pt.members:
+            continue
+        held = {state.mps[m].junior for m in pt.members
+                if m in state.mps and state.mps[m].junior is not None}
+        for post in p.JUNIOR_POSTS:
+            if post in held:
+                continue
+            cands = [m for m in pt.members
+                     if m in state.mps and state.mps[m].junior is None
+                     and state.mps[m].portfolio is None and m != pt.leader
+                     and m not in state.government.sacked]
+            if not cands:
+                continue
+            best = max(cands, key=lambda m: sum(appointment_terms(
+                state, state.mps[m], pt.leader).values()))
+            mp = state.mps[best]
+            mp.junior, mp.junior_weeks = post, 0
+            held.add(post)
+            state.emit("Promoted", f"{mp.name} becomes {pt.name} {post}.",
+                       mp=best, ministry=post, party=pid, reason="junior")
 
 
 def assign_portfolios(state: GameState) -> None:
@@ -98,6 +139,7 @@ def leadership_challenge(state: GameState) -> None:
                 -dist(mp.pos, state.mps[c].pos)
                 + mp.relationships.get(c, 0.0)
                 + 0.3 * state.mps[c].competence
+                + p.LEADERSHIP_STANDING_W * state.mps[c].standing
                 + (p.FACTION_LEADER_BONUS if c in fleaders else 0.0)))
             votes[best] += 1
         winner = max(votes, key=votes.get)
@@ -134,9 +176,11 @@ def mp_lifecycle(state: GameState) -> None:
         mp.age += 1
         mp.seniority += 1
         # standing: office pays a trickle, a burning scandal bleeds, the rest decays
-        mp.standing += (p.STANDING_OFFICE if mp.portfolio is not None else 0.0) \
-                     - (p.STANDING_SCANDAL_WK if mp.scandal_weeks > 0 else 0.0)
+        mp.standing += (p.STANDING_OFFICE if mp.portfolio is not None or mp.junior is not None
+                        else 0.0) - (p.STANDING_SCANDAL_WK if mp.scandal_weeks > 0 else 0.0)
         mp.standing = float(np.clip(mp.standing * p.STANDING_DECAY, -1, 1))
+        if mp.junior is not None:
+            mp.junior_weeks += 1
     gone = []
     for mp in state.mps.values():
         if mp.id == state.player_id:
@@ -165,6 +209,8 @@ def update_score(state: GameState) -> None:
     """Called after each election the player survives."""
     player = state.mps[state.player_id]
     state.score_terms["mp"] += 1
+    if player.junior:
+        state.score_terms["junior"] += 1
     if player.portfolio:
         state.score_terms["minister"] += 1
     if state.government.pm == state.player_id:
@@ -173,6 +219,7 @@ def update_score(state: GameState) -> None:
 
 def final_score(state: GameState) -> int:
     t = state.score_terms
-    return t["mp"] + 3 * t["minister"] + 5 * t["pm"] + state.legacy_bills
+    return (t["mp"] + t["junior"] + 3 * t["minister"] + 5 * t["pm"]
+            + state.legacy_bills)
 
 

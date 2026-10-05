@@ -37,6 +37,8 @@ class MP:
     party: int | None = None
     faction: int | None = None    # Faction.id within their party, or None
     portfolio: str | None = None
+    junior: str | None = None       # party bench post (Whip/Spokesperson/Committee Chair)
+    junior_weeks: int = 0           # tenure in the current junior post
     perf: float = 0.0             # indicator record on their watch — decays weekly
     portfolio_weeks: int = 0      # tenure in the current portfolio
     dossier: float = 0.0            # hidden scandal material
@@ -205,7 +207,8 @@ class GameState:
     weeks_to_election: int = 0
     promises: list[dict] = field(default_factory=list)  # player commitments
     log: list[Event] = field(default_factory=list)
-    score_terms: dict[str, int] = field(default_factory=lambda: {"mp": 0, "minister": 0, "pm": 0})
+    score_terms: dict[str, int] = field(default_factory=lambda: {"mp": 0, "junior": 0,
+                                                               "minister": 0, "pm": 0})
     legacy_bills: int = 0
 
     def emit(self, type_: str, text: str, **data) -> Event:

@@ -70,6 +70,12 @@ STANDING_OFFICE = 0.01         # weekly trickle for holding office
 STANDING_SACK_HIT = 0.3        # a sack burns standing
 STANDING_SCANDAL_WK = 0.02     # standing bleed per burning scandal week
 STANDING_DECAY = 0.98          # drift to neutral — rebels rehabilitate, favor fades
+JUNIOR_POSTS = ("Whip", "Spokesperson", "Committee Chair")  # per-party bench posts
+STANDING_W = 0.6               # appointment weight on earned standing
+BACKING_W = 0.4                # appointment weight on the appointer's relationship
+RUNG_W = 0.4                   # appointment weight on junior service
+RUNG_CAP_WEEKS = 208           # a junior post pays full rung after ~4 years
+LEADERSHIP_STANDING_W = 0.3    # members back proven climbers in challenges
 
 # --- voting in parliament ---
 W_POLICY = 0.7     # weight on policy distance (higher = more ideological voting)
