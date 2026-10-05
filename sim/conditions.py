@@ -113,12 +113,19 @@ def conditions_lifecycle(state: GameState) -> None:
                             - p.COUPLE_SVC_CRIME * (c.services - p.COND_BASE["services"]), 0, 1))
     # laws in force keep pushing while they stand — diminishing returns near the
     # bound, so a long legislative record saturates an indicator, not pins it
-    for law in state.laws:
+    for law in list(state.laws):
         for ind, dv in law.effect.items():
             lo, hi = _BOUNDS[ind]
             v = getattr(c, ind)
             v += dv * (hi - v) if dv > 0 else dv * (v - lo)
             setattr(c, ind, float(np.clip(v, lo, hi)))
+        # sunset: statutes past SUNSET_WEEKS may quietly lapse — the book prunes
+        if (state.week - law.passed_week > p.SUNSET_WEEKS
+                and rng.random() < p.SUNSET_P):
+            state.laws.remove(law)
+            state.emit("LawLapsed", f"The {law.name} lapses — "
+                                    "the statute book quietly prunes itself.",
+                       law=law.name)
     # ministers push their own dial — continuous pressure, bound-scaled like laws
     ministers = _ministers(state)
     for mp in ministers:

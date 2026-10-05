@@ -103,13 +103,24 @@ def table_bill(state: GameState) -> Bill:
                         cost=-law.cost,   # repealing a costly law saves — fiscal term reads it
                         repeals=law, name=f"Repeal of the {law.name}")
     if bill is None:
-        anchor = np.asarray(gov_platform(state))  # bills ride the agreement
-        pos = tuple(np.clip(anchor + np.array([state.rng.gauss(0, 0.05), state.rng.gauss(0, 0.05)]), -1, 1))
-        ax = state.rng.randrange(2)
-        bill = Bill(pos=pos, beneficiary_axis=ax,
-                    cost=float(max(0.0, p.COST_BASE + p.COST_EXTREMITY_W * abs(pos[ax])
-                                   + state.rng.gauss(0, p.COST_JITTER))),
-                    name=bill_name(pos, ax, state.rng))
+        anchor = tuple(gov_platform(state))
+        # the agenda remembers its defeats — a cooled-off failure may return
+        ripe = [f for f in state.failed
+                if state.week - f["week"] >= p.RETABLE_CD
+                and dist(f["pos"], anchor) < p.COALITION_FREE_DIST]
+        if ripe and state.rng.random() < p.RETABLE_P:
+            f = ripe[0]
+            state.failed.remove(f)
+            bill = Bill(pos=f["pos"], beneficiary_axis=f["axis"], cost=f["cost"],
+                        name=f"{f['name']} (Revisited)")
+        else:
+            pos = tuple(np.clip(np.asarray(anchor)
+                        + np.array([state.rng.gauss(0, 0.05), state.rng.gauss(0, 0.05)]), -1, 1))
+            ax = state.rng.randrange(2)
+            bill = Bill(pos=pos, beneficiary_axis=ax,
+                        cost=float(max(0.0, p.COST_BASE + p.COST_EXTREMITY_W * abs(pos[ax])
+                                       + state.rng.gauss(0, p.COST_JITTER))),
+                        name=bill_name(pos, ax, state.rng))
     state.current_bill = bill
     if bill.repeals is not None:
         text = (f"Government moves to repeal the {bill.repeals.name} "
@@ -228,6 +239,12 @@ def resolve_vote(state: GameState, bill: Bill, player_vote: int | None = None) -
     else:
         for i in gov_parties:
             state.parties[i].brand -= p.BILL_FAIL_BRAND
+        if not bill.confidence and bill.repeals is None:
+            # defeated ordinary bills are remembered — the agenda may retry
+            state.failed.append({"pos": bill.pos, "name": bill.name or "a bill",
+                                 "week": state.week, "axis": bill.beneficiary_axis,
+                                 "cost": bill.cost})
+            del state.failed[:-20]
         state.emit("VoteResult", f"Bill fails {yes}-{no} ({abstain} abstain).",
                    passed=False, yes=yes, no=no, abstain=abstain,
                    detail=detail, player=player_vote)

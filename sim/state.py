@@ -217,6 +217,7 @@ class GameState:
     outlets: list[Outlet] = field(default_factory=list)
     conditions: Conditions = field(default_factory=Conditions)
     laws: list[Law] = field(default_factory=list)  # registry of laws in force
+    failed: list[dict] = field(default_factory=list)  # defeated bills, re-tableable
     treasury: Treasury = field(default_factory=Treasury)
     graves: list[Grave] = field(default_factory=list)  # dissolved parties, revivable
     docket: list[CourtCase] = field(default_factory=list)  # statutes pending review

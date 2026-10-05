@@ -102,6 +102,10 @@ ATTEND_SHOCK_P = 0.04  # some weeks the house is half-empty (flu, a boycott)
 ATTEND_SHOCK = 0.45    # shared absence spike when the shock lands
 REPEAL_P = 0.12        # weekly chance the government tables a repeal instead
 REPEAL_BRAND_HIT = 0.04  # a dismantled law bleeds its authors' brand
+SUNSET_WEEKS = 312     # statutes past ~6y may lapse — the book prunes itself
+SUNSET_P = 0.03        # weekly lapse roll per aged statute
+RETABLE_CD = 26        # weeks before a failed bill can return
+RETABLE_P = 0.10       # weekly chance the agenda revives a cool-off failure
 QUORUM = 0.5           # fraction of the house that must be present to divide
 BILL_PERSUASION = 0.008  # weekly electorate pull toward gov axis per passed bill
 
