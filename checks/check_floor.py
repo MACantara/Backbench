@@ -73,7 +73,7 @@ def main() -> None:
     assert cold.id not in s.parties[new_pid].members, "cold colleague followed anyway"
 
     # found from no party — an independent launches a vehicle alone
-    s = _governing(7)
+    s = _governing(10)
     me = s.mps[s.player_id]
     apply_action(s, Action("defect"))          # sit independent first
     apply_action(s, Action("found"))

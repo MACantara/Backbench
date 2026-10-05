@@ -24,7 +24,11 @@ def _gov(seed: int, activism: float | None = None):
     s.government.parties = {next(iter(s.parties))}
     s.government.pm = None
     if activism is not None:
-        s.court_activism = activism
+        # verdicts read the bench now — pin justices of the requested
+        # doctrine, temperamented opposite the fixture statutes' pole
+        s.bench = [Justice(i, f"J{i}", (-1.0, -1.0), activism,
+                           p.RETIRE_FLOOR - 200, None)
+                   for i in range(p.BENCH_SIZE)]
     return s
 
 

@@ -61,10 +61,11 @@ def main() -> None:
     s.parties[0].members = set(s.mps)
     s.government.parties = {0}
     s.government.pm = next(iter(s.parties[0].members))
+    s.week = 3           # week 0 is supply day — the budget's text carries cost
     bill = table_bill(s)
     assert bill.name and bill.name in s.log[-1].text
-    assert "+0." not in s.log[-1].text and "-0." not in s.log[-1].text, \
-        "BillTabled should speak a name, not coordinates"
+    assert describe_pos(bill.pos) in s.log[-1].text, \
+        "BillTabled should speak words, not coordinates"
     resolve_vote(s, bill, player_vote=1)
     laws = [e for e in s.log if e.type == "LawEnacted"]
     assert laws and laws[-1].data["law"] == bill.name
