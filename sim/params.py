@@ -74,7 +74,7 @@ JUNIOR_POSTS = ("Whip", "Spokesperson", "Committee Chair")  # per-party bench po
 STANDING_W = 0.6               # appointment weight on earned standing
 BACKING_W = 0.4                # appointment weight on the appointer's relationship
 RUNG_W = 0.4                   # appointment weight on junior service
-RUNG_CAP_WEEKS = 208           # a junior post pays full rung after ~4 years
+RUNG_CAP_WEEKS = 52            # a full term of bench service pays the rung
 LEADERSHIP_STANDING_W = 0.3    # members back proven climbers in challenges
 
 # --- voting in parliament ---

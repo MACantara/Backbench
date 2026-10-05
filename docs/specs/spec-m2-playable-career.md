@@ -15,13 +15,13 @@ The climb becomes a strategic problem instead of a fixed-stat lottery. Three mov
 ### Standing — the movable currency
 
 - `MP.standing` (float, clipped [-1, 1], weekly decay toward 0 via `STANDING_DECAY`). Accrues for **all** MPs — the world keeps generating its own climbers; the player's edge is deliberateness, not asymmetry.
-- Earned on observable behavior: **whip fidelity** — in `resolve_vote`, a whipped MP (nonzero `whip_direction`) who votes with the line gains `STANDING_WHIP_YES`, against loses `STANDING_WHIP_NO` (free votes don't move it; confidence votes count — loyal soldiering is standing); **party service** — the `constituency` action adds `STANDING_SERVICE`; **office** — holding a junior or cabinet post pays a small weekly trickle.
+- Earned on observable behavior: **whip fidelity** — in `resolve_vote`, a whipped MP who votes with the line gains `STANDING_WHIP_YES`, against loses `STANDING_WHIP_NO` (every division is whipped — a faction whip overriding the party line still marks a rebel against the party; confidence votes count — loyal soldiering is standing); **party service** — the `constituency` action adds `STANDING_SERVICE`; **office** — holding a junior or cabinet post pays a small weekly trickle.
 - Lost on: `MinisterSacked`/`scandal sack` (−`STANDING_SACK_HIT`), active scandal weeks, whip rebellions.
 
 ### Junior rungs — the ladder needs low rungs
 
 - `MP.junior: str | None`, `MP.junior_weeks: int`. Per-party posts: `JUNIOR_POSTS` (Whip, Spokesperson, Committee Chair) — they exist in **opposition parties too**, so the climb isn't hostage to your party governing.
-- Appointed by party leadership on the same decomposed score as cabinet picks; filled at each new parliament and refilled same-week when vacated (promotion to cabinet vacates a junior slot — someone else climbs; the ladder visibly moves). Vacate on defection/retirement; `Government.sacked` gates both levels.
+- Appointed by party leadership on the same decomposed score as cabinet picks; refilled same-week when vacated **during governing weeks** (a mid-campaign vacancy waits for parliament to sit — self-healing). Promotion to cabinet vacates a junior slot — someone else climbs; the ladder visibly moves. Posts die on defection, on becoming party leader (leadership vacates the bench), and on retirement; `Government.sacked` gates both levels.
 - Payoff: the standing trickle + a `rung` term in the cabinet score (`min(junior_weeks / RUNG_CAP, 1) × RUNG_W`) — proven juniors get picked.
 
 ### Decomposed appointment score
@@ -30,7 +30,7 @@ The climb becomes a strategic problem instead of a fixed-stat lottery. Three mov
 
 - `record` — competence + ministerial perf where applicable (the merit ceiling; stays fixed — ability isn't earned, only proven)
 - `standing` — `STANDING_W × standing`
-- `backing` — `BACKING_W × relationships[party leader]` — the leader picks; lobby/scheme now pay into the climb
+- `backing` — `BACKING_W ×` the appointer's (party leader's) relationship *to the candidate*, clipped ±1 — the leader picks; `lobby` pays +0.2/visit into it, `scheme` pays when it reaches the leader
 - `seniority` — unchanged term
 - `rung` — junior service
 
@@ -49,7 +49,7 @@ AI candidates are scored identically — no player carve-out.
 
 ## Boundaries
 
-- Always: `params.py` for every constant; named terms for the appointment score; `state.emit` for legibility (drivers get passed-over events for free); standing accrues inside `resolve_vote`/lifecycles, not in action handlers.
+- Always: `params.py` for every constant; named terms for the appointment score; `state.emit` for legibility (drivers get passed-over events for free); standing accrues inside `resolve_vote`/lifecycles — the lone action-side credit is the `constituency` service bump.
 - Ask first: player-as-leader choosing junior appointments (belongs to M3/M4 player-agency surfaces).
 - Never: player-only mechanics (AI MPs must earn standing and climb the same ladder); a second hidden currency duplicating `relationships`; competence growth (the merit ceiling stays fixed — that's what separates careers); leadership-coup actions (M3).
 
