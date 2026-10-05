@@ -10,6 +10,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 import numpy as np
 
+from sim import params as p
 from sim.conditions import _BOUNDS
 from sim.tick import tick
 from sim.worldgen import new_game
@@ -27,6 +28,7 @@ def run_seed(seed: int) -> dict:
                              "Secession", "Promoted", "Retired", "MinisterSacked",
                              "LawStruck", "DebtCrisis")}
     pin_slots = debt_max = 0
+    debts, weeks_run = [], 0
     for _ in range(_WEEKS):
         for e in tick(s):
             if e.type == "CoalitionFormed":
@@ -44,17 +46,21 @@ def run_seed(seed: int) -> dict:
                 top_shares.append(seats[top] / total)
                 turnover += prev_top is not None and top != prev_top
                 prev_top = top
+        weeks_run += 1
         c = s.conditions
         for f in ("growth", "unemployment", "inflation", "services", "crime"):
             lo, hi = _BOUNDS[f]
             pin_slots += getattr(c, f) <= lo + _PIN_EPS or getattr(c, f) >= hi - _PIN_EPS
         debt_max = max(debt_max, s.treasury.debt)
+        debts.append(s.treasury.debt)
         if s.phase == "over":
             break
+    if formed_week is not None:      # a government seated at the horizon still counts
+        spans.append(weeks_run - formed_week)
     return {"spans": spans, "enps": enps, "top_shares": top_shares,
             "turnover": turnover, "counts": counts,
-            "pin_rate": pin_slots / (_WEEKS * 5), "debt_max": debt_max,
-            "debt_end": s.treasury.debt, "laws_end": len(s.laws),
+            "pin_rate": pin_slots / max(weeks_run * 5, 1), "debt_max": debt_max,
+            "debt_med": float(np.median(debts)), "laws_end": len(s.laws),
             "parties_end": len(s.parties), "week": s.week}
 
 
@@ -76,7 +82,7 @@ def main() -> None:
     dissolved = sum(r["counts"]["PartyDissolved"] for r in runs)
     secessions = sum(r["counts"]["Secession"] for r in runs)
     pin = _med([r["pin_rate"] for r in runs])
-    debt_med = _med([r["debt_end"] for r in runs])
+    debt_med = _med([r["debt_med"] for r in runs])
     debt_max = max(r["debt_max"] for r in runs)
     laws = _med([r["laws_end"] for r in runs])
     parties = _med([r["parties_end"] for r in runs])
@@ -107,12 +113,14 @@ def main() -> None:
     assert 10 <= med <= 40, f"median survival {med:.0f} out of band"
     assert np.std(spans) > 2, "no variance — governments are all identical"
     assert enp >= 1.8, f"seat-ENP median {enp:.2f} — duopoly lock-in"
+    assert top < 0.9, f"median largest share {top:.2f} — permanent landslide"
     assert formed > 0, "party births died — dynamism channels silent"
     assert pin < 0.5, f"indicators pinned {pin:.0%} of the time — saturation"
     assert debt_max < 50, f"debt ran to {debt_max:.0f} — the spiral has no exit"
     assert laws < 500, f"median {laws:.0f} laws in force — the registry ratchets"
     assert promoted > 0 and retired > 0, "career churn died"
-    assert crises > 0 or debt_max < 2.5, "insolvency went silent again"
+    assert crises > 0 or debt_max < p.DEBT_CRISIS + 0.5, \
+        "insolvency went silent again"
     print("sweep ok")
 
 

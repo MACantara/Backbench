@@ -17,7 +17,7 @@ Insolvency becomes a *state*, not an event. While `debt > DEBT_CRISIS`, the coun
 
 ### Recurring crises
 
-- `Treasury.crisis_armed` → `Treasury.last_crisis_week` + `Treasury.crises` (count). While `debt > DEBT_CRISIS` and a government sits: every `DEBT_CRISIS_EVERY` weeks → `DebtCrisis` fires again — brand hit + forced `confidence_vote`, same as the first. The cooldown bounds the spiral (no weekly collapse chains); the *repeat* is the escalation — each forced confidence is another chance to fall. Event text counts the recurrence ("second insolvency this parliament").
+- `Treasury.crisis_armed` → `Treasury.last_crisis_week` + `Treasury.crises` (count). While `debt > DEBT_CRISIS` and a government sits: every `DEBT_CRISIS_EVERY` weeks → `DebtCrisis` fires again — brand hit + forced `confidence_vote`, same as the first. The cooldown bounds the spiral (no weekly collapse chains); the *repeat* is the escalation — each forced confidence is another chance to fall. Event text counts the recurrence ("second insolvency this country" — the count is global; insolvency outlives parliaments).
 - Below `DEBT_WARN`, nothing changes: no inflation drag, no crisis eligibility — solvency is still a real escape.
 
 ### Forced austerity — receivership captures the agenda
@@ -56,7 +56,7 @@ Process, not code: run the invariant table → list every violated band → tune
 
 - `DebtCrisis` — unchanged shape, now recurring (`crises` count in data).
 - `BillTabled`/`LawEnacted` on austerity bills get `austerity=True` — the chronicle should read "the government is *forced* to table cuts."
-- New params: `DEBT_CRISIS_EVERY` (crisis cooldown), `AUSTERITY_SAVING`, `AUSTERITY_SERVICES_CUT`, austerity name pool. All in `params.py`.
+- New params: `DEBT_CRISIS_EVERY` (crisis cooldown), `AUSTERITY_SAVING`, `AUSTERITY_POS`, austerity name pool. All in `params.py`. The services cut magnitude is derived (`LAW_EFFECT_SCALE × |AUSTERITY_POS|`), same machinery as every other law — no separate knob.
 
 ## Deferred
 

@@ -83,9 +83,13 @@ def form_government(state: GameState) -> bool:
     return True
 
 
-def call_election(state: GameState, snap: bool, reason: str) -> None:
+def call_election(state: GameState, snap: bool, reason: str,
+                  party: int | None = None) -> None:
     """Dissolve to campaign — scheduled or snap. Entrants declare at the call."""
-    state.emit("ElectionCalled", _ELECTION_TEXT[reason], snap=snap, reason=reason)
+    if party is None and state.government.pm in state.mps:
+        party = state.mps[state.government.pm].party
+    state.emit("ElectionCalled", _ELECTION_TEXT[reason],
+               snap=snap, reason=reason, party=party)
     state.phase = "campaign"
     state.weeks_to_election = p.CAMPAIGN_WEEKS
     niche_entry(state)
@@ -125,9 +129,9 @@ def confidence_vote(state: GameState) -> bool:
         state.government.parties = set()
         state.government.pm = None
         if state.government.collapses >= p.SNAP_COLLAPSE_MAX:
-            call_election(state, snap=True, reason="deadlock")
+            call_election(state, snap=True, reason="deadlock", party=pm_party)
         elif alt is None:
-            call_election(state, snap=True, reason="confidence")
+            call_election(state, snap=True, reason="confidence", party=pm_party)
         else:
             if fallen_largest is not None:
                 state.government.blocked = {fallen_largest}
