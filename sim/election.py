@@ -36,6 +36,8 @@ def _district_scores(state: GameState, mask: np.ndarray, cand_pos: dict, incumbe
             # no label, no brand, no loyalty — voters score the person directly
             d = dpos - np.asarray(cand_pos[pid])
             score[:, j] = -np.sqrt((d * d * dsal).sum(axis=1))
+            if incumbent and incumbent.party is None:
+                score[:, j] -= v.betrayal[mask]  # betrayal sticks to the person too
             continue
         pt = state.parties[pid]
         # the candidate is a person; the label is a media-constructed caricature
@@ -76,7 +78,8 @@ def resolve_election(state: GameState) -> None:
         mask = (v.district == d) & turnout_hit
         if not mask.any():  # nobody voted — incumbent survives, else district's nearest party
             if inc is not None:
-                winner, margin = inc.party, 0.0
+                winner = inc.party if inc.party is not None else INDEPENDENT
+                margin = 0.0
             else:
                 centroid = v.pos[v.district == d].mean(axis=0)
                 winner = min(state.parties.values(),
