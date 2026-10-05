@@ -9,7 +9,7 @@ sys.stdout.reconfigure(encoding="utf-8", errors="replace")  # cp1252 consoles
 
 from sim.actions import Action, available_actions
 from sim.career import final_score
-from sim.inspect import explain_bill, explain_mp, explain_vote
+from sim.inspect import explain_bench, explain_bill, explain_mp, explain_vote
 from sim.tick import tick
 from sim.worldgen import new_game
 
@@ -38,7 +38,7 @@ def prompt_actions(state) -> list[Action]:
     picks = []
     while len(picks) < 2:
         print("\nActions (pick 2):", ", ".join(f"{i}:{a}" for i, a in enumerate(menu)),
-              "| inspect <mp_id> | why")
+              "| inspect <mp_id|bench> | why")
         try:
             raw = input(f"action {len(picks) + 1}/2 > ").strip()
         except EOFError:
@@ -48,7 +48,9 @@ def prompt_actions(state) -> list[Action]:
             continue
         if raw.startswith("inspect"):
             parts = raw.split()
-            if len(parts) == 2 and parts[1].isdigit() and int(parts[1]) in state.mps:
+            if len(parts) == 2 and parts[1] == "bench":
+                print(explain_bench(state))
+            elif len(parts) == 2 and parts[1].isdigit() and int(parts[1]) in state.mps:
                 print(explain_mp(state, int(parts[1])))
             continue
         if raw.isdigit() and int(raw) < len(menu):
@@ -66,7 +68,7 @@ def prompt_actions(state) -> list[Action]:
                 me = state.mps[state.player_id]
                 for o in state.outlets:
                     print(f"  {o.id}: {o.name} — warmth "
-                          f"{o.warmth.get(me.party, 0.0):.2f} to you")
+                          f"{o.warmth.get(me.party, 0.0):.2f} to your party")
                 s = _ask("route through outlet id (blank = open market) > ",
                          lambda s: s == "" or (s.isdigit()
                                  and any(o.id == int(s) for o in state.outlets)))
@@ -148,7 +150,9 @@ def prompt_actions(state) -> list[Action]:
                          lambda s: (s.startswith("r") and s[1:].isdigit()
                                     and any(a.id == int(s[1:]) for a in state.constitution))
                                    or (s.startswith("e") and len(s) == 3
-                                       and s[1] in "01" and s[2] in "-+"))
+                                       and s[1] in "01" and s[2] in "-+"
+                                       and (int(s[1]), 1 if s[2] == "+" else -1)
+                                           not in fenced))
                 if s is None:
                     continue
                 if s[0] == "r":

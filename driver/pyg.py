@@ -120,9 +120,19 @@ class Driver:
                 self.action_pause = True   # stop the clock for the weekly decision
                 self.paused = True
 
+    def _clear_pending(self) -> None:
+        """A fresh action pick drops any half-finished pick — no stacked
+        prompts waiting on buttons that no longer render."""
+        self.need_target = self.need_axis = self.need_vote = None
+        self.need_offer = self.need_budget = self.need_defect = False
+        self.need_law = self.need_judge = self.need_amend = False
+        self.need_outlet = False
+        self.leak_outlet = None
+
     def on_button(self, bid: str) -> None:
-        from sim.inspect import explain_vote
+        from sim.inspect import explain_bench, explain_vote
         if bid.startswith("act:"):
+            self._clear_pending()
             kind = bid[4:]
             if kind in ("lobby", "dig_dirt", "leak"):
                 self.need_target = kind
@@ -194,9 +204,9 @@ class Driver:
             self._after_pick()
         elif bid.startswith("amd:") and self.need_amend:
             s = bid[4:]
-            if s[0] == "r":
+            if s[:1] == "r" and s[1:].isdigit():
                 self.picks.append(Action("amendment", article=int(s[1:])))
-            else:
+            elif len(s) == 3 and s[0] == "e":
                 self.picks.append(Action("amendment", entrench=(
                     int(s[1]), 1 if s[2] == "+" else -1)))
             self.need_amend = False
@@ -226,6 +236,8 @@ class Driver:
             self.advance(picks)
         elif bid == "why":
             self.why_text = explain_vote(self.state)
+        elif bid == "bench":
+            self.why_text = explain_bench(self.state)
         elif bid == "auto":
             self.toggle_auto()
         elif bid.startswith("flt:"):
