@@ -28,7 +28,8 @@ INTERRUPTS = {"ConfidenceLost", "CoalitionFormed", "PartyFormed", "Defection",
               "PartyDissolved", "Scandal", "ElectionCalled", "ElectionResult", "SeatLost",
               "ScandalBreaks", "Expelled", "Resigned", "MinisterSacked",
               "PressCycle", "OfferMade", "OfferDeclined", "OfferLapsed",
-              "LawRepealed"}
+              "LawRepealed", "LawLapsed", "PmChange", "BudgetSet",
+              "AttackLands", "DebtCrisis"}
 
 
 def party_color(state, pid) -> tuple:
@@ -210,6 +211,22 @@ def draw_action_panel(drv) -> None:
             name = drv.state.parties[o["proposer"]].name[:18]
             _button(drv, f"offer:{i}", f"{i+1}. {name} ({o['bloc']})",
                     pygame.Rect(34 + i * 178, H - 88, 170, 28))
+    elif drv.need_budget:
+        _text(drv, "the posture you signal:", (34, H - 114), GOLD)
+        for i, lab in enumerate(("austerity", "balanced", "stimulus")):
+            _button(drv, f"bud:{i}", lab, pygame.Rect(34 + i * 120, H - 88, 110, 28))
+    elif drv.need_defect:
+        _text(drv, "cross the floor to:", (34, H - 114), GOLD)
+        me = drv.state.mps.get(drv.state.player_id)
+        others = sorted((pt for pt in drv.state.parties.values()
+                         if me is None or pt.id != me.party),
+                        key=lambda pt: -len(pt.members))[:4]
+        x = 34
+        for pt in others:
+            w = 16 + 9 * min(len(pt.name), 12)
+            _button(drv, f"dft:{pt.id}", pt.name[:12], pygame.Rect(x, H - 88, w, 28))
+            x += w + 8
+        _button(drv, "dft:i", "independent", pygame.Rect(x, H - 88, 110, 28))
     else:
         x = 34
         for kind in available_actions(drv.state):

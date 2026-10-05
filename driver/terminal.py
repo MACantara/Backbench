@@ -17,7 +17,8 @@ INTERRUPTS = {"ConfidenceLost", "CoalitionFormed", "PartyFormed", "Defection",
               "PartyDissolved", "Scandal", "ElectionCalled", "ElectionResult", "SeatLost",
               "ScandalBreaks", "Expelled", "Resigned", "MinisterSacked",
               "PressCycle", "OfferMade", "OfferDeclined", "OfferLapsed",
-              "LawRepealed"}
+              "LawRepealed", "LawLapsed", "PmChange", "BudgetSet",
+              "AttackLands", "DebtCrisis"}
 
 
 def _ask(prompt: str, ok) -> str | None:
@@ -53,12 +54,29 @@ def prompt_actions(state) -> list[Action]:
         if raw.isdigit() and int(raw) < len(menu):
             kind = menu[int(raw)]
             target = axis = vote = offer = None
-            if kind in ("lobby", "dig_dirt", "deal"):
-                s = _ask("target mp id > ", lambda s: s.isdigit() and int(s) in state.mps)
+            if kind in ("lobby", "dig_dirt", "deal", "leak"):
+                s = _ask("target mp id > ",
+                         lambda s: s.isdigit() and int(s) in state.mps
+                         and (kind != "leak" or int(s) != state.player_id))
                 if s is None:
                     continue
                 target = int(s)
-            if kind in ("speech", "promise"):
+            if kind == "defect":
+                others = [f"{i}:{pt.name}" for i, pt in sorted(state.parties.items())
+                          if i != state.mps[state.player_id].party]
+                s = _ask(f"to ({' '.join(others)} | i=independent) > ",
+                         lambda s: s == "i" or (s.isdigit() and int(s) in state.parties
+                                                and int(s) != state.mps[state.player_id].party))
+                if s is None:
+                    continue
+                target = None if s == "i" else int(s)
+            if kind == "budget":
+                s = _ask("posture 0=austerity 1=balanced 2=stimulus > ",
+                         lambda s: s in ("0", "1", "2"))
+                if s is None:
+                    continue
+                axis = int(s)
+            if kind in ("speech", "promise", "table"):
                 s = _ask("axis 0=economic 1=social > ", lambda s: s in ("0", "1"))
                 if s is None:
                     continue

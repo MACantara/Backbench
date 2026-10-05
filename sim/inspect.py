@@ -52,6 +52,11 @@ def explain_bill(state: GameState) -> str:
     abstain = len(rows) - yes - no
     lines = [f"{bill.name} — projected {yes}-{no} +{abstain} abstain "
              f"({'pass' if yes > no else 'fail'})"]
+    if bill.budget:
+        lines.append(f"  supply — tax ×{bill.tax:.2f}, spend ×{bill.spend:.2f} "
+                     "if enacted")
+    if bill.repeals is not None:
+        lines.append(f"  strikes the {bill.repeals.name} from the book")
     for u, mp, terms in sorted((r for r in rows if abs(r[0]) < p.MARGINAL_BAND),
                                key=lambda r: abs(r[0]))[:8]:
         you = " [YOU]" if mp.id == state.player_id else ""

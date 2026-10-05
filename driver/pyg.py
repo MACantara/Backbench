@@ -54,6 +54,8 @@ class Driver:
         self.need_axis = None       # action kind awaiting an axis button
         self.need_vote = None       # "vote"/"deal" awaiting the column choice
         self.need_offer = False     # pick_offer awaiting an offer button
+        self.need_budget = False    # "budget" awaiting a stance pick
+        self.need_defect = False    # "defect" awaiting a destination pick
         self.why_text = None        # explain_vote output while paused
         self.viz_rng = random.Random(1)  # visuals only — never touches sim rng
         self.district_prev = {}     # district -> party before the latest tick
@@ -117,16 +119,20 @@ class Driver:
         from sim.inspect import explain_vote
         if bid.startswith("act:"):
             kind = bid[4:]
-            if kind in ("lobby", "dig_dirt"):
+            if kind in ("lobby", "dig_dirt", "leak"):
                 self.need_target = kind
             elif kind == "deal":
                 self.need_target = kind           # counterparty first, then the column
-            elif kind in ("speech", "promise"):
+            elif kind in ("speech", "promise", "table"):
                 self.need_axis = kind
             elif kind == "vote":
                 self.need_vote = kind
             elif kind == "pick_offer":
                 self.need_offer = True
+            elif kind == "budget":
+                self.need_budget = True
+            elif kind == "defect":
+                self.need_defect = True
             else:
                 self.picks.append(Action(kind))
                 self._after_pick()
@@ -148,10 +154,19 @@ class Driver:
                 self.picks.append(Action("pick_offer", offer=i))
             self.need_offer = False
             self._after_pick()
+        elif bid.startswith("bud:") and self.need_budget:
+            self.picks.append(Action("budget", axis=int(bid[4:])))
+            self.need_budget = False
+            self._after_pick()
+        elif bid.startswith("dft:") and self.need_defect:
+            self.picks.append(Action("defect",
+                                     target=None if bid[4:] == "i" else int(bid[4:])))
+            self.need_defect = False
+            self._after_pick()
         elif bid == "continue":
             self.action_pause, self.paused = False, False
             self.need_target = self.need_axis = self.need_vote = None
-            self.need_offer = False
+            self.need_offer = self.need_budget = self.need_defect = False
             picks = [pk for pk in self.picks
                      if pk.kind != "deal" or pk.vote is not None]  # unfinished deal = no deal
             self.picks = []
@@ -230,6 +245,8 @@ class Driver:
             return  # overlay swallows seat clicks
         hit = next((m for m, r in self.seat_rects.items() if r.collidepoint(pos)), None)
         if hit is not None and self.need_target:
+            if self.need_target == "leak" and hit == self.state.player_id:
+                return  # leaking yourself is a silent no-op — don't bind it
             self.picks.append(Action(self.need_target, target=hit))
             if self.need_target == "deal":
                 self.need_vote = "deal"   # promised column comes next
