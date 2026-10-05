@@ -76,11 +76,14 @@ def enact(state: GameState, bill: Bill, yes: int, no: int) -> Law | None:
                    law=law.name, parties=sorted(law.enacted_by), author=law.author,
                    player=flagship)
         return None
+    sponsor = state.mps.get(bill.author) if bill.author is not None else None
+    authors = {sponsor.party} if sponsor and sponsor.party is not None \
+        else set(state.government.parties)
     law = Law(name=bill.name or f"Week-{state.week} Act", pos=bill.pos,
               beneficiary_axis=bill.beneficiary_axis, cost=bill.cost,
               passed_week=state.week, margin=yes / max(yes + no, 1),
-              effect=law_effect(bill), enacted_by=set(state.government.parties),
-              author=state.government.pm)
+              effect=law_effect(bill), enacted_by=authors,
+              author=bill.author if bill.author is not None else state.government.pm)
     state.laws.append(law)
     eff = f" — {next(iter(law.effect))} {next(iter(law.effect.values())):+.3f}/wk" \
         if law.effect else ""

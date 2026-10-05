@@ -72,6 +72,12 @@ def vote_terms(state: GameState, mp: MP, bill: Bill,
     if fwhip is not None and fwhip != whip:
         terms["fwhip"] = p.W_WHIP * fwhip * mp.loyalty
         terms["whip"] = 0.0  # the wing overrules the party line
+    line = fwhip if fwhip is not None else whip
+    if line:
+        # a burning member votes to look independent — distance from the line
+        burn = min(1.0, mp.dossier + (0.5 if mp.scandal_weeks > 0 else 0.0))
+        if burn:
+            terms["selfpres"] = -p.W_SELFPRES * line * burn
     return terms
 
 
@@ -237,11 +243,11 @@ def resolve_vote(state: GameState, bill: Bill, player_vote: int | None = None) -
     # consequences: brand + voter drift toward/away from government
     gov_parties = [i for i in state.government.parties if i in state.parties]
     if passed and gov_parties:
-        agenda = gov_platform(state)
         ax = bill.beneficiary_axis
-        state.voters.pos[:, ax] += p.BILL_PERSUASION * np.sign(agenda[ax] - state.voters.pos[:, ax])
-        for i in gov_parties:
-            state.parties[i].brand += p.BILL_PASS_BRAND
+        state.voters.pos[:, ax] += p.BILL_PERSUASION * np.sign(bill.pos[ax] - state.voters.pos[:, ax])
+        if bill.author is None:  # a private member's win isn't the government's brand
+            for i in gov_parties:
+                state.parties[i].brand += p.BILL_PASS_BRAND
         state.emit("VoteResult", f"{'Budget' if bill.budget else 'Bill'} passes {yes}-{no} ({abstain} abstain).",
                    passed=True, yes=yes, no=no, abstain=abstain,
                    detail=detail, player=player_vote)
@@ -255,8 +261,9 @@ def resolve_vote(state: GameState, bill: Bill, player_vote: int | None = None) -
             law = enact(state, bill, yes, no)
             state.legacy_bills += law is not None and law.author == state.player_id
     else:
-        for i in gov_parties:
-            state.parties[i].brand -= p.BILL_FAIL_BRAND
+        if bill.author is None:  # a private member's loss isn't theirs either
+            for i in gov_parties:
+                state.parties[i].brand -= p.BILL_FAIL_BRAND
         if not bill.confidence and bill.repeals is None:
             # defeated ordinary bills are remembered — the agenda may retry
             state.failed.append({"pos": bill.pos, "name": bill.name or "a bill",

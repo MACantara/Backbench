@@ -254,6 +254,12 @@ DEBT_BRAND_HIT = 0.15        # one-time brand drop for gov parties on crisis
 AUSTERITY_POS = 0.7          # market-ward position of a forced cuts bill
 AUSTERITY_SAVING = 0.02      # weekly net revenue a cuts bill returns
 W_FISCAL = 0.6               # vote term weight on bill cost × debt pressure
+W_SELFPRES = 0.5             # burning MPs distance from their own whip
+AMEND_STEP = 0.25            # an amendment drags the pending bill toward the mover
+ATTACK_P = 0.10              # base chance a scrutiny attack lands
+ATTACK_WEAK_W = 0.5          # each point of government weakness scales it
+ATTACK_BRAND = 0.04          # a landed attack dents every coalition party
+ATTACK_WHIFF = 0.05          # a flat attack costs the attacker's standing
 
 # --- drift ---
 VOTER_DRIFT_SD = 0.004           # weekly position noise

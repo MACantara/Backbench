@@ -135,6 +135,8 @@ class Bill:
     budget: bool = False            # a supply bill — carries a fiscal posture
     tax: float = 1.0                # budget: revenue multiplier if enacted
     spend: float = 1.0              # budget: upkeep multiplier if enacted
+    amended: bool = False           # one amendment per bill — the house moves on
+    author: int | None = None       # sponsor's MP id (private bills); None = the PM's
     name: str = ""                  # domain-flavored name; confidence motions stay blank
 
 

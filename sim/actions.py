@@ -6,7 +6,9 @@ from dataclasses import dataclass
 import numpy as np
 
 from . import params as p
-from .state import GameState, dist
+from .conditions import mood
+from .naming import bill_name
+from .state import Bill, GameState, dist
 
 
 @dataclass
@@ -24,15 +26,21 @@ class Action:
 def available_actions(state: GameState) -> list[str]:
     """Context menu for the week."""
     base = ["scheme", "lobby", "media", "dig_dirt"]
+    player = state.mps.get(state.player_id)
     if state.offers:
         base += ["pick_offer", "decline_offers"]  # a hung parliament is a decision
     if state.phase == "campaign":
         base += ["campaign", "speech", "promise"]
     else:
         base += ["constituency", "speech"]
+        if state.phase == "governing" and player is not None:
+            base.append("table")       # private member's bill — backbench legacy
+            if player.party not in state.government.parties and state.government.parties:
+                base.append("attack")  # scrutiny — lands only on a weak government
         if state.current_bill is not None:
-            base += ["vote", "deal"]     # a pending division is a decision — and currency
-    player = state.mps.get(state.player_id)
+            base += ["vote", "deal"]   # a pending division is a decision — and currency
+            if not state.current_bill.amended:
+                base.append("amend")   # drag the bill toward your ground — once
     if player and player.party is not None and state.parties.get(player.party) and state.parties[player.party].leader == player.id:
         base.append("platform")
     if state.phase == "governing" and state.government.pm == state.player_id:
@@ -128,6 +136,49 @@ def apply_action(state: GameState, action: Action) -> None:
         col = {1: "aye", -1: "no", 0: "abstention"}[v]
         state.emit("DealMade", f"You promise {t.name} your {col} on the "
                                f"{state.current_bill.name}.", mp=t.id, vote=v)
+
+    elif action.kind == "attack" and player.party not in state.government.parties \
+            and state.government.parties:
+        # scrutiny lands only on a weak government — a slump or a failing
+        # minister opens the wound; a popular one shrugs it off
+        ministers = [m for m in state.mps.values() if m.portfolio is not None]
+        weak = -mood(state.conditions) - min((m.perf for m in ministers), default=0.0)
+        if rng.random() < float(np.clip(p.ATTACK_P + p.ATTACK_WEAK_W * weak, 0.02, 0.9)):
+            for pid in state.government.parties:
+                if pid in state.parties:
+                    state.parties[pid].brand -= p.ATTACK_BRAND
+            state.emit("AttackLands",
+                       "Your attack lands — the government reels.", mp=player.id)
+        else:
+            player.standing = float(np.clip(player.standing - p.ATTACK_WHIFF, -1, 1))
+            state.emit("CareerEvent", "Your attack on the government falls flat.",
+                       action="attack")
+
+    elif action.kind == "amend" and state.current_bill is not None \
+            and not state.current_bill.amended:
+        # one amendment per bill — the mover drags it toward their own ground
+        bill = state.current_bill
+        bill.pos = tuple(np.clip(np.asarray(bill.pos) + p.AMEND_STEP
+                                 * (np.asarray(player.pos) - np.asarray(bill.pos)),
+                                 -1, 1))
+        bill.amended = True
+        state.emit("AmendMoved",
+                   f"You amend the {bill.name} — it shifts toward your ground.",
+                   bill=bill.name)
+
+    elif action.kind == "table":
+        # a private member's bill — your name on it, divided at once
+        from .parliament import resolve_vote
+        ax = action.axis if action.axis is not None else rng.randrange(2)
+        bill = Bill(pos=tuple(player.pos), beneficiary_axis=ax,
+                    cost=float(max(0.0, p.COST_BASE + p.COST_EXTREMITY_W * abs(player.pos[ax])
+                                   + rng.gauss(0, p.COST_JITTER))),
+                    name=bill_name(player.pos, ax, rng), author=player.id)
+        state.emit("BillTabled",
+                   f"You table the {bill.name} — a private member's bill, "
+                   "divided at once.", bill=bill.name, pos=bill.pos,
+                   beneficiary_axis=ax, cost=bill.cost)
+        resolve_vote(state, bill, player_vote=1)
 
     elif action.kind == "budget" and state.government.pm == player.id \
             and action.axis in p.BUDGET_STANCES:
