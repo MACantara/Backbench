@@ -56,6 +56,7 @@ class Driver:
         self.need_offer = False     # pick_offer awaiting an offer button
         self.need_budget = False    # "budget" awaiting a stance pick
         self.need_defect = False    # "defect" awaiting a destination pick
+        self.need_law = False       # "challenge" awaiting a statute pick
         self.why_text = None        # explain_vote output while paused
         self.viz_rng = random.Random(1)  # visuals only — never touches sim rng
         self.district_prev = {}     # district -> party before the latest tick
@@ -133,6 +134,8 @@ class Driver:
                 self.need_budget = True
             elif kind == "defect":
                 self.need_defect = True
+            elif kind == "challenge":
+                self.need_law = True
             else:
                 self.picks.append(Action(kind))
                 self._after_pick()
@@ -163,10 +166,21 @@ class Driver:
                                      target=None if bid[4:] == "i" else int(bid[4:])))
             self.need_defect = False
             self._after_pick()
+        elif bid.startswith("law:") and self.need_law:
+            from sim.courts import challengeable
+            laws = challengeable(self.state)
+            i = int(bid[4:])
+            if 0 <= i < len(laws):
+                pick = laws[i]
+                idx = next(j for j, lw in enumerate(self.state.laws) if lw is pick)
+                self.picks.append(Action("challenge", law=idx))
+            self.need_law = False
+            self._after_pick()
         elif bid == "continue":
             self.action_pause, self.paused = False, False
             self.need_target = self.need_axis = self.need_vote = None
             self.need_offer = self.need_budget = self.need_defect = False
+            self.need_law = False
             picks = [pk for pk in self.picks
                      if pk.kind != "deal" or pk.vote is not None]  # unfinished deal = no deal
             self.picks = []

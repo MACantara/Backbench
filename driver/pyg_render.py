@@ -227,6 +227,15 @@ def draw_action_panel(drv) -> None:
             _button(drv, f"dft:{pt.id}", pt.name[:12], pygame.Rect(x, H - 88, w, 28))
             x += w + 8
         _button(drv, "dft:i", "independent", pygame.Rect(x, H - 88, 110, 28))
+    elif drv.need_law:
+        from sim.courts import challengeable, legal_risk
+        _text(drv, "file suit against:", (34, H - 114), GOLD)
+        x = 34
+        for i, lw in enumerate(challengeable(drv.state)[:4]):
+            lab = f"{lw.name[:20]} {legal_risk(drv.state, lw):.2f}"
+            w = 16 + 9 * len(lab)
+            _button(drv, f"law:{i}", lab, pygame.Rect(x, H - 88, w, 28))
+            x += w + 8
     else:
         x = 34
         for kind in available_actions(drv.state):

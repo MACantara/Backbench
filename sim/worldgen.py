@@ -83,6 +83,32 @@ def make_outlets(rng: random.Random, np_rng: np.random.Generator,
     return outlets
 
 
+_CLAUSES = {
+    (0, -1): "the Property Clause",      # fences redistribution statutes
+    (0, +1): "the Common Provision",     # fences market-fundamentalist statutes
+    (1, -1): "the Order Clause",         # fences libertarian statutes
+    (1, +1): "the Liberty Clause",       # fences authoritarian statutes
+}
+
+
+def make_constitution(rng: random.Random, centroid) -> list:
+    """The country's written rules. Fiscal and Mandate clauses always; per
+    axis, the pole opposite the country's lean is guarded, and its own pole
+    on a coin flip — centrist countries write symmetric books."""
+    from .state import Article
+    arts = [Article(0, "the Fiscal Clause", "cost", limit=p.ARTICLE_COST_CAP),
+            Article(1, "the Mandate Clause", "margin", limit=p.ARTICLE_MARGIN_FLOOR)]
+    for ax in (0, 1):
+        far_pole = -1 if centroid[ax] >= 0 else 1
+        for i, pole in enumerate((far_pole, -far_pole)):
+            if i == 0 or rng.random() < p.ARTICLE_MIRROR_P:
+                limit = float(np.clip(
+                    p.ARTICLE_LIMIT + rng.gauss(0, p.ARTICLE_LIMIT_SD), 0.35, 0.8))
+                arts.append(Article(len(arts), _CLAUSES[(ax, pole)], "pos",
+                                    axis=ax, pole=pole, limit=limit))
+    return arts
+
+
 def new_game(seed: int) -> GameState:
     rng = random.Random(seed)
     np_rng = np.random.default_rng(seed)
@@ -133,4 +159,5 @@ def new_game(seed: int) -> GameState:
         conditions=Conditions(**conds),
         player_id=int(med), weeks_to_election=p.CAMPAIGN_WEEKS,
         court_activism=rng.random(),
+        constitution=make_constitution(rng, voters.pos.mean(axis=0)),
     )

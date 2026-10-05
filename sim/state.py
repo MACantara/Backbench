@@ -168,8 +168,19 @@ class CourtCase:
     """A statute under judicial review — sits pending, then a verdict lands."""
     law: Law                        # by identity — the registry drops laws other ways too
     due_week: int
-    challenger: int                 # party id of the filer
+    challenger: int | None          # party id of the filer; None = an independent MP
     risk: float = 0.0               # the statute's risk as challenged — verdicts use this
+
+
+@dataclass
+class Article:
+    """A constitutional clause: a named boundary a statute may not cross."""
+    id: int
+    name: str                       # "the Property Clause"
+    kind: str                       # "pos" | "cost" | "margin"
+    axis: int = 0                   # pos clauses: the guarded axis
+    pole: int = 0                   # pos clauses: -1 or +1 — the fenced pole
+    limit: float = 0.0              # the boundary the clause draws
 
 
 @dataclass
@@ -228,6 +239,7 @@ class GameState:
     treasury: Treasury = field(default_factory=Treasury)
     graves: list[Grave] = field(default_factory=list)  # dissolved parties, revivable
     docket: list[CourtCase] = field(default_factory=list)  # statutes pending review
+    constitution: list[Article] = field(default_factory=list)  # the clauses laws answer to
     court_activism: float = 0.5     # 0 deferential .. 1 activist — the bench's character
     press_subject: int | None = None  # party id of last week's lead story
     press_weeks: int = 0              # consecutive weeks that subject has led

@@ -16,12 +16,13 @@ class Action:
     kind: str                    # campaign, constituency, speech, promise, media, dig_dirt,
                                  # lobby, scheme, platform, vote, deal, pick_offer,
                                  # decline_offers, budget, attack, amend, table,
-                                 # defect, found
+                                 # defect, found, challenge
     target: int | None = None    # MP id for lobby/dig_dirt; party id for defect
     axis: int | None = None      # 0/1 for speech/promise/table; 0-2 stance for budget
     pos: tuple[float, float] | None = None  # for promise
     vote: int | None = None      # +1/-1/0 on the pending division
     offer: int | None = None     # pick_offer: index into state.offers
+    law: int | None = None       # challenge: index into state.laws
 
 
 def available_actions(state: GameState) -> list[str]:
@@ -51,6 +52,10 @@ def available_actions(state: GameState) -> list[str]:
         if player.party is not None:
             base.append("defect")    # cross the floor — to a party, or none
         base.append("found")         # walk out and name a vehicle
+    if player is not None and state.phase != "over":
+        from .courts import challengeable
+        if challengeable(state):
+            base.append("challenge") # the venue for losers takes your filing too
     return base
 
 
@@ -247,6 +252,18 @@ def apply_action(state: GameState, action: Action) -> None:
                    f"You found {state.parties[pid].name} — "
                    f"{len(followers)} walk out with you.",
                    action="found", party=pid, size=len(followers) + 1)
+
+    elif action.kind == "challenge" and action.law is not None \
+            and 0 <= action.law < len(state.laws):
+        # sue the statute book — the same gates the AI filers face
+        from .courts import challengeable, file_case
+        law = state.laws[action.law]
+        if law in challengeable(state):
+            file_case(state, law, player.party)
+        else:
+            state.emit("CareerEvent",
+                       f"No court will hear a case against the {law.name}.",
+                       action="challenge")
 
     elif action.kind == "platform":
         # leaders pull the party platform toward their own position
