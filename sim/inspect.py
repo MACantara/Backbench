@@ -29,8 +29,8 @@ def explain_vote(state: GameState, event_index: int = -1) -> str:
         name = mp.name if mp else f"MP#{mp_id}"
         terms = ", ".join(f"{k}={v:+.2f}" for k, v in d["terms"].items() if abs(v) > 0.01)
         dec = decisive_term(d["terms"], d["u"])
-        col = ("YES" if d["u"] > p.ABSTAIN_MARGIN
-               else "no " if d["u"] < -p.ABSTAIN_MARGIN else "abs")
+        cast = d.get("cast", 1 if d["u"] > 0 else -1)
+        col = "YES" if cast == 1 else "no " if cast == -1 else "abs"
         lines.append(f"  {name:<20} u={d['u']:+.2f} {col}"
                      f"  <- {dec or '—'} ({terms})")
     return "\n".join(lines)

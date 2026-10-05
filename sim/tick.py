@@ -56,7 +56,8 @@ def tick(state: GameState, actions: list | None = None) -> list[Event]:
                    if a.kind == "vote" and a.vote is not None), None)
         if state.current_bill is not None:
             resolve_vote(state, state.current_bill, player_vote=pv)
-        table_bill(state)
+        if state.current_bill is None:   # a stalled division carries — no new bill
+            table_bill(state)
         if state.week % p.BUDGET_EVERY_WEEKS == 0:
             confidence_vote(state)
         if state.phase == "governing":

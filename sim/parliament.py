@@ -113,17 +113,20 @@ def resolve_vote(state: GameState, bill: Bill, player_vote: int | None = None) -
     # in burning scandal weeks, and late in careers (the player always shows)
     loom = (state.government.weeks_in_office
             >= p.GOVERNING_WEEKS_PER_TERM - p.ATTEND_ELECTION_WEEKS)
+    shock = p.ATTEND_SHOCK if state.rng.random() < p.ATTEND_SHOCK_P else 0.0
     present = []
     for mp in state.mps.values():
-        ap = p.ATTEND_BASE
+        ap = p.ATTEND_BASE + shock
         ap += (p.ATTEND_LATE if loom else 0.0) + (p.ATTEND_SCANDAL if mp.scandal_weeks > 0 else 0.0) \
             + (p.ATTEND_AGE if mp.age >= p.RETIRE_AGE else 0.0)
         if mp.id == state.player_id or state.rng.random() >= ap:
             present.append(mp)
     if len(present) < p.QUORUM * max(len(state.mps), 1):
+        tail = ("the motion lapses — the government survives the empty benches."
+                if bill.confidence else "the division carries over.")
         state.emit("DivisionStalled",
                    f"Quorum fails on the {bill.name} — {len(present)} of "
-                   f"{len(state.mps)} present; the division carries over.",
+                   f"{len(state.mps)} present; {tail}",
                    bill=bill.name, present=len(present), house=len(state.mps))
         return None
     yes, no, abstain, detail = 0, 0, 0, {}
@@ -132,25 +135,30 @@ def resolve_vote(state: GameState, bill: Bill, player_vote: int | None = None) -
         terms = vote_terms(state, mp, bill)
         if "fwhip" in terms:
             rebels[mp.faction] = mp.party
-        u = float(player_vote) if (mp.id == state.player_id
-                                   and player_vote is not None) else sum(terms.values())
-        detail[mp.id] = {"u": u, "terms": terms}
+        is_player = mp.id == state.player_id and player_vote is not None
+        u = float(player_vote) if is_player else sum(terms.values())
         whip = whip_direction(state, mp.party, bill) if mp.party is not None else 0
-        # confidence divisions are three-line whips — a whipped MP can't abstain
-        can_abstain = not (bill.confidence and whip)
-        if u > p.ABSTAIN_MARGIN or (u > 0 and not can_abstain):
-            yes += 1
-        elif u < -p.ABSTAIN_MARGIN or (u < 0 and not can_abstain):
-            no += 1
+        # confidence divisions are three-line whips — a whipped MP in the
+        # deadzone falls in with the line (the player still can abstain:
+        # their franchise, rebellion price and all)
+        can_abstain = is_player or not (bill.confidence and whip)
+        if u > p.ABSTAIN_MARGIN:
+            cast = 1
+        elif u < -p.ABSTAIN_MARGIN:
+            cast = -1
+        elif can_abstain:
+            cast = 0
         else:
-            abstain += 1
-        # the whip remembers: standing accrues on the actual vote, override
+            cast = 1 if whip > 0 else -1   # lukewarm whipped MPs fall in line
+        detail[mp.id] = {"u": u, "cast": cast, "terms": terms}
+        yes, no, abstain = yes + (cast == 1), no + (cast == -1), abstain + (cast == 0)
+        # the whip remembers: standing accrues on the cast column, override
         # included; an abstain is half a rebellion — the line wasn't delivered.
         # A faction whip is organized rebellion — the party line still marks you.
         if whip:
-            if u > p.ABSTAIN_MARGIN:
+            if cast == 1:
                 delta = p.STANDING_WHIP_YES if whip > 0 else -p.STANDING_WHIP_NO
-            elif u < -p.ABSTAIN_MARGIN:
+            elif cast == -1:
                 delta = p.STANDING_WHIP_YES if whip < 0 else -p.STANDING_WHIP_NO
             else:
                 delta = -p.STANDING_WHIP_ABSTAIN
@@ -161,8 +169,7 @@ def resolve_vote(state: GameState, bill: Bill, player_vote: int | None = None) -
     # the player keeps or breaks their word — judged on the cast column
     player = state.mps.get(state.player_id)
     for deal in [d for d in state.deals if d.bill is bill]:
-        col = detail.get(state.player_id, {}).get("u", 0.0)
-        cast = 1 if col > p.ABSTAIN_MARGIN else (-1 if col < -p.ABSTAIN_MARGIN else 0)
+        cast = detail.get(state.player_id, {}).get("cast", 0)
         kept = cast == deal.vote
         t = state.mps.get(deal.mp)
         if t is not None:
