@@ -201,6 +201,9 @@ _BILL_NAMES = {
 _BILL_NEUTRAL = ["Administrative Reform Act", "Technical Measures Act",
                  "Consolidation Act", "Appropriations Act",
                  "Statutory Review Act"]
+_BILL_AUSTERITY = ["Public Finances Emergency Act", "Spending Restraint Act",
+                   "Fiscal Consolidation Act", "Emergency Appropriations Act",
+                   "Savings and Efficiencies Act"]
 
 
 def bill_name(pos: Vec, axis: int, rng: random.Random) -> str:
@@ -209,6 +212,10 @@ def bill_name(pos: Vec, axis: int, rng: random.Random) -> str:
     pool = _BILL_NEUTRAL if abs(v) < p.BILL_NEUTRAL_BAND \
         else _BILL_NAMES[(axis, int(np.sign(v)))]
     return rng.choice(pool)
+
+
+def austerity_name(rng: random.Random) -> str:
+    return rng.choice(_BILL_AUSTERITY)
 
 
 # --- people ---

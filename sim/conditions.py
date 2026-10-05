@@ -49,6 +49,8 @@ def law_effect(bill: Bill) -> dict[str, float]:
     s, ax = p.LAW_EFFECT_SCALE, bill.beneficiary_axis
     if bill.pos[ax] == 0:
         return {}
+    if bill.austerity:
+        return {"services": -s * abs(bill.pos[ax])}  # cuts: the services dial pays
     if ax == 0:
         return {"growth" if bill.pos[0] > 0 else "services": s * abs(bill.pos[0])}
     return {"crime": -s * bill.pos[1]}
