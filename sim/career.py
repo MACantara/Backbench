@@ -25,10 +25,39 @@ def appointment_terms(state: GameState, mp: MP, appointer: int | None) -> dict[s
     return {
         "record": mp.competence + max(0.0, mp.perf),
         "standing": p.STANDING_W * mp.standing,
-        "backing": p.BACKING_W * mp.relationships.get(appointer or -1, 0.0),
+        "backing": p.BACKING_W * max(-1.0, min(1.0,
+                     mp.relationships.get(appointer or -1, 0.0))),  # clipped: lobbying helps, can't buy it
         "seniority": p.SENIORITY_W * min(mp.seniority / p.SENIORITY_CAP_WEEKS, 1),
         "rung": p.RUNG_W * min(mp.junior_weeks / p.RUNG_CAP_WEEKS, 1),
     }
+
+
+def _ranked(state: GameState, cands: list[int], appointer: int | None):
+    """Candidates scored by appointment terms, best first."""
+    scored = [(m, appointment_terms(state, state.mps[m], appointer)) for m in cands]
+    scored.sort(key=lambda kv: -sum(kv[1].values()))
+    return scored
+
+
+def _passed_over(state: GameState, ranked, post: str) -> None:
+    """The player was a candidate and lost — say who beat them and on what."""
+    ids = [m for m, _ in ranked]
+    if state.player_id not in ids:
+        return
+    rank = ids.index(state.player_id) + 1
+    if rank == 1:
+        return
+    winner, wterms = ranked[0]
+    pterms = ranked[rank - 1][1]
+    w = state.mps[winner]
+    diffs = sorted(wterms, key=lambda k: wterms[k] - pterms[k], reverse=True)
+    top = ", ".join(f"{k} {wterms[k]:+.2f} vs your {pterms[k]:+.2f}"
+                    for k in diffs[:2] if wterms[k] > pterms[k] + 0.01)
+    state.emit("CareerEvent",
+               f"Passed over for {post} — {w.name} picked "
+               f"(you rank {rank} of {len(ranked)}): {top or 'razor-thin'}.",
+               post=post, winner=winner, rank=rank,
+               winner_terms=wterms, player_terms=pterms)
 
 
 def _appoint(state: GameState, pid: int, ministry: str, reason: str = "cabinet") -> bool:
@@ -38,14 +67,14 @@ def _appoint(state: GameState, pid: int, ministry: str, reason: str = "cabinet")
              and m != state.government.pm and m not in state.government.sacked]
     if not cands:
         return False
-    appointer = state.parties[pid].leader
-    best = max(cands, key=lambda m: sum(appointment_terms(
-        state, state.mps[m], appointer).values()))
+    ranked = _ranked(state, cands, state.parties[pid].leader)
+    best, terms = ranked[0]
     mp = state.mps[best]
     mp.portfolio, mp.perf, mp.portfolio_weeks = ministry, 0.0, 0
     mp.junior, mp.junior_weeks = None, 0    # promotion vacates the rung — someone climbs
     state.emit("Promoted", f"{mp.name} appointed {ministry}.",
-               mp=best, ministry=ministry, reason=reason)
+               mp=best, ministry=ministry, reason=reason, terms=terms)
+    _passed_over(state, ranked, ministry)
     return True
 
 
@@ -68,13 +97,15 @@ def junior_lifecycle(state: GameState) -> None:
                      and m not in state.government.sacked]
             if not cands:
                 continue
-            best = max(cands, key=lambda m: sum(appointment_terms(
-                state, state.mps[m], pt.leader).values()))
+            ranked = _ranked(state, cands, pt.leader)
+            best, terms = ranked[0]
             mp = state.mps[best]
             mp.junior, mp.junior_weeks = post, 0
             held.add(post)
             state.emit("Promoted", f"{mp.name} becomes {pt.name} {post}.",
-                       mp=best, ministry=post, party=pid, reason="junior")
+                       mp=best, ministry=post, party=pid, reason="junior",
+                       terms=terms)
+            _passed_over(state, ranked, f"{pt.name} {post}")
 
 
 def assign_portfolios(state: GameState) -> None:
