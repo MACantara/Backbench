@@ -263,6 +263,8 @@ ATTACK_WHIFF = 0.05          # a flat attack costs the attacker's standing
 DEFECT_BETRAYAL = 0.35       # crossing the floor — the district remembers
 DEFECT_REL_HIT = 0.4         # old colleagues burn the bridge
 FOUND_FOLLOW_REL = 0.5       # only real loyalty walks out with a founder
+LEAK_TRACE_P = 0.25          # a planted story can be traced back
+LEAK_TRACE_REL = 0.3         # and the target burns the bridge
 
 # --- drift ---
 VOTER_DRIFT_SD = 0.004           # weekly position noise

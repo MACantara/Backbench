@@ -26,7 +26,7 @@ class Action:
 
 def available_actions(state: GameState) -> list[str]:
     """Context menu for the week."""
-    base = ["scheme", "lobby", "media", "dig_dirt"]
+    base = ["scheme", "lobby", "media", "dig_dirt", "leak"]
     player = state.mps.get(state.player_id)
     if state.offers:
         base += ["pick_offer", "decline_offers"]  # a hung parliament is a decision
@@ -109,6 +109,21 @@ def apply_action(state: GameState, action: Action) -> None:
             state.emit("Scandal", f"{t.name} suspects you hired researchers.", mp=t.id)
         else:
             state.emit("CareerEvent", f"You dig up material on {t.name}.", action="dig_dirt")
+
+    elif action.kind == "leak" and action.target in state.mps \
+            and action.target != player.id:
+        # detonate a dirty dossier on your schedule — deniable, not free
+        from .scandals import detonate
+        t = state.mps[action.target]
+        if t.dossier > p.LEAK_MIN_DOSSIER and t.scandal_weeks <= 0:
+            detonate(state, t)
+            if rng.random() < p.LEAK_TRACE_P:
+                t.relationships[player.id] = t.relationships.get(player.id, 0.0) \
+                    - p.LEAK_TRACE_REL
+                state.emit("Scandal", f"{t.name} traces the leak to you.", mp=t.id)
+        else:
+            state.emit("CareerEvent",
+                       f"Nothing on {t.name} will move the press.", action="leak")
 
     elif action.kind == "lobby" and action.target in state.mps:
         t = state.mps[action.target]
