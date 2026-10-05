@@ -105,7 +105,9 @@ The player is currently the only MP who can never leave their party.
   A portfolio dies with the party tie — defecting ministers fall to the
   backbench immediately, not next tick.
 - **Defecting PM forfeits the premiership** — you can't lead a coalition
-  you walked out of; `government.pm` reverts to the old party's leader.
+  you walked out of; the office follows the largest coalition party's
+  leader (usually the old party's successor), and if no legitimate
+  successor remains the government falls.
 - **`found` action**: `_found(state, player_id, followers)` — followers are
   old-party members with `rel > FOUND_REL_MIN` and low `_stay_utility`
   (they choose to walk; you don't hand-pick). The founder is leader; the
