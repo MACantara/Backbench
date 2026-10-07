@@ -48,7 +48,7 @@ def available_actions(state: GameState) -> list[str]:
         if challengeable(state):
             menu.append("challenge")
         return menu
-    base = ["scheme", "lobby", "media", "dig_dirt", "leak"]
+    base = ["scheme", "lobby", "media", "dig_dirt", "leak", "evolve"]
     if player is not None and player.party is not None:
         base.append("court")         # cultivate an editorial board
     if state.offers:
@@ -133,6 +133,29 @@ def apply_action(state: GameState, action: Action) -> None:
                    f"You give a speech on the {'economic' if ax == 0 else 'social'} "
                    f"axis — the district is {gap:.2f} from you on it.",
                    action="speech")
+
+    elif action.kind == "evolve":
+        # reposition — a lerp toward the anchor, priced in the district's
+        # mistrust per unit covered and the whip's read of the direction
+        old = np.asarray(player.pos)
+        tgt = np.asarray(action.pos) if action.pos is not None else \
+            v.pos[mask].mean(axis=0)
+        new = np.clip(old + p.EVOLVE_STEP * (tgt - old), -1, 1)
+        moved = float(np.linalg.norm(new - old))
+        player.pos = (float(new[0]), float(new[1]))
+        v.betrayal[mask] += p.EVOLVE_BETRAYAL_W * moved
+        pt = state.parties.get(player.party)
+        trim = ""
+        if pt is not None:
+            d_old, d_new = dist(tuple(old), pt.platform), dist(tuple(new), pt.platform)
+            player.standing = float(np.clip(
+                player.standing + p.EVOLVE_STANDING_W * (d_old - d_new), -1, 1))
+            trim = (", the whip notes the trim" if d_new < d_old
+                    else ", the whip notes the wobble")
+        state.emit("CareerEvent",
+                   f"You edge to ({new[0]:+.2f},{new[1]:+.2f}) — moved {moved:.2f}; "
+                   f"the voters notice (+{p.EVOLVE_BETRAYAL_W * moved:.2f} mistrust){trim}.",
+                   action="evolve", moved=moved)
 
     elif action.kind == "promise":
         pt = state.parties.get(player.party)
