@@ -47,6 +47,7 @@ class Driver:
         self.clock = pygame.time.Clock()
         self.font = pygame.font.Font(None, 22)
         self.big = pygame.font.Font(None, 34)
+        self.small = pygame.font.Font(None, 17)  # hover previews, dense lines
         self.mode = "menu" if menu else "game"
         self.seed = seed
         self.save_dir = SAVES
@@ -68,6 +69,8 @@ class Driver:
         self.vote_flash = {}        # mp_id -> "yes"/"no" during vote cascade
         self.vote_anim = None       # {"order": [...], "votes": {...}, "t": seconds}
         self.seat_rects = {}        # mp_id -> Rect, rebuilt each draw for hit tests
+        self.hover_bid = None       # button under the cursor — drives previews
+        self.hover_mp = None        # seat under the cursor — target previews
         self.buttons = {}           # button id -> Rect, rebuilt each draw
         self.inspect_mp = None      # mp_id shown in inspect card
         self.action_pause = False   # modal: waiting for weekly action picks
@@ -278,10 +281,13 @@ class Driver:
         self.menu_open = False
 
     def on_button(self, bid: str) -> None:
+        from sim.actions import cost_of
         from sim.inspect import explain_bench, explain_vote
         if bid.startswith("act:"):
-            self._clear_pending()
             kind = bid[4:]
+            if cost_of(kind) > self.points_left():
+                return               # unaffordable — the button rendered dim
+            self._clear_pending()
             if kind in ("lobby", "dig_dirt", "leak"):
                 self.need_target = kind
             elif kind == "deal":
@@ -472,9 +478,16 @@ class Driver:
             self.autosave_weeks = {1: 2, 2: 4, 4: 8, 8: 1}[self.autosave_weeks]
             self._save_settings()
 
+    def points_left(self) -> int:
+        from sim.actions import cost_of
+        from sim import params as p
+        return p.ACTION_POINTS - sum(cost_of(pk.kind) for pk in self.picks)
+
     def _after_pick(self) -> None:
-        if len(self.picks) >= 2:
-            self.on_button("continue")
+        from sim.actions import available_actions, cost_of
+        left = self.points_left()
+        if not any(cost_of(k) <= left for k in available_actions(self.state)):
+            self.on_button("continue")   # nothing affordable — flush the week
 
     def toggle_auto(self) -> None:
         self.auto_play = not self.auto_play
@@ -561,6 +574,13 @@ class Driver:
         elif e.type == pygame.MOUSEBUTTONDOWN:
             wx, wy = self.window.get_size()
             self.on_click((int(e.pos[0] * W / wx), int(e.pos[1] * H / wy)))
+        elif e.type == pygame.MOUSEMOTION:
+            wx, wy = self.window.get_size()
+            pos = (int(e.pos[0] * W / wx), int(e.pos[1] * H / wy))
+            self.hover_bid = next((b for b, r in self.buttons.items()
+                                   if r.collidepoint(pos)), None)
+            self.hover_mp = next((m for m, r in self.seat_rects.items()
+                                  if r.collidepoint(pos)), None)
 
     def on_click(self, pos) -> None:
         if self.banner:

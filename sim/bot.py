@@ -34,10 +34,14 @@ def auto_actions(state: GameState) -> list[Action]:
     menu = available_actions(state)
     player = state.mps.get(state.player_id)
     picks: list[Action] = []
+    spent = 0
 
     def take(kind: str, **kw) -> None:
-        if kind in menu and len(picks) < 2:
+        nonlocal spent
+        cost = p.ACTION_COST.get(kind, 1)
+        if kind in menu and spent + cost <= p.ACTION_POINTS:
             picks.append(Action(kind, **kw))
+            spent += cost
 
     if player is None:
         return picks
@@ -108,9 +112,10 @@ def auto_actions(state: GameState) -> list[Action]:
             take("court", target=hostile.id)
     # filler stays clean: scheme and media grow the dossier that kills
     # careers — a surviving bot spends quiet weeks on voters, not dirt
-    while len(picks) < 2:
+    while spent < p.ACTION_POINTS:
+        n = len(picks)
         for kind in ("speech", "constituency"):
             take(kind)
-        if len(picks) < 2:
-            picks.append(Action("nothing"))
-    return picks[:2]
+        if len(picks) == n:
+            break                       # nothing affordable fits the remainder
+    return picks

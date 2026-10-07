@@ -269,7 +269,12 @@ def draw_panel(drv) -> None:
             y += 16
 
 
-def _button(drv, bid: str, label: str, rect) -> None:
+def _button(drv, bid: str, label: str, rect, disabled: bool = False) -> None:
+    if disabled:
+        pygame.draw.rect(drv.screen, (34, 37, 48), rect)
+        pygame.draw.rect(drv.screen, DIM, rect, 1)
+        _text(drv, label, (rect.x + 8, rect.y + 6), DIM)
+        return                          # unregistered — clicks fall through
     pygame.draw.rect(drv.screen, (50, 55, 70), rect)
     pygame.draw.rect(drv.screen, DIM, rect, 1)
     _text(drv, label, (rect.x + 8, rect.y + 6))
@@ -277,15 +282,25 @@ def _button(drv, bid: str, label: str, rect) -> None:
 
 
 def draw_action_panel(drv) -> None:
-    from sim.actions import available_actions
+    from sim.actions import available_actions, cost_of
     pygame.draw.rect(drv.screen, PANEL, (20, H - 150, 940, 130))
     pygame.draw.rect(drv.screen, DIM, (20, H - 150, 940, 130), 1)
-    _text(drv, f"Actions — pick {2 - len(drv.picks)} more "
+    _text(drv, f"Actions — {drv.points_left()} pts left "
                f"(or continue): {[a.kind for a in drv.picks]}", (34, H - 140))
     if drv.need_outlet or drv.leak_outlet is not None:
         me = drv.state.mps[drv.state.player_id]
-        _text(drv, "choose the venue" if drv.leak_outlet is not None
-              else "court which editorial board?", (34, H - 114), GOLD)
+        hb = drv.hover_bid
+        if hb and hb.startswith("otl:"):
+            from sim.inspect import explain_action
+            oid = None if hb == "otl:x" else int(hb[4:])
+            line = (explain_action(drv.state, "leak",
+                                   target=drv.leak_outlet, outlet=oid)
+                    if drv.leak_outlet is not None
+                    else explain_action(drv.state, "court", target=oid))
+        else:
+            line = ("choose the venue" if drv.leak_outlet is not None
+                    else "court which editorial board?")
+        _text(drv, _fit(drv, line, 920), (34, H - 114), GOLD)
         x = 34
         if drv.leak_outlet is not None:
             _button(drv, "otl:x", "open market", pygame.Rect(x, H - 88, 110, 28))
@@ -297,7 +312,11 @@ def draw_action_panel(drv) -> None:
             _button(drv, f"otl:{o.id}", lab, pygame.Rect(x, H - 88, w, 28))
             x += w + 8
     elif drv.need_target:
-        _text(drv, f"{drv.need_target}: click an MP's seat to target", (34, H - 114), GOLD)
+        from sim.inspect import explain_action
+        line = (explain_action(drv.state, drv.need_target, target=drv.hover_mp)
+                if drv.hover_mp in drv.state.mps else
+                f"{drv.need_target}: click an MP's seat to target")
+        _text(drv, _fit(drv, line, 920), (34, H - 114), GOLD)
     elif drv.need_axis:
         _text(drv, f"{drv.need_axis}: pick an axis", (34, H - 114), GOLD)
         _button(drv, "axis:0", "economic", pygame.Rect(34, H - 88, 110, 28))
@@ -373,17 +392,28 @@ def draw_action_panel(drv) -> None:
                          f"+{_CLAUSES[(ax, pole)][4:][:14]}")
     else:
         x = 34
+        left = drv.points_left()
         for kind in available_actions(drv.state):
-            w = 8 + 9 * len(kind) + 16
-            _button(drv, f"act:{kind}", kind, pygame.Rect(x, H - 110, w, 30))
+            cost = cost_of(kind)
+            lab = kind if cost == 0 else f"{kind} ·{cost}"
+            w = 8 + 9 * len(lab) + 16
+            _button(drv, f"act:{kind}", lab, pygame.Rect(x, H - 110, w, 30),
+                    disabled=cost > left)
             x += w + 8
+        hb = drv.hover_bid
+        if hb and hb.startswith("act:"):
+            from sim.inspect import explain_action
+            for i, ln in enumerate(_wrap(
+                    drv, explain_action(drv.state, hb[4:]), 920,
+                    drv.small)[:2]):
+                _text(drv, ln, (34, H - 88 + 16 * i), GOLD, drv.small)
         if drv.state.week == 0 and drv.state.ambition is None:
             # the opening pick — pass it by and the career stays open-ended
-            _text(drv, "ambition:", (34, H - 74), GOLD)
-            x = 110
+            _text(drv, "ambition:", (420, H - 44), GOLD)
+            x = 500
             for k in ("pm", "majority", "founder", "survivor", "reformer"):
                 w = 16 + 9 * len(k)
-                _button(drv, f"amb:{k}", k, pygame.Rect(x, H - 78, w, 24))
+                _button(drv, f"amb:{k}", k, pygame.Rect(x, H - 48, w, 24))
                 x += w + 8
     _button(drv, "continue", "continue >>", pygame.Rect(34, H - 50, 110, 28))
     _button(drv, "why", "why?", pygame.Rect(154, H - 50, 70, 28))

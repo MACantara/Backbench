@@ -7,9 +7,11 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 sys.stdout.reconfigure(encoding="utf-8", errors="replace")  # cp1252 consoles
 
-from sim.actions import Action, available_actions
+from sim import params as p_mod
+from sim.actions import Action, available_actions, cost_of
 from sim.career import final_score
-from sim.inspect import explain_bench, explain_bill, explain_mp, explain_vote
+from sim.inspect import (explain_action, explain_bench, explain_bill,
+                         explain_mp, explain_vote)
 from sim.persist import from_json, to_json
 from sim.tick import tick
 from sim.worldgen import new_game
@@ -62,13 +64,20 @@ def prompt_actions(state) -> tuple[list[Action], "object | None"]:
     caller swaps in the fresh state without ticking."""
     menu = available_actions(state)
     picks = []
-    while len(picks) < 2:
-        print("\nActions (pick 2):", ", ".join(f"{i}:{a}" for i, a in enumerate(menu)),
+    while True:
+        spent = sum(cost_of(a.kind) for a in picks)
+        left = p_mod.ACTION_POINTS - spent
+        afford = [a for a in menu if cost_of(a) <= left]
+        if not afford:
+            break
+        print(f"\nActions ({left} pts left):",
+              ", ".join(f"{i}:{a}" + (f"·{cost_of(a)}" if cost_of(a) else "")
+                        for i, a in enumerate(menu)),
               "| inspect <mp_id|bench> | why | save | load")
         try:
-            raw = input(f"action {len(picks) + 1}/2 > ").strip()
+            raw = input("action > ").strip()
         except EOFError:
-            return picks + [Action("nothing")] * (2 - len(picks)), None
+            return picks, None
         if raw == "save":
             _save(state)
             continue
@@ -89,6 +98,10 @@ def prompt_actions(state) -> tuple[list[Action], "object | None"]:
             continue
         if raw.isdigit() and int(raw) < len(menu):
             kind = menu[int(raw)]
+            if cost_of(kind) > left:
+                print(f"  {kind} costs {cost_of(kind)} — {left} pts left")
+                continue
+            print(f"  {explain_action(state, kind)}")
             target = axis = vote = offer = law = judge = None
             article = entrench = outlet = None
             if kind in ("lobby", "dig_dirt", "deal", "leak"):
