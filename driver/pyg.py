@@ -423,7 +423,11 @@ class Driver:
                 mask = self.state.voters.district == me.district
                 anchor = self.state.voters.pos[mask].mean(axis=0)
             else:
-                anchor = self.state.parties[me.party].platform
+                pt = self.state.parties.get(me.party)
+                if pt is None:
+                    self.need_evolve = False
+                    return
+                anchor = pt.platform
             self.picks.append(Action("evolve",
                                      pos=(float(anchor[0]), float(anchor[1]))))
             self.need_evolve = False
