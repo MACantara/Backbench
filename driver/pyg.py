@@ -22,6 +22,7 @@ from driver.pyg_render import (H, INTERRUPTS, W, district_owners, draw,
 
 BASE_WEEK_SECONDS = 1.5
 AUTO_BANNER_SECONDS = 1.5     # auto-play dismisses interrupts itself
+AUTOSAVE_WEEKS = 4            # a save costs ~60ms — keep it off the weekly path
 
 SPEEDS = [0.5, 1.0, 2.0, 4.0]
 
@@ -76,11 +77,13 @@ class Driver:
         self.results = None         # {"seats", "prev"} — seat-change card
         self.chronicle = {"open": False, "scroll": 0, "filter": None}
         self.auto_play = False      # skip the weekly action pause
+        self.autosaved_week = -1    # last week written to autosave.json
 
     def advance(self, actions: list | None = None) -> None:
         """One week forward; collects events for animation and interrupts."""
         self.results = None
         if self.state.phase == "over":
+            self._autosave()        # the career's final state survives a crash
             from sim.career import epilogue
             self.banner = f"Game over — score {final_score(self.state)}"
             self.why_text = "\n".join(epilogue(self.state))
@@ -116,6 +119,8 @@ class Driver:
         if hit:
             self.banner = hit.text
             self.paused = True
+        if self.state.week % AUTOSAVE_WEEKS == 0:
+            self._autosave()
 
     def step(self, dt: float) -> None:
         """Advance animations and the auto-run clock; pause/banner blocks progress."""
@@ -146,6 +151,14 @@ class Driver:
             else:
                 self.action_pause = True   # stop the clock for the weekly decision
                 self.paused = True
+
+    def _autosave(self) -> None:
+        if self.autosaved_week == self.state.week:
+            return                  # idempotent — one write per week
+        SAVES.mkdir(exist_ok=True)
+        (SAVES / "autosave.json").write_text(to_json(self.state),
+                                           encoding="utf-8")
+        self.autosaved_week = self.state.week
 
     def _clear_pending(self) -> None:
         """A fresh action pick drops any half-finished pick — no stacked
@@ -358,10 +371,13 @@ class Driver:
                 self.banner = f"Saved — week {self.state.week}"
                 self.paused = True
             elif e.key == pygame.K_F9:
-                p = SAVES / "latest.json"
-                if p.exists():
+                saves = [q for q in (SAVES / "latest.json",
+                                     SAVES / "autosave.json") if q.exists()]
+                if saves:
+                    p = max(saves, key=lambda q: q.stat().st_mtime)
                     self.state = from_json(p.read_text(encoding="utf-8"))
                     self._reset_view()
+                    self.autosaved_week = self.state.week
                     self.banner = f"Loaded — week {self.state.week}"
                     self.paused = True
             elif e.key == pygame.K_F12:
