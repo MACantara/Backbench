@@ -83,7 +83,11 @@ def apply_action(state: GameState, action: Action) -> None:
         pt = state.parties.get(player.party)
         plat = np.asarray(pt.platform if pt else player.pos)
         v.pos[mask] += 0.03 * np.sign(plat - v.pos[mask])
-        state.emit("CareerEvent", "You campaign door-to-door.", action="campaign")
+        d = float(np.dot(v.pos[mask].mean(axis=0) - plat,
+                         plat / max(np.linalg.norm(plat), 1e-9)))
+        state.emit("CareerEvent",
+                   f"You campaign door-to-door — the district sits "
+                   f"{abs(d):.2f} from your platform.", action="campaign")
 
     elif action.kind == "constituency":
         # casework: the district remembers you and forgives a little
@@ -91,22 +95,34 @@ def apply_action(state: GameState, action: Action) -> None:
         v.loyalty[mask] = np.clip(v.loyalty[mask] + 0.02, 0, 1)
         if player.party is not None:
             v.last_party[mask] = player.party
+        old = player.standing
         player.standing = float(np.clip(player.standing + p.STANDING_SERVICE, -1, 1))
-        state.emit("CareerEvent", "You hold constituency surgeries.", action="constituency")
+        state.emit("CareerEvent",
+                   f"You hold constituency surgeries — standing "
+                   f"{old:.2f} -> {player.standing:.2f}.",
+                   action="constituency")
 
     elif action.kind == "speech":
         ax = action.axis if action.axis is not None else rng.randrange(2)
         v.salience[mask, ax] += 0.05
         v.pos[mask, ax] += 0.03 * np.sign(player.pos[ax] - v.pos[mask, ax])
-        state.emit("CareerEvent", f"You give a speech on the {'economic' if ax == 0 else 'social'} axis.", action="speech")
+        gap = float(abs(v.pos[mask, ax].mean() - player.pos[ax]))
+        state.emit("CareerEvent",
+                   f"You give a speech on the {'economic' if ax == 0 else 'social'} "
+                   f"axis — the district is {gap:.2f} from you on it.",
+                   action="speech")
 
     elif action.kind == "promise":
         pt = state.parties.get(player.party)
         pos = action.pos or player.pos
+        pdist = dist(pt.platform, pos) if pt else 0.0
         state.promises.append({"pos": pos,
                                "party": player.party,
-                               "platform_dist": dist(pt.platform, pos) if pt else 0.0})
-        state.emit("CareerEvent", "You make a public promise.", action="promise")
+                               "platform_dist": pdist})
+        state.emit("CareerEvent",
+                   f"You make a public promise — {pdist:.2f} off "
+                   f"{'the party line' if pt else 'any platform'}.",
+                   action="promise")
 
     elif action.kind == "media":
         pt = state.parties.get(player.party)
@@ -121,22 +137,33 @@ def apply_action(state: GameState, action: Action) -> None:
             state.emit("Scandal", "A gaffe on air — the clip is circulating.", mp=player.id)
         else:
             if pt is not None:
+                old = pt.brand
                 pt.brand += p.MEDIA_APPEAR_BRAND * (0.5 + friend)
                 # friendly coverage pulls the perceived party toward respectability
                 pt.pub_pos = tuple(np.asarray(pt.pub_pos)
                                    - p.MEDIA_APPEAR_PUBPOS * friend * np.asarray(pt.pub_pos))
+                state.emit("CareerEvent",
+                           f"A solid media appearance — {pt.name} brand "
+                           f"{old:.2f} -> {pt.brand:.2f}.", action="media")
             else:
+                old = player.standing
                 player.standing = float(np.clip(player.standing + 0.02, -1, 1))
-            state.emit("CareerEvent", "A solid media appearance.", action="media")
+                state.emit("CareerEvent",
+                           f"A solid media appearance — your standing "
+                           f"{old:.2f} -> {player.standing:.2f}.",
+                           action="media")
 
     elif action.kind == "dig_dirt" and action.target in state.mps:
         t = state.mps[action.target]
+        old = t.dossier
         t.dossier += 0.25
         if rng.random() < 0.3:
             t.relationships[player.id] = t.relationships.get(player.id, 0) - 0.2
             state.emit("Scandal", f"{t.name} suspects you hired researchers.", mp=t.id)
         else:
-            state.emit("CareerEvent", f"You dig up material on {t.name}.", action="dig_dirt")
+            state.emit("CareerEvent",
+                       f"You dig up material on {t.name} — their dossier "
+                       f"{old:.2f} -> {t.dossier:.2f}.", action="dig_dirt")
 
     elif action.kind == "leak" and action.target in state.mps \
             and action.target != player.id:
@@ -165,7 +192,8 @@ def apply_action(state: GameState, action: Action) -> None:
                 state.emit("Scandal", f"{t.name} traces the leak to you.", mp=t.id)
         else:
             state.emit("CareerEvent",
-                       f"Nothing on {t.name} will move the press.", action="leak")
+                       f"Nothing on {t.name} will move the press — "
+                       f"their dossier sits at {t.dossier:.2f}.", action="leak")
 
     elif action.kind == "court" and action.target is not None \
             and player.party is not None:
@@ -173,28 +201,37 @@ def apply_action(state: GameState, action: Action) -> None:
         if o is None:
             state.emit("CareerEvent", "No such desk to court.", action="court")
         else:
-            o.warmth[player.party] = min(1.0, o.warmth.get(player.party, 0.0)
-                                         + p.COURT_WARMTH)
+            old = o.warmth.get(player.party, 0.0)
+            o.warmth[player.party] = min(1.0, old + p.COURT_WARMTH)
             state.emit("CareerEvent",
-                       f"You wine and dine the editors of {o.name}.",
+                       f"You wine and dine the editors of {o.name} — "
+                       f"warmth {old:.2f} -> {o.warmth[player.party]:.2f}.",
                        action="court", outlet=o.id)
 
     elif action.kind == "lobby" and action.target in state.mps:
         t = state.mps[action.target]
-        t.relationships[player.id] = t.relationships.get(player.id, 0) + 0.2
+        old = t.relationships.get(player.id, 0.0)
+        t.relationships[player.id] = old + 0.2
         player.relationships[t.id] = player.relationships.get(t.id, 0) + 0.15
-        state.emit("CareerEvent", f"You lobby {t.name}.", action="lobby")
+        state.emit("CareerEvent",
+                   f"You lobby {t.name} — their regard {old:.2f} -> "
+                   f"{t.relationships[player.id]:.2f}.", action="lobby")
 
     elif action.kind == "scheme":
         # quiet dinners with colleagues — builds support, slightly risky
         pt = state.parties.get(player.party)
+        warmed = 0
         if pt:
             for mid in sorted(pt.members)[:8]:
                 if mid != player.id:
                     state.mps[mid].relationships[player.id] = \
                         state.mps[mid].relationships.get(player.id, 0) + 0.05
+                    warmed += 1
         player.dossier += 0.03
-        state.emit("CareerEvent", "You scheme discreetly.", action="scheme")
+        state.emit("CareerEvent",
+                   f"You scheme discreetly — {warmed} colleagues warmed; "
+                   f"your dossier grows to {player.dossier:.2f}.",
+                   action="scheme")
 
     elif action.kind == "deal" and action.target in state.mps \
             and action.target != state.player_id \
@@ -206,10 +243,13 @@ def apply_action(state: GameState, action: Action) -> None:
         v = int(np.sign(action.vote))
         state.deals = [d for d in state.deals if d.mp != t.id]  # one promise per head
         state.deals.append(Deal(mp=t.id, vote=v, bill=state.current_bill))
-        t.relationships[player.id] = t.relationships.get(player.id, 0.0) + p.DEAL_REL
+        old = t.relationships.get(player.id, 0.0)
+        t.relationships[player.id] = old + p.DEAL_REL
         col = {1: "aye", -1: "no", 0: "abstention"}[v]
         state.emit("DealMade", f"You promise {t.name} your {col} on the "
-                               f"{state.current_bill.name}.", mp=t.id, vote=v)
+                               f"{state.current_bill.name} — their regard "
+                               f"{old:.2f} -> {t.relationships[player.id]:.2f}.",
+                   mp=t.id, vote=v)
 
     elif action.kind == "attack" and player.party not in state.government.parties \
             and state.government.parties:
@@ -221,25 +261,31 @@ def apply_action(state: GameState, action: Action) -> None:
             for pid in state.government.parties:
                 if pid in state.parties:
                     state.parties[pid].brand -= p.ATTACK_BRAND
+            old = player.standing
             player.standing = float(np.clip(player.standing + p.ATTACK_STANDING, -1, 1))
             state.emit("AttackLands",
-                       "Your attack lands — the government reels.", mp=player.id)
+                       f"Your attack lands — coalition brand −{p.ATTACK_BRAND:.2f} "
+                       f"each, your standing {old:.2f} -> {player.standing:.2f}.",
+                       mp=player.id)
         else:
+            old = player.standing
             player.standing = float(np.clip(player.standing - p.ATTACK_WHIFF, -1, 1))
-            state.emit("CareerEvent", "Your attack on the government falls flat.",
-                       action="attack")
+            state.emit("CareerEvent",
+                       f"Your attack on the government falls flat — standing "
+                       f"{old:.2f} -> {player.standing:.2f}.", action="attack")
 
     elif action.kind == "amend" and state.current_bill is not None \
             and not state.current_bill.amended:
         # one amendment per bill — the mover drags it toward their own ground
         bill = state.current_bill
-        bill.pos = tuple(np.clip(np.asarray(bill.pos) + p.AMEND_STEP
-                                 * (np.asarray(player.pos) - np.asarray(bill.pos)),
-                                 -1, 1))
+        old = np.asarray(bill.pos)
+        bill.pos = tuple(np.clip(old + p.AMEND_STEP
+                                 * (np.asarray(player.pos) - old), -1, 1))
         bill.amended = True
+        d = float(np.linalg.norm(np.asarray(bill.pos) - old))
         state.emit("AmendMoved",
-                   f"You amend the {bill.name} — it shifts toward your ground.",
-                   bill=bill.name)
+                   f"You amend the {bill.name} — it moves {d:.2f} toward "
+                   f"your ground.", bill=bill.name)
 
     elif action.kind == "table" and state.phase == "governing" \
             and player.party not in state.government.parties:
@@ -373,8 +419,12 @@ def apply_action(state: GameState, action: Action) -> None:
     elif action.kind == "platform":
         # leaders pull the party platform toward their own position
         pt = state.parties[player.party]
-        pt.platform = tuple(np.clip(np.asarray(pt.platform) + 0.05 * (np.asarray(player.pos) - np.asarray(pt.platform)), -1, 1))
-        state.emit("CareerEvent", f"You nudge {pt.name}'s platform.", action="platform")
+        old = np.asarray(pt.platform)
+        pt.platform = tuple(np.clip(old + 0.05 * (np.asarray(player.pos) - old), -1, 1))
+        d = float(np.linalg.norm(np.asarray(pt.platform) - old))
+        state.emit("CareerEvent",
+                   f"You nudge {pt.name}'s platform — it moves {d:.2f} "
+                   f"toward you.", action="platform")
 
 
 def _leave_party(state: GameState, player, exclude=()) -> None:
@@ -405,7 +455,7 @@ def _leave_party(state: GameState, player, exclude=()) -> None:
         state.government.amend_move = None      # and your pending amendment
         state.bench_shortlist = []              # and your pending nominees lapse
         # you can't lead a coalition you left — the office follows the
-        # largest coalition party's leader; nobody legitimate → it falls.
+        # largest coalition party's leader; nobody legitimate -> it falls.
         # Successors must be *staying* members — a pending walker can't
         # inherit an office in a coalition they're about to leave.
         largest = max(sorted(i for i in state.government.parties if i in state.parties),
