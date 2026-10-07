@@ -26,6 +26,10 @@ SALIENCE_SD = 0.30
 VOTE_NOISE_SD = 0.20         # per-voter scoring noise
 LOYALTY_WEIGHT = 0.60        # bonus to last-voted party
 TURNOUT_MODEL_NOISE = 0.05   # extra turnout jitter at election time
+INCUMBENT_BONUS = 0.06       # the personal vote — a name voters know outruns the label
+VIABILITY_WEIGHT = 0.05      # strategic desertion: log of poll share discounts hopeless candidates
+VIABILITY_EPS = 0.03         # share floor so a party no poll has seen isn't mathematically dead
+GOTV_LIFT = 0.03             # door-knocking raises district turnout propensity
 INDEPENDENT_P = 0.10   # per-district chance a party-less local stands
 INDEPENDENT_POS_SD = 0.35  # eccentric locals — near the centroid, never exactly on it
 

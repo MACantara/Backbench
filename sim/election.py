@@ -1,6 +1,7 @@
 """FPTP district elections: vectorized voter scoring, winner takes the seat."""
 from __future__ import annotations
 
+import math
 import random
 
 import numpy as np
@@ -94,6 +95,11 @@ def _district_scores(state: GameState, mask: np.ndarray, cand_pos: dict,
     dpos, dsal = v.pos[mask], v.salience[mask]
     parties = sorted(cand_pos)
     inc_parties = {i.party for i in incumbents}
+    # the published poll is the viability signal: voters desert candidates
+    # the country has already counted out — Duverger's desertion term
+    poll_sh = (state.last_poll or {}).get("shares") or {}
+    viable = lambda pid: p.VIABILITY_WEIGHT * math.log(
+        poll_sh.get(pid, 0.0) + p.VIABILITY_EPS)
     score = np.empty((dpos.shape[0], len(parties)))
     for j, pid in enumerate(parties):
         if pid == INDEPENDENT:
@@ -101,7 +107,9 @@ def _district_scores(state: GameState, mask: np.ndarray, cand_pos: dict,
             d = dpos - np.asarray(cand_pos[pid])
             score[:, j] = -np.sqrt((d * d * dsal).sum(axis=1))
             if None in inc_parties:
+                score[:, j] += p.INCUMBENT_BONUS
                 score[:, j] -= v.betrayal[mask]  # betrayal sticks to the person too
+            score[:, j] += viable(pid)
             continue
         pt = state.parties[pid]
         # the candidate is a person; the label is a media-constructed caricature
@@ -112,8 +120,10 @@ def _district_scores(state: GameState, mask: np.ndarray, cand_pos: dict,
         score[:, j] += p.BRAND_WEIGHT * pt.brand
         score[:, j] += p.LOYALTY_WEIGHT * v.loyalty[mask] * (v.last_party[mask] == pid)
         score[:, j] += p.RETRO_WEIGHT * mood(state.conditions) * responsibility(state, pid)
+        score[:, j] += viable(pid)
         if pid in inc_parties:
-            score[:, j] -= v.betrayal[mask]  # broken promises bite the incumbent's party
+            score[:, j] += p.INCUMBENT_BONUS  # the personal vote — a known name
+            score[:, j] -= v.betrayal[mask]   # broken promises bite the incumbent's party
     rnd = rnd if rnd is not None else state.rng
     score += np.random.default_rng(int(rnd.random() * 2**63)).normal(0, p.VOTE_NOISE_SD, score.shape)
     return score, parties
