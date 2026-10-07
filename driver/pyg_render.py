@@ -235,12 +235,25 @@ def draw_panel(drv) -> None:
     y += 36
     speed = ["0.5x", "1x", "2x", "4x"][drv.speed_i]
     mode = "AUTO" if drv.auto_play else ("PAUSED" if drv.paused else "running")
-    hint = (f"{mode} {speed} — space pause · a auto · c log · tab map · "
-            "+/- speed · f5 save · f9 load · f12 shot · q quit")
-    for ln in _wrap(drv, hint, W - PANEL_X - 32):
-        _text(drv, ln, (x, y), DIM)
-        y += 15
-    y += 10
+    _text(drv, f"{mode} {speed}", (x, y), DIM)
+    y += 22
+    # toolbar — every command a visible button; keys still work
+    rows = [
+        [("menu:pause", "resume" if drv.paused else "pause"),
+         ("menu:auto", "auto on" if drv.auto_play else "auto"),
+         ("menu:spd-", "slower"), ("menu:spd+", "faster")],
+        [("menu:view", "map" if drv.view == "parliament" else "house"),
+         ("menu:chr", "log"), ("menu:save", "save"), ("menu:load", "load")],
+        [("menu:shot", "shot"), ("menu:quit", "quit")],
+    ]
+    for row in rows:
+        bx = x
+        for bid, lab in row:
+            w = 10 + 9 * len(lab)
+            _button(drv, bid, lab, pygame.Rect(bx, y, w, 22))
+            bx += w + 4
+        y += 26
+    y += 8
     last = next((e for e in reversed(s.log) if e.type == "PollShift"), None)
     if last:
         _text(drv, "Polls", (x, y), DIM)
