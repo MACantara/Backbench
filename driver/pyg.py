@@ -89,7 +89,8 @@ class Driver:
         self.reveal = None          # {"order": [districts], "t": s} election reveal
         self.results = None         # {"seats", "prev"} — seat-change card
         self.chronicle = {"open": False, "scroll": 0, "filter": None}
-        self.menu_open = False      # settings popup
+        self.menu_open = False      # hamburger popup
+        self.menu_sub = "main"      # main | settings — which page it shows
         self.menu_rect = None       # its bounds, set by the renderer
         self.save_picker = None     # "save" | "load" — file-picker modal
         self.picker_rect = None     # its bounds, set by the renderer
@@ -423,8 +424,15 @@ class Driver:
             self.running = False
         elif bid == "menu:settings":
             self.menu_open = True
+            self.menu_sub = "settings"
         elif bid == "menu:close":
             self.menu_open = False
+        elif bid == "burger":
+            self.menu_open = not self.menu_open
+            if self.menu_open:
+                self.menu_sub = "main"
+        elif bid.startswith("gm:"):
+            self.menu_sub = bid[3:]
         elif bid.startswith("pg:"):
             self.menu_page = bid[3:]
         elif bid.startswith("scn:"):
