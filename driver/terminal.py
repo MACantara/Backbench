@@ -262,9 +262,14 @@ def run(seed: int = 0, load: bool = False, scenario=None,
                     if res:
                         tally = sorted(res.data["seats"].items(),
                                        key=lambda kv: -kv[1])
+                        prev = res.data.get("prev", {})
                         names = {pid: pt.name for pid, pt in state.parties.items()}
+                        def _delta(p_, n_):
+                            d = n_ - prev.get(p_, 0)
+                            return f" ({'+' if d >= 0 else ''}{d})" if d else ""
                         print(f"   called {len(drs)}/{len(drs)} districts — "
-                              + " · ".join(f"{names.get(p, p)} {n}" for p, n in tally))
+                              + " · ".join(f"{names.get(p, p)} {n}{_delta(p, n)}"
+                                          for p, n in tally))
                     flips = [x for x in drs if x.data["flipped"]]
                     if flips:
                         print("   flips:", "; ".join(x.text for x in flips[:8])

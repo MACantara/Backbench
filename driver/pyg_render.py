@@ -121,6 +121,20 @@ def draw_map(drv) -> None:
             _text(drv, "flips: " + "; ".join(flips[-3:]), (ox, oy + gy * (cell + 2) + 6), WHITE)
     _text(drv, title, (ox, oy - 28), DIM)
 
+    if drv.results:  # election-night card: every party's seats vs last parliament
+        seats, prev = drv.results["seats"], drv.results["prev"]
+        ry = oy + gy * (cell + 2) + 34
+        _text(drv, "The new parliament", (ox, ry - 20), DIM)
+        for i, pid in enumerate(sorted({*seats, *prev},
+                                       key=lambda k: -seats.get(k, 0))):
+            n, was = seats.get(pid, 0), prev.get(pid, 0)
+            delta = f"  ({'+' if n - was >= 0 else ''}{n - was})" if n != was else ""
+            name = s.parties[pid].name if pid in s.parties else "independent"
+            cx = ox + (i % 3) * 190
+            cy = ry + (i // 3) * 20
+            pygame.draw.circle(drv.screen, party_color(s, pid), (cx + 5, cy + 7), 5)
+            _text(drv, f"{name} {n}{delta}", (cx + 14, cy), FG)
+
     sx, sy, sz = 560, 60, 420
     pygame.draw.rect(drv.screen, PANEL, (sx - 12, sy - 12, sz + 24, sz + 24))
     pygame.draw.rect(drv.screen, DIM, (sx - 12, sy - 12, sz + 24, sz + 24), 1)

@@ -22,6 +22,11 @@ def main() -> None:
     seats = a.log[-1].data["seats"]
     assert sum(seats.values()) == 120
 
+    # ElectionResult carries the previous parliament's totals — the
+    # seat-change numbers every driver renders
+    prev = a.log[-1].data["prev"]
+    assert sum(prev.values()) == 120 and sum(seats.values()) == sum(prev.values())
+
     # proximity test (scoring level): a voter at plat0 scores a plat0 candidate
     # above every other platform — zero noise so ordering is pure distance
     import sim.params as p
