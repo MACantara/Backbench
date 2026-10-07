@@ -164,7 +164,7 @@ class Driver:
 
     def step(self, dt: float) -> None:
         """Advance animations and the auto-run clock; pause/banner blocks progress."""
-        if self.state is None:
+        if self.state is None or self.mode != "game":
             return                  # still on the menu
         if self.reveal:
             self.reveal["t"] += dt
@@ -203,6 +203,18 @@ class Driver:
     def _dismiss_banner(self) -> None:
         self.banner = None
         self.paused = self._banner_paused
+        self._to_menu_if_over()
+
+    def _to_menu_if_over(self) -> None:
+        """A dead career leaves nothing to watch — once the game-over
+        banner and the epilogue are both closed, land on the title menu."""
+        if (self.state is not None and self.state.phase == "over"
+                and self.banner is None and self.why_text is None):
+            self.mode, self.menu_page = "menu", "main"
+            self.menu_open = False
+            self.save_picker = None
+            self.chronicle["open"] = False
+            self.inspect_mp = None
 
     def _space(self) -> None:
         if self.banner:
@@ -404,6 +416,7 @@ class Driver:
             self.chronicle["open"] = False
         elif bid == "close:why":
             self.why_text = None
+            self._to_menu_if_over()
         elif bid == "close:inspect":
             self.inspect_mp = None
         elif bid == "close:banner":
@@ -541,6 +554,7 @@ class Driver:
                     self.save_picker = None
                 elif self.why_text:
                     self.why_text = None
+                    self._to_menu_if_over()
                 elif self.inspect_mp is not None:
                     self.inspect_mp = None
                 else:
