@@ -73,7 +73,7 @@ def prompt_actions(state) -> tuple[list[Action], "object | None"]:
         print(f"\nActions ({left} pts left):",
               ", ".join(f"{i}:{a}" + (f"·{cost_of(a)}" if cost_of(a) else "")
                         for i, a in enumerate(menu)),
-              "| inspect <mp_id|bench> | why | save | load")
+              "| inspect <mp_id|bench> | why | forecast | save | load")
         try:
             raw = input("action > ").strip()
         except EOFError:
@@ -88,6 +88,9 @@ def prompt_actions(state) -> tuple[list[Action], "object | None"]:
             continue
         if raw == "why":
             print(explain_vote(state))
+            continue
+        if raw == "forecast":
+            print(show_forecast(state))
             continue
         if raw.startswith("inspect"):
             parts = raw.split()
@@ -232,6 +235,34 @@ def show_poll(state) -> None:
         print(f"  {label}:", "  ".join(f"{k} {v}" for k, v in shares.items()))
 
 
+def show_forecast(state) -> str:
+    """The race as it stands: your district's ballot plus the national
+    battleground — which seats a small swing could move."""
+    from sim.election import battleground, district_forecast
+    me = state.mps.get(state.player_id)
+    lines = []
+    if me:
+        f = district_forecast(state, me.district)
+        lines.append(f"  district {me.district} — projected:")
+        for c in f["candidates"]:
+            name = (state.parties[c["party"]].name
+                    if c["party"] in state.parties else "independent")
+            mark = "*" if c["name"] == me.name else " "
+            won = "+" if c["won"] else " "
+            lines.append(f"   {mark}{won}{c['name']:<22} {name[:18]:<18} "
+                         f"{c['share']:.0%}")
+    bg = battleground(state)
+    tight = [r for r in bg["districts"][:5]]
+    lines.append("  battleground (tightest seats): "
+                 + "  ".join(f"d{r['district']} {r['margin']:.0%}"
+                            + ("*" if r["you"] else "") for r in tight))
+    proj = sorted(bg["seats"].items(), key=lambda kv: -kv[1])
+    lines.append("  projected seats: " + " · ".join(
+        f"{state.parties[q].name if q in state.parties else 'ind'} {n}"
+        for q, n in proj))
+    return "\n".join(lines)
+
+
 def run(seed: int = 0, load: bool = False, scenario=None,
         spectate: bool = False) -> None:
     if load:
@@ -259,6 +290,14 @@ def run(seed: int = 0, load: bool = False, scenario=None,
     while state.phase != "over":
         print(f"\n-- Week {state.week} [{state.phase}] {'-' * 40}")
         show_poll(state)
+        if state.phase == "campaign" and state.player_id in state.mps:
+            from sim.election import district_forecast
+            me = state.mps[state.player_id]
+            f = district_forecast(state, me.district)
+            a, b = f["candidates"][0], f["candidates"][1]
+            you = " (you)" if a["name"] == me.name else ""
+            print(f"  d{me.district} projection: {a['name']} {a['share']:.0%}{you} "
+                  f"vs {b['name']} {b['share']:.0%} — 'forecast' for the full race")
         if spectate:
             from sim.bot import auto_actions
             actions, loaded = auto_actions(state), None
@@ -288,6 +327,14 @@ def run(seed: int = 0, load: bool = False, scenario=None,
                         print(f"   called {len(drs)}/{len(drs)} districts — "
                               + " · ".join(f"{names.get(p, p)} {n}{_delta(p, n)}"
                                           for p, n in tally))
+                        votes = res.data.get("votes", {})
+                        vtot = max(sum(votes.values()), 1)
+                        stot = max(sum(res.data["seats"].values()), 1)
+                        print("   votes in, seats out:")
+                        for q, n in tally:
+                            v = votes.get(q, 0)
+                            print(f"     {names.get(q, q):<22} {v:>6} "
+                                  f"{v / vtot:.0%}  ->  {n:>3} {n / stot:.0%}")
                     flips = [x for x in drs if x.data["flipped"]]
                     if flips:
                         print("   flips:", "; ".join(x.text for x in flips[:8])

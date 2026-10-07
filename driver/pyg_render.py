@@ -387,6 +387,23 @@ def draw_panel(drv) -> None:
         y += 20
         _text(drv, f"portfolio: {mp.portfolio or '—'}", (x, y), DIM)
         y += 24
+    if s.phase == "campaign" and mp:
+        from sim.election import district_forecast
+        key = (s.week, mp.district)
+        fc = drv.forecast_cache.get(key)
+        if fc is None:
+            fc = district_forecast(s, mp.district)
+            drv.forecast_cache[key] = fc
+        _text(drv, f"d{mp.district} — the race as it stands", (x, y), DIM)
+        y += 18
+        for c in fc["candidates"][:3]:
+            pid = c["party"]
+            pygame.draw.circle(drv.screen, party_color(s, pid), (x + 4, y + 6), 4)
+            you = "*" if c["name"] == mp.name else ""
+            _text(drv, f"{c['name'][:16]}  {c['share']:.0%}{you}",
+                  (x + 12, y), GOLD if c["won"] else DIM, drv.small)
+            y += 15
+        y += 8
     _text(drv, "Events", (x, y), DIM)
     y += 20
     for e in s.log[-9:]:

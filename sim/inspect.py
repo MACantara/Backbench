@@ -197,7 +197,7 @@ def explain_action(state: GameState, kind: str,
         plat = pt.platform if pt else me.pos
         gap = dist(v.pos[mask].mean(axis=0), plat) if mask.any() else 0.0
         return (f"the district sits {gap:.2f} from the platform — "
-                "each knock closes ~0.03")
+                f"each knock closes ~0.03 and lifts turnout ~{p.GOTV_LIFT:.0%}")
     if kind == "constituency":
         return (f"standing {me.standing:.2f} -> "
                 f"{min(1.0, me.standing + p.STANDING_SERVICE):.2f}, "

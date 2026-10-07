@@ -105,6 +105,7 @@ class Driver:
         self.picker_rect = None     # its bounds, set by the renderer
         self.auto_play = False      # skip the weekly action pause
         self.autosaved_week = -1    # last week written to autosave.json
+        self.forecast_cache = {}    # (week, district) -> projection — per-frame calls are expensive
 
     @staticmethod
     def _load_settings() -> dict:
@@ -348,6 +349,7 @@ class Driver:
         self.menu_open = False
         self.gameover = False
         self.fame_recorded = False   # a fresh run earns its own entry
+        self.forecast_cache = {}
 
     def on_button(self, bid: str) -> None:
         from sim.actions import cost_of
