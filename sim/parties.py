@@ -129,11 +129,11 @@ def party_lifecycle(state: GameState) -> None:
         near = np.argmin(np.linalg.norm(
             v.pos[:, None, :] - plats[None, :, :], axis=2), axis=1)
         for i, pid in enumerate(pids):
-            if pid in state.government.parties:
-                continue
+            pt = state.parties[pid]
+            if pid in state.government.parties or pt.founded_week == state.week:
+                continue   # governments hold the agenda; newborns get a week
             base = v.pos[near == i]
             if len(base):
-                pt = state.parties[pid]
                 pt.platform = tuple(np.clip(
                     np.asarray(pt.platform) + p.PLATFORM_BASE_PULL
                     * (base.mean(axis=0) - np.asarray(pt.platform)), -1, 1))
