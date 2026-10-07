@@ -152,6 +152,46 @@ class Driver:
                 self.action_pause = True   # stop the clock for the weekly decision
                 self.paused = True
 
+    def _space(self) -> None:
+        if self.banner:
+            self.banner, self.paused = None, False
+        elif self.action_pause:
+            self.on_button("continue")
+        else:
+            self.paused = not self.paused
+
+    def _toggle_chronicle(self) -> None:
+        c = self.chronicle
+        c["open"] = not c["open"]
+        if c["open"]:
+            c["scroll"] = 10 ** 9      # pin to latest; draw clamps
+
+    def _save(self) -> None:
+        SAVES.mkdir(exist_ok=True)
+        text = to_json(self.state)
+        (SAVES / f"s{self.state.seed}-w{self.state.week}.json") \
+            .write_text(text, encoding="utf-8")
+        (SAVES / "latest.json").write_text(text, encoding="utf-8")
+        self.banner = f"Saved — week {self.state.week}"
+        self.paused = True
+
+    def _load(self) -> None:
+        saves = [q for q in (SAVES / "latest.json",
+                             SAVES / "autosave.json") if q.exists()]
+        if saves:
+            p = max(saves, key=lambda q: q.stat().st_mtime)
+            self.state = from_json(p.read_text(encoding="utf-8"))
+            self._reset_view()
+            self.autosaved_week = self.state.week
+            self.banner = f"Loaded — week {self.state.week}"
+            self.paused = True
+
+    def _shot(self) -> None:
+        Path("shots").mkdir(exist_ok=True)
+        pygame.image.save(self.screen, f"shots/week{self.state.week}.png")
+        self.banner = "Screenshot saved"
+        self.paused = True
+
     def _autosave(self) -> None:
         if self.autosaved_week == self.state.week:
             return                  # idempotent — one write per week
@@ -310,6 +350,26 @@ class Driver:
             self.inspect_mp = None
         elif bid == "close:banner":
             self.banner, self.paused = None, False
+        elif bid == "menu:pause":
+            self._space()
+        elif bid == "menu:auto":
+            self.toggle_auto()
+        elif bid == "menu:spd-":
+            self.speed_i = max(self.speed_i - 1, 0)
+        elif bid == "menu:spd+":
+            self.speed_i = min(self.speed_i + 1, len(SPEEDS) - 1)
+        elif bid == "menu:view":
+            self.view = "map" if self.view == "parliament" else "parliament"
+        elif bid == "menu:chr":
+            self._toggle_chronicle()
+        elif bid == "menu:save":
+            self._save()
+        elif bid == "menu:load":
+            self._load()
+        elif bid == "menu:shot":
+            self._shot()
+        elif bid == "menu:quit":
+            self.running = False
 
     def _after_pick(self) -> None:
         if len(self.picks) >= 2:
@@ -338,10 +398,7 @@ class Driver:
             elif e.key == pygame.K_q and not self.chronicle["open"]:
                 self.running = False
             elif e.key in (pygame.K_c, pygame.K_l):
-                c = self.chronicle
-                c["open"] = not c["open"]
-                if c["open"]:
-                    c["scroll"] = 10 ** 9      # pin to latest; draw clamps
+                self._toggle_chronicle()
             elif e.key == pygame.K_a:
                 self.toggle_auto()
             elif e.key == pygame.K_PAGEUP and self.chronicle["open"]:
@@ -349,13 +406,7 @@ class Driver:
             elif e.key == pygame.K_PAGEDOWN and self.chronicle["open"]:
                 self.chronicle["scroll"] -= 20
             elif e.key == pygame.K_SPACE:
-                if self.banner:
-                    self.banner = None
-                    self.paused = False
-                elif self.action_pause:
-                    self.on_button("continue")
-                else:
-                    self.paused = not self.paused
+                self._space()
             elif e.key == pygame.K_TAB:
                 self.view = "map" if self.view == "parliament" else "parliament"
             elif e.key in (pygame.K_EQUALS, pygame.K_PLUS):
@@ -363,26 +414,11 @@ class Driver:
             elif e.key == pygame.K_MINUS:
                 self.speed_i = max(self.speed_i - 1, 0)
             elif e.key == pygame.K_F5:
-                SAVES.mkdir(exist_ok=True)
-                text = to_json(self.state)
-                (SAVES / f"s{self.state.seed}-w{self.state.week}.json") \
-                    .write_text(text, encoding="utf-8")
-                (SAVES / "latest.json").write_text(text, encoding="utf-8")
-                self.banner = f"Saved — week {self.state.week}"
-                self.paused = True
+                self._save()
             elif e.key == pygame.K_F9:
-                saves = [q for q in (SAVES / "latest.json",
-                                     SAVES / "autosave.json") if q.exists()]
-                if saves:
-                    p = max(saves, key=lambda q: q.stat().st_mtime)
-                    self.state = from_json(p.read_text(encoding="utf-8"))
-                    self._reset_view()
-                    self.autosaved_week = self.state.week
-                    self.banner = f"Loaded — week {self.state.week}"
-                    self.paused = True
+                self._load()
             elif e.key == pygame.K_F12:
-                Path("shots").mkdir(exist_ok=True)
-                pygame.image.save(self.screen, f"shots/week{self.state.week}.png")
+                self._shot()
         elif e.type == pygame.MOUSEWHEEL and self.chronicle["open"]:
             self.chronicle["scroll"] += e.y * 3
         elif e.type == pygame.MOUSEBUTTONDOWN:
@@ -398,7 +434,8 @@ class Driver:
                 # the chronicle overlays everything — only its own controls
                 # stay live; buttons beneath it must not fire through it
                 if self.chronicle["open"] and not (
-                        bid.startswith("flt:") or bid == "close:chr"):
+                        bid.startswith("flt:")
+                        or bid in ("close:chr", "menu:chr")):
                     return
                 self.on_button(bid)
                 return
