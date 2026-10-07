@@ -486,13 +486,13 @@ def draw_burger(drv) -> None:
         ]
     else:
         items = [
+            ("gm:settings", "settings"),
             ("menu:pause", "resume" if drv.paused else "pause"),
             ("menu:auto", "auto on" if drv.auto_play else "auto"),
             ("menu:view", "map" if drv.view == "parliament" else "house"),
-            ("menu:chr", "log"),
+            ("menu:chr", "log"), ("menu:shot", "shot"),
             ("menu:save", "save"), ("menu:load", "load"),
-            ("menu:shot", "shot"), ("menu:quit", "quit"),
-            ("gm:settings", "settings"),
+            ("menu:quit", "quit"),
         ]
     _scrim(drv)
     bw = 320
