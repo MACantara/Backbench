@@ -24,6 +24,18 @@ def whip_direction(state: GameState, party_id: int, bill: Bill) -> int:
     return 1 if -d > -0.4 else -1
 
 
+def whip_strength(state: GameState, party_id: int | None) -> float:
+    """A staffed whips office makes the line bind: 1.0 unmanned, higher
+    with a Whip, higher still with a Chief Whip. Applies to the party
+    whip only — a faction's counter-line staffs its own enforcers."""
+    if party_id is None or party_id not in state.parties:
+        return 1.0
+    return 1.0 + sum(
+        p.CHIEF_WHIP_BITE if state.mps[m].junior == "Chief Whip"
+        else p.WHIP_BITE if state.mps[m].junior == "Whip" else 0.0
+        for m in state.parties[party_id].members if m in state.mps)
+
+
 def district_opinion(state: GameState, district: int, bill: Bill) -> float:
     """District's view of the bill relative to the government platform:
     positive when the bill is *closer* to the district than the gov baseline."""
@@ -58,7 +70,7 @@ def vote_terms(state: GameState, mp: MP, bill: Bill,
     fwhip = faction_whip(state, mp, bill)
     terms = {
         "policy": -p.W_POLICY * dist(mp.pos, bill.pos),
-        "whip": p.W_WHIP * whip * mp.loyalty,
+        "whip": p.W_WHIP * whip * mp.loyalty * whip_strength(state, mp.party),
         "gov": p.W_GOV * in_gov,
         "rel": p.W_REL * (mp.relationships.get(state.government.pm, 0.0)
                         if in_gov and state.government.pm is not None else 0.0),

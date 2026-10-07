@@ -98,6 +98,26 @@ def junior_lifecycle(state: GameState) -> None:
             leader.junior, leader.junior_weeks = None, 0
         held = {state.mps[m].junior for m in pt.members
                 if m in state.mps and state.mps[m].junior is not None}
+        # the second rung fills first — a bench holder climbs, vacating
+        # the lower post for the refill pass below
+        for post in p.SENIOR_POSTS:
+            if post in held:
+                continue
+            cands = [m for m in sorted(pt.members)
+                     if m in state.mps and state.mps[m].junior in p.JUNIOR_POSTS
+                     and (post != "Chief Whip" or state.mps[m].junior == "Whip")]
+            if not cands:
+                continue
+            ranked = _ranked(state, cands, pt.leader)
+            best, terms = ranked[0]
+            mp = state.mps[best]
+            held.discard(mp.junior)
+            mp.junior, mp.junior_weeks = post, 0
+            held.add(post)
+            state.emit("Promoted", f"{mp.name} becomes {pt.name} {post}.",
+                       mp=best, ministry=post, party=pid, reason="senior",
+                       terms=terms)
+            _passed_over(state, ranked, f"{pt.name} {post}")
         for post in p.JUNIOR_POSTS:
             if post in held:
                 continue
@@ -185,12 +205,16 @@ def leadership_challenge(state: GameState) -> None:
                 + mp.relationships.get(c, 0.0)
                 + 0.3 * state.mps[c].competence
                 + p.LEADERSHIP_STANDING_W * state.mps[c].standing
-                + (p.FACTION_LEADER_BONUS if c in fleaders else 0.0)))
+                + (p.FACTION_LEADER_BONUS if c in fleaders else 0.0)
+                + (p.DEPUTY_HEIR_BONUS if state.mps[c].junior == "Deputy Leader"
+                   else 0.0)))
             votes[best] += 1
         winner = max(votes, key=votes.get)
         if winner != pt.leader:
             old = state.mps[pt.leader].name
             pt.leader = winner
+            w = state.mps[winner]
+            w.junior, w.junior_weeks = None, 0   # the chair vacates the bench
             state.emit("CareerEvent", f"{state.mps[winner].name} ousts {old} as {pt.name} leader.",
                        party=pid, new_leader=winner)
 
@@ -203,8 +227,14 @@ def remove_mp(state: GameState, mp) -> None:
         pt.members.discard(mp.id)
         if pt.leader == mp.id:
             cands = [m for m in sorted(pt.members) if m in state.mps]
-            pt.leader = max(cands, key=lambda m: state.mps[m].ambition) if cands else None
+            # the named successor takes the chair; else the hungriest member
+            deputy = next((m for m in cands
+                           if state.mps[m].junior == "Deputy Leader"), None)
+            pt.leader = deputy if deputy is not None else (
+                max(cands, key=lambda m: state.mps[m].ambition) if cands else None)
             if pt.leader is not None:
+                new = state.mps[pt.leader]
+                new.junior, new.junior_weeks = None, 0   # the chair vacates the bench
                 state.emit("CareerEvent",
                            f"{state.mps[pt.leader].name} succeeds {mp.name} as {pt.name} leader.",
                            party=pt.id, new_leader=pt.leader)
