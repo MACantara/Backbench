@@ -294,11 +294,24 @@ def run(seed: int = 0, load: bool = False, scenario=None,
             print("   you:", "; ".join(e.text[4].lower() + e.text[5:]
                                         if e.text.startswith("You ") else e.text
                                         for e in echoes))
-    print(f"\n=== Game over - score {final_score(state)} ===")
-    from sim.career import epilogue
+    from sim.career import epilogue, score_breakdown, score_title
+    score = final_score(state)
+    print(f"\n=== Game over — {score_title(score)} (score {score}) ===")
     for line in epilogue(state):
         print(" ", line)
     print(explain_mp(state, state.player_id) if state.player_id in state.mps else "You are out of parliament.")
+    print("\n  career record:")
+    for lab, n, wt, pts in score_breakdown(state):
+        print(f"    {lab:36} {n:>2} x{wt} = {pts:>3}")
+    print(f"    {'total':36} {'':>5} = {score:>3}")
+    from driver.fame import record_fame, same_run
+    this = {"name": state.mps[state.player_id].name
+            if state.player_id in state.mps else "the former member",
+            "seed": state.seed, "week": state.week}
+    print("\n  hall of fame:")
+    for i, e in enumerate(record_fame(state)[:5]):
+        you = " <- you" if same_run(e, this) else ""
+        print(f"    {i+1}. {e['name']:<24} {e['score']:>3} {e['title']:<16}{you}")
 
 
 if __name__ == "__main__":
