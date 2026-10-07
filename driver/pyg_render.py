@@ -624,7 +624,10 @@ def draw_menu(drv) -> None:
             _button(drv, f"scn:{name}", name, rect)
             if name == drv.menu_scenario:
                 pygame.draw.rect(drv.screen, GOLD, rect, 2)
-        y = 256 + ((len(names) + 3) // 4) * 34 + 24
+        desc = SCENARIOS[drv.menu_scenario].desc
+        dy = 256 + ((len(names) + 3) // 4) * 34 + 14
+        _text(drv, desc, (cx - drv.font.size(desc)[0] // 2, dy), DIM)
+        y = dy + 30
         _menu_button(drv, "start:new", f"start — {drv.menu_scenario}", y)
         _menu_button(drv, "pg:main", "back", y + 50, 120)
     elif page == "settings":
