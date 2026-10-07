@@ -562,14 +562,14 @@ class Driver:
             self._dismiss_banner()
             return
         if self.menu_open:
+            inside = self.menu_rect and self.menu_rect.collidepoint(pos)
             hit = next((bid for bid, rect in self.buttons.items()
-                        if rect.collidepoint(pos)
-                        and (bid == "burger" or bid.startswith("menu:"))), None)
-            if hit:
+                        if rect.collidepoint(pos)), None)
+            if hit and (inside or bid == "burger"):
                 self.on_button(hit)
                 if hit.startswith("menu:"):
-                    self.menu_open = False   # dropdown closes on selection
-            elif not (self.menu_rect and self.menu_rect.collidepoint(pos)):
+                    self.menu_open = False   # commands close on selection
+            elif not inside:
                 self.menu_open = False       # lightbox: click outside dismisses
             return
         if self.save_picker:
