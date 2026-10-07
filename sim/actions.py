@@ -88,11 +88,14 @@ def apply_action(state: GameState, action: Action) -> None:
         pt = state.parties.get(player.party)
         plat = np.asarray(pt.platform if pt else player.pos)
         v.pos[mask] += 0.03 * np.sign(plat - v.pos[mask])
+        # the ground game gets your people to the polls — turnout is a lever
+        v.turnout[mask] = np.clip(v.turnout[mask] + p.GOTV_LIFT, 0, 1)
         d = float(np.dot(v.pos[mask].mean(axis=0) - plat,
                          plat / max(np.linalg.norm(plat), 1e-9)))
         state.emit("CareerEvent",
                    f"You campaign door-to-door — the district sits "
-                   f"{abs(d):.2f} from your platform.", action="campaign")
+                   f"{abs(d):.2f} from your platform and the base is stirred.",
+                   action="campaign")
 
     elif action.kind == "constituency":
         # casework: the district remembers you and forgives a little

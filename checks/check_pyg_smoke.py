@@ -9,7 +9,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 from driver.pyg import Driver
 
 d = Driver(seed=3, headless=True)
-saw_election = saw_seats = False
+saw_election = saw_seats = saw_night = False
 for _ in range(35):
     d.banner = None
     d.paused = False
@@ -20,10 +20,20 @@ for _ in range(35):
     d.draw()               # draw path must not throw either
     saw_election |= any(e.type == "ElectionResult" for e in d.events)
     saw_seats |= bool(d.seat_rects)
+    if d.reveal:            # the broadcast must run reveal -> summary -> dismiss
+        for _ in range(20):
+            d.step(0.5)
+            d.draw()
+            if d.night_final:
+                break
+        assert d.night_final, "reveal never reached the summary"
+        saw_night = True
+        d._dismiss_night()
 
 assert d.state.week >= 30, f"expected ~35 weeks, got {d.state.week}"
 assert len(d.events) > 0, "no events collected"
 assert saw_election, "35 weeks without an election"
+assert saw_night, "election night screen never ran"
 assert saw_seats, "no hit-test geometry registered"
 
 # chronicle: open, filter, scroll, close — same paths as the input handlers

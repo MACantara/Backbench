@@ -89,10 +89,20 @@ def _blocking_clause(state: GameState, plat) -> int | None:
 
 def _r_seat_defense(c: _Ctx) -> None:
     """A marginal seat gets casework before ambition — campaign weeks
-    get worked regardless; you don't sleepwalk into a loss."""
-    if c.player.seat_safety < p.BOT_MARGINAL_SAFETY or c.state.phase == "campaign":
-        c.take("campaign" if c.state.phase == "campaign" else "constituency",
-               gate=f"safety {c.player.seat_safety:.2f}")
+    get worked regardless, and the gate reads the projection rather
+    than only the last margin: a seat the forecast says you're losing
+    is marginal even if last time was safe."""
+    if c.state.phase == "campaign":
+        from .election import district_forecast
+        f = district_forecast(c.state, c.player.district)
+        lead = f["candidates"][0] if f["candidates"] else None
+        me_pid = c.player.party if c.player.party is not None else -1
+        losing = not (lead and lead["name"] == c.player.name
+                      and lead["party"] == me_pid)
+        c.take("campaign",
+               gate="projection: losing" if losing else "projection: ahead")
+    elif c.player.seat_safety < p.BOT_MARGINAL_SAFETY:
+        c.take("constituency", gate=f"safety {c.player.seat_safety:.2f}")
 
 
 def _r_party_home(c: _Ctx) -> None:
