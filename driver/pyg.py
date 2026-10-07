@@ -47,6 +47,9 @@ class Driver:
         self.seed = seed
         self.save_dir = SAVES
         self.menu_scenario = scenario if isinstance(scenario, str) else "standard"
+        self.menu_page = "main"     # main | scenarios | settings
+        self.fullscreen = fullscreen
+        self.autosave_weeks = AUTOSAVE_WEEKS
         self.state = new_game(seed, scenario) if not menu else None
         self.running = True
         self.paused = False
@@ -129,7 +132,7 @@ class Driver:
                     if e.type in INTERRUPTS and e.type != "ElectionResult"), None)
         if hit:
             self._show_banner(hit.text)
-        if self.state.week % AUTOSAVE_WEEKS == 0:
+        if self.state.week % self.autosave_weeks == 0:
             self._autosave()
 
     def step(self, dt: float) -> None:
@@ -392,6 +395,8 @@ class Driver:
             self.running = False
         elif bid == "burger":
             self.menu_open = not self.menu_open
+        elif bid.startswith("pg:"):
+            self.menu_page = bid[3:]
         elif bid.startswith("scn:"):
             self.menu_scenario = bid[4:]
         elif bid == "start:new":
@@ -400,6 +405,13 @@ class Driver:
             self._load()
             if self.state is not None:
                 self.mode = "game"
+        elif bid == "set:fullscreen":
+            pygame.display.toggle_fullscreen()
+            self.fullscreen = not self.fullscreen
+        elif bid == "set:spd":
+            self.speed_i = (self.speed_i + 1) % len(SPEEDS)
+        elif bid == "set:auto":
+            self.autosave_weeks = {1: 2, 2: 4, 4: 8, 8: 1}[self.autosave_weeks]
 
     def _after_pick(self) -> None:
         if len(self.picks) >= 2:
@@ -415,10 +427,18 @@ class Driver:
             if e.type == pygame.QUIT:
                 self.running = False
             elif e.type == pygame.KEYDOWN:
-                if e.key in (pygame.K_ESCAPE, pygame.K_q):
+                if e.key == pygame.K_ESCAPE:
+                    if self.menu_page == "main":
+                        self.running = False
+                    else:
+                        self.menu_page = "main"
+                elif e.key == pygame.K_q and self.menu_page == "main":
                     self.running = False
                 elif e.key in (pygame.K_RETURN, pygame.K_KP_ENTER, pygame.K_n):
-                    self._new_game()
+                    if self.menu_page == "scenarios":
+                        self._new_game()
+                    else:
+                        self.menu_page = "scenarios"
             elif e.type == pygame.MOUSEBUTTONDOWN:
                 wx, wy = self.window.get_size()
                 pos = (int(e.pos[0] * W / wx), int(e.pos[1] * H / wy))

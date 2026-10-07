@@ -509,8 +509,11 @@ def draw_banner(drv) -> None:
     _close(drv, "close:banner", 1052, 308)
 
 
+def _menu_button(drv, bid: str, lab: str, y: int, w: int = 240) -> None:
+    _button(drv, bid, lab, pygame.Rect(W // 2 - w // 2, y, w, 36))
+
+
 def draw_menu(drv) -> None:
-    from sim.worldgen import SCENARIOS
     drv.screen.fill(BG)
     drv.buttons = {}
     cx = W // 2
@@ -518,28 +521,45 @@ def draw_menu(drv) -> None:
     drv.screen.blit(t, (cx - t.get_width() // 2, 120))
     tag = "a career inside a parliament that runs itself"
     _text(drv, tag, (cx - drv.font.size(tag)[0] // 2, 158), DIM)
-    _text(drv, "starting situation:", (cx - 240, 230), DIM)
-    names = list(SCENARIOS)
-    for i, name in enumerate(names):
-        row, col = divmod(i, 4)
-        rect = pygame.Rect(cx - 240 + col * 124, 256 + row * 34, 116, 28)
-        _button(drv, f"scn:{name}", name, rect)
-        if name == drv.menu_scenario:
-            pygame.draw.rect(drv.screen, GOLD, rect, 2)
-    y = 256 + ((len(names) + 3) // 4) * 34 + 24
-    lab = f"new game — {drv.menu_scenario}"
-    _button(drv, "start:new", lab,
-            pygame.Rect(cx - (20 + 9 * len(lab)) // 2, y, 20 + 9 * len(lab), 34))
-    y += 50
-    saves = [q for q in (drv.save_dir / "latest.json",
-                         drv.save_dir / "autosave.json") if q.exists()]
-    if saves:
-        _button(drv, "start:load", "load saved game",
-                pygame.Rect(cx - 90, y, 180, 34))
+    page = drv.menu_page
+
+    if page == "scenarios":
+        from sim.worldgen import SCENARIOS
+        _text(drv, "pick a starting situation:", (cx - 240, 230), DIM)
+        names = list(SCENARIOS)
+        for i, name in enumerate(names):
+            row, col = divmod(i, 4)
+            rect = pygame.Rect(cx - 240 + col * 124, 256 + row * 34, 116, 28)
+            _button(drv, f"scn:{name}", name, rect)
+            if name == drv.menu_scenario:
+                pygame.draw.rect(drv.screen, GOLD, rect, 2)
+        y = 256 + ((len(names) + 3) // 4) * 34 + 24
+        _menu_button(drv, "start:new", f"start — {drv.menu_scenario}", y)
+        _menu_button(drv, "pg:main", "back", y + 50, 120)
+    elif page == "settings":
+        _text(drv, "settings:", (cx - 120, 230), DIM)
+        _menu_button(drv, "set:fullscreen",
+                     f"fullscreen: {'on' if drv.fullscreen else 'off'}", 260)
+        speed = ["0.5x", "1x", "2x", "4x"][drv.speed_i]
+        _menu_button(drv, "set:spd", f"speed: {speed}", 310)
+        _menu_button(drv, "set:auto",
+                     f"autosave: every {drv.autosave_weeks}w", 360)
+        _menu_button(drv, "pg:main", "back", 430, 120)
     else:
-        _text(drv, "no saved games yet", (cx - 76, y + 8), DIM)
-    _button(drv, "menu:quit", "quit", pygame.Rect(cx - 42, y + 50, 84, 28))
-    _text(drv, "enter: new game · esc: quit", (cx - 110, H - 40), DIM)
+        _menu_button(drv, "pg:scenarios", "start game", 260)
+        saves = [q for q in (drv.save_dir / "latest.json",
+                             drv.save_dir / "autosave.json") if q.exists()]
+        if saves:
+            _menu_button(drv, "start:load", "load saved game", 310)
+        else:
+            _text(drv, "no saved games yet", (cx - 76, 318), DIM)
+        _menu_button(drv, "pg:settings", "settings", 360)
+        _menu_button(drv, "menu:quit", "quit", 410)
+
+    hint = {"main": "enter: start · esc: quit",
+            "scenarios": "enter: start · esc: back",
+            "settings": "esc: back"}[page]
+    _text(drv, hint, (cx - drv.font.size(hint)[0] // 2, H - 40), DIM)
 
 
 def draw(drv) -> None:
