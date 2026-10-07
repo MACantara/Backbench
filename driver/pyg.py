@@ -73,11 +73,13 @@ class Driver:
         self.viz_rng = random.Random(1)  # visuals only — never touches sim rng
         self.district_prev = {}     # district -> party before the latest tick
         self.reveal = None          # {"order": [districts], "t": s} election reveal
+        self.results = None         # {"seats", "prev"} — seat-change card
         self.chronicle = {"open": False, "scroll": 0, "filter": None}
         self.auto_play = False      # skip the weekly action pause
 
     def advance(self, actions: list | None = None) -> None:
         """One week forward; collects events for animation and interrupts."""
+        self.results = None
         if self.state.phase == "over":
             from sim.career import epilogue
             self.banner = f"Game over — score {final_score(self.state)}"
@@ -97,6 +99,9 @@ class Driver:
                            "flips": {e.data["district"]: e.text.split(": ", 1)[-1]
                                      for e in drs if e.data["flipped"]},
                            "seats": {}}
+            res = next(e for e in self.events if e.type == "ElectionResult")
+            self.results = {"seats": res.data["seats"],
+                            "prev": res.data.get("prev", {})}
             self.view = "map"
         vote = next((e for e in self.events if e.type == "VoteResult"), None)
         if vote and "detail" in vote.data:
@@ -159,6 +164,7 @@ class Driver:
         self.vote_anim = None
         self.vote_flash = {}
         self.reveal = None
+        self.results = None
         self.inspect_mp = None
         self.why_text = None
         self.week_timer = 0.0

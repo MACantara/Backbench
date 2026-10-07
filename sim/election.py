@@ -66,8 +66,11 @@ def resolve_election(state: GameState) -> None:
         v.turnout + rng.normal(0, p.TURNOUT_MODEL_NOISE, len(v.pos)), 0, 1)
     new_mps: dict[int, MP] = {}
     player_district = state.mps[state.player_id].district
+    prev_seats: dict = {}
     incumbents: dict[int, list[MP]] = {}
     for m in state.mps.values():
+        prev_seats["ind" if m.party is None else m.party] = \
+            prev_seats.get("ind" if m.party is None else m.party, 0) + 1
         incumbents.setdefault(m.district, []).append(m)
     next_id = max(state.mps) + 1
     mag = state.district_magnitude
@@ -203,7 +206,8 @@ def resolve_election(state: GameState) -> None:
             pt.leader = max(sorted(pt.members), key=lambda m: state.mps[m].ambition) if pt.members else None
     state.emit("ElectionResult",
                render(state, "ElectionResult", country=state.country),
-               seats={"ind" if k == INDEPENDENT else k: n for k, n in seat_counts.items()})
+               seats={"ind" if k == INDEPENDENT else k: n for k, n in seat_counts.items()},
+               prev=prev_seats)
 
 
 def poll(state: GameState, outlet=None) -> dict[int, float]:
