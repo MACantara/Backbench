@@ -269,7 +269,12 @@ def draw_panel(drv) -> None:
             y += 16
 
 
-def _button(drv, bid: str, label: str, rect) -> None:
+def _button(drv, bid: str, label: str, rect, disabled: bool = False) -> None:
+    if disabled:
+        pygame.draw.rect(drv.screen, (34, 37, 48), rect)
+        pygame.draw.rect(drv.screen, DIM, rect, 1)
+        _text(drv, label, (rect.x + 8, rect.y + 6), DIM)
+        return                          # unregistered — clicks fall through
     pygame.draw.rect(drv.screen, (50, 55, 70), rect)
     pygame.draw.rect(drv.screen, DIM, rect, 1)
     _text(drv, label, (rect.x + 8, rect.y + 6))
@@ -277,10 +282,10 @@ def _button(drv, bid: str, label: str, rect) -> None:
 
 
 def draw_action_panel(drv) -> None:
-    from sim.actions import available_actions
+    from sim.actions import available_actions, cost_of
     pygame.draw.rect(drv.screen, PANEL, (20, H - 150, 940, 130))
     pygame.draw.rect(drv.screen, DIM, (20, H - 150, 940, 130), 1)
-    _text(drv, f"Actions — pick {2 - len(drv.picks)} more "
+    _text(drv, f"Actions — {drv.points_left()} pts left "
                f"(or continue): {[a.kind for a in drv.picks]}", (34, H - 140))
     if drv.need_outlet or drv.leak_outlet is not None:
         me = drv.state.mps[drv.state.player_id]
@@ -373,9 +378,13 @@ def draw_action_panel(drv) -> None:
                          f"+{_CLAUSES[(ax, pole)][4:][:14]}")
     else:
         x = 34
+        left = drv.points_left()
         for kind in available_actions(drv.state):
-            w = 8 + 9 * len(kind) + 16
-            _button(drv, f"act:{kind}", kind, pygame.Rect(x, H - 110, w, 30))
+            cost = cost_of(kind)
+            lab = kind if cost == 0 else f"{kind} ·{cost}"
+            w = 8 + 9 * len(lab) + 16
+            _button(drv, f"act:{kind}", lab, pygame.Rect(x, H - 110, w, 30),
+                    disabled=cost > left)
             x += w + 8
         if drv.state.week == 0 and drv.state.ambition is None:
             # the opening pick — pass it by and the career stays open-ended

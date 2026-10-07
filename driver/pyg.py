@@ -278,10 +278,13 @@ class Driver:
         self.menu_open = False
 
     def on_button(self, bid: str) -> None:
+        from sim.actions import cost_of
         from sim.inspect import explain_bench, explain_vote
         if bid.startswith("act:"):
-            self._clear_pending()
             kind = bid[4:]
+            if cost_of(kind) > self.points_left():
+                return               # unaffordable — the button rendered dim
+            self._clear_pending()
             if kind in ("lobby", "dig_dirt", "leak"):
                 self.need_target = kind
             elif kind == "deal":
@@ -472,9 +475,16 @@ class Driver:
             self.autosave_weeks = {1: 2, 2: 4, 4: 8, 8: 1}[self.autosave_weeks]
             self._save_settings()
 
+    def points_left(self) -> int:
+        from sim.actions import cost_of
+        from sim import params as p
+        return p.ACTION_POINTS - sum(cost_of(pk.kind) for pk in self.picks)
+
     def _after_pick(self) -> None:
-        if len(self.picks) >= 2:
-            self.on_button("continue")
+        from sim.actions import available_actions, cost_of
+        left = self.points_left()
+        if not any(cost_of(k) <= left for k in available_actions(self.state)):
+            self.on_button("continue")   # nothing affordable — flush the week
 
     def toggle_auto(self) -> None:
         self.auto_play = not self.auto_play

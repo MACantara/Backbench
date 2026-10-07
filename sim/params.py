@@ -165,7 +165,17 @@ GRAVE_WEEKS = 520                # a dissolved party stays revivable for ~10 ter
 GRAVE_MAX = 24                   # the graveyard itself is bounded — most recent kept
 
 # --- player / career ---
-ACTIONS_PER_WEEK = 2
+ACTION_POINTS = 3            # weekly initiative budget — duties don't spend it
+ACTION_COST = {              # unlisted kinds cost 1 — a morning's work
+    # the house's business and once-a-career identity moves are free
+    "nothing": 0, "vote": 0, "amend": 0, "pick_offer": 0,
+    "decline_offers": 0, "appoint": 0, "defect": 0, "found": 0,
+    # operations — a planned effort that takes real days
+    "media": 2, "dig_dirt": 2, "attack": 2, "challenge": 2,
+    "amendment": 2, "leak": 2,
+    # writing and dividing a private member's bill is the whole week
+    "table": 3,
+}
 LEADERSHIP_COHESION_MIN = 0.45   # leader challengeable below this cohesion
 CHALLENGE_AMBITION_MIN = 0.6     # challengers need this much combined ambition
 

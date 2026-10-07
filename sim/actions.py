@@ -31,6 +31,11 @@ class Action:
     outlet: int | None = None    # leak: route the story through this outlet
 
 
+def cost_of(kind: str) -> int:
+    """Points a pick spends — the table lives in params."""
+    return p.ACTION_COST.get(kind, 1)
+
+
 def available_actions(state: GameState) -> list[str]:
     """Context menu for the week."""
     base = ["scheme", "lobby", "media", "dig_dirt", "leak"]
