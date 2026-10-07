@@ -243,7 +243,9 @@ def coalition_exits(state: GameState) -> None:
     if (gov.platform is None or lp is None
             or gov.weeks_in_office < p.COAL_EXIT_GRACE):
         return
-    pm_pid = state.mps[gov.pm].party if gov.pm in state.mps else None
+    pm_pid = (state.mps[gov.pm].party if gov.pm in state.mps
+              else max(sorted(gov.parties),
+                       key=lambda q: len(state.parties[q].members), default=None))
     n = max(len(state.mps), 1)
     for pid in sorted(gov.parties):
         if pid == pm_pid or pid not in state.parties:
@@ -256,15 +258,15 @@ def coalition_exits(state: GameState) -> None:
         gov.parties.discard(pid)
         for mid in pt.members:
             if mid in state.mps:
-                state.mps[mid].portfolio = None  # the spoils die with the tie
+                state.mps[mid].portfolio, state.mps[mid].portfolio_weeks = None, 0
         state.emit("CoalitionExit",
                    f"{pt.name} walks out of the government — the agenda sits "
                    f"{strain:.2f} from their platform and the polls have them "
                    f"bleeding.", party=pid, strain=strain)
         bloc = sum(len(state.parties[q].members) for q in gov.parties
                    if q in state.parties)
-        if bloc * 2 < n:
-            collapse(state, "walkout")
+        if bloc < _majority(state):
+            collapse(state, "walkout", exclude={pid})
         else:
             state.emit("GovernmentContinues",
                        f"The rump government governs on — {bloc} of {n} seats.",
@@ -272,14 +274,18 @@ def coalition_exits(state: GameState) -> None:
         return  # one walk-out per week
 
 
-def collapse(state: GameState, cause: str = "confidence") -> None:
+def collapse(state: GameState, cause: str = "confidence",
+             exclude: set[int] | None = None) -> None:
     """The government falls — the house replaces it in place if a different
-    majority exists, else it dissolves. cause: 'confidence' | 'supply'."""
+    majority exists, else it dissolves.
+    cause: 'confidence' | 'supply' | 'defection' | 'walkout'.
+    exclude: extra parties barred from the successor slate — a walker's own
+    party can't rejoin the government it just toppled."""
     pm_party = state.mps[state.government.pm].party \
         if state.government.pm in state.mps else None
     fallen_largest = max(sorted(state.government.parties),
                          key=lambda pid: len(state.parties[pid].members), default=None)
-    alt = _best_coalition(state, exclude_parties={fallen_largest})
+    alt = _best_coalition(state, exclude_parties={fallen_largest} | (exclude or set()))
     if state.constructive_confidence and cause == "confidence" \
             and alt is None \
             and state.government.collapses + 1 < p.SNAP_COLLAPSE_MAX:

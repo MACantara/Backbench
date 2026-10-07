@@ -59,9 +59,13 @@ def make_hopeful(rng: random.Random, np_rng: np.random.Generator,
     hpos = None
     if voters is not None and rng.random() < p.ROOKIE_FRONTIER_P:
         plats = np.array([pt.platform for pt in parties.values()])
+        cents = np.array([voters.pos[voters.district == d].mean(axis=0)
+                          if (voters.district == d).any()
+                          else np.array([np.nan, np.nan])
+                          for d in range(n_districts)])
         far = [d for d in range(n_districts)
-               if np.linalg.norm(plats - voters.pos[voters.district == d].mean(axis=0),
-                                 axis=1).min() >= p.DYNAMIC_GAP_DIST]
+               if np.isfinite(cents[d]).all()
+               and np.linalg.norm(plats - cents[d], axis=1).min() >= p.DYNAMIC_GAP_DIST]
         if far:
             base = voters.pos[voters.district == rng.choice(far)].mean(axis=0)
             hpos = tuple(np.clip(base + np_rng.normal(0, p.MP_POS_JITTER, 2), -1, 1))

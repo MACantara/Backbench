@@ -97,7 +97,7 @@ def _drift(state: GameState) -> None:
     rng = np.random.default_rng(int(state.rng.random() * 2**63))
     state.voters.pos += rng.normal(0, p.VOTER_DRIFT_SD, state.voters.pos.shape)
     np.clip(state.voters.pos, -1, 1, out=state.voters.pos)
-    v = state.voters  # agenda-setting lifts salience; it must mean-revert
+    v = state.voters
     gov = state.government
     if gov.platform is not None and gov.parties:
         # the cost of ruling: voters drift off the agenda, compounding
@@ -108,6 +108,7 @@ def _drift(state: GameState) -> None:
         v.pos += step * away / np.maximum(
             np.linalg.norm(away, axis=1, keepdims=True), 1e-9)
         np.clip(v.pos, -1, 1, out=v.pos)
+    # agenda-setting lifts salience; it must mean-revert
     v.salience += p.SALIENCE_REVERT * (p.SALIENCE_BASE - v.salience)
     np.clip(v.salience, 0.1, None, out=v.salience)
     for pt in state.parties.values():

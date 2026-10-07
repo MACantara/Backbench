@@ -40,16 +40,19 @@ def main() -> None:
     pm_pid = s.mps[gov.pm].party if gov.pm in s.mps else None
     junior = next(pid for pid in gov.parties if pid != pm_pid)
     pt = s.parties[junior]
+    # synthetic poll: every party holds half — only the junior goes to 0.0
     s.last_poll = {"week": s.week, "shares": {pid: 0.5 for pid in s.parties}}
-    gov.weeks_in_office = p.COAL_EXIT_GRACE
+    pt.platform = tuple(-np.asarray(gov.platform) * 4)   # real strain
+    s.last_poll["shares"][junior] = 0.0                  # real bleed
+    gov.weeks_in_office = p.COAL_EXIT_GRACE - 1
     before = set(gov.parties)
     coalition_exits(s)
     assert set(gov.parties) == before, "exited during grace"
     gov.weeks_in_office = p.COAL_EXIT_GRACE + 5
-    pt.platform = tuple(-np.asarray(gov.platform) * 4)
+    s.last_poll["shares"][junior] = 0.5                  # strain only
     coalition_exits(s)
     assert set(gov.parties) == before, "exited on strain alone — no bleed"
-    s.last_poll["shares"][junior] = 0.0
+    s.last_poll["shares"][junior] = 0.0                  # strain + bleed
     coalition_exits(s)
     assert junior not in gov.parties, "strain + bleed should end the tie"
     assert any(e.type == "CoalitionExit" for e in s.log), "no CoalitionExit event"
