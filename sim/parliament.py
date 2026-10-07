@@ -24,6 +24,18 @@ def whip_direction(state: GameState, party_id: int, bill: Bill) -> int:
     return 1 if -d > -0.4 else -1
 
 
+def whip_strength(state: GameState, party_id: int | None) -> float:
+    """A staffed whips office makes the line bind: 1.0 unmanned, higher
+    with a Whip, higher still with a Chief Whip. Applies to the party
+    whip only — a faction's counter-line gets no scaling."""
+    if party_id is None or party_id not in state.parties:
+        return 1.0
+    return 1.0 + sum(
+        p.CHIEF_WHIP_BITE if state.mps[m].junior == "Chief Whip"
+        else p.WHIP_BITE if state.mps[m].junior == "Whip" else 0.0
+        for m in state.parties[party_id].members if m in state.mps)
+
+
 def district_opinion(state: GameState, district: int, bill: Bill) -> float:
     """District's view of the bill relative to the government platform:
     positive when the bill is *closer* to the district than the gov baseline."""
@@ -58,7 +70,7 @@ def vote_terms(state: GameState, mp: MP, bill: Bill,
     fwhip = faction_whip(state, mp, bill)
     terms = {
         "policy": -p.W_POLICY * dist(mp.pos, bill.pos),
-        "whip": p.W_WHIP * whip * mp.loyalty,
+        "whip": p.W_WHIP * whip * mp.loyalty * whip_strength(state, mp.party),
         "gov": p.W_GOV * in_gov,
         "rel": p.W_REL * (mp.relationships.get(state.government.pm, 0.0)
                         if in_gov and state.government.pm is not None else 0.0),
@@ -233,6 +245,10 @@ def resolve_vote(state: GameState, bill: Bill, player_vote: int | None = None) -
     yes, no, abstain, detail = 0, 0, 0, {}
     rebels: dict[int, int] = {}
     for mp in present:
+        if mp.id == state.speaker:
+            detail[mp.id] = {"u": 0.0, "cast": 0, "terms": {"chair": 0.0}}
+            abstain += 1
+            continue                    # the chair never divides the house
         terms = vote_terms(state, mp, bill)
         if "fwhip" in terms:
             rebels[mp.faction] = mp.party
@@ -264,7 +280,29 @@ def resolve_vote(state: GameState, bill: Bill, player_vote: int | None = None) -
             else:
                 delta = -p.STANDING_WHIP_ABSTAIN
             mp.standing = float(np.clip(mp.standing + delta, -1, 1))
+            # the payroll binds: an office-holder who votes against the line
+            # loses the post. The whips office enforces — it doesn't pay.
+            if cast == -whip and mp.junior not in p.WHIP_POSTS:
+                posts = [x for x in (mp.junior, mp.portfolio) if x is not None]
+                if posts:
+                    mp.junior, mp.junior_weeks = None, 0
+                    mp.portfolio, mp.portfolio_weeks = None, 0
+                    # exiled until the next election — no same-week re-hire
+                    # off the very ladder the rebellion fell from
+                    state.government.sacked.add(mp.id)
+                    who = ("You rebelled the whip" if mp.id == state.player_id
+                           else f"{mp.name} rebelled the {state.parties[mp.party].name} whip")
+                    state.emit("PayrollFall",
+                               f"{who} — the {' and '.join(posts)} post"
+                               f"{'s are' if len(posts) > 1 else ' is'} gone.",
+                               mp=mp.id, post=posts[0], bill=bill.name)
     is_amendment = bill.amends is not None or bill.entrenches is not None
+    if yes == no and state.speaker in detail:
+        # Denison's rule: the chair casts to keep the status quo — a tied
+        # division dies on the Speaker's vote
+        detail[state.speaker]["cast"], detail[state.speaker]["terms"] = \
+            -1, {"chair_casts": -1.0}
+        no, abstain = no + 1, abstain - 1
     # amendments need two-thirds of votes cast — the constitution is hard
     # to move on purpose; abstentions waste the mover
     passed = (yes > 0 and yes >= p.AMEND_MAJORITY * (yes + no) if is_amendment

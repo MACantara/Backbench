@@ -77,6 +77,14 @@ STANDING_SACK_HIT = 0.3        # a sack burns standing
 STANDING_SCANDAL_WK = 0.02     # standing bleed per burning scandal week
 STANDING_DECAY = 0.98          # drift to neutral — rebels rehabilitate, favor fades
 JUNIOR_POSTS = ("Whip", "Spokesperson", "Committee Chair")  # per-party bench posts
+SENIOR_POSTS = ("Chief Whip", "Deputy Leader")  # second rung — bench holders only
+WHIP_POSTS = ("Whip", "Chief Whip")     # the payroll's enforcers — exempt from it
+WHIP_BITE = 0.2                        # a staffed Whip strengthens the party line
+CHIEF_WHIP_BITE = 0.4                  # a Chief Whip binds it harder still
+DEPUTY_HEIR_BONUS = 0.25               # the named successor is hard to dislodge
+CHALLENGE_MIN_MEMBERS = 4              # a party this small can't hold a contest
+SPEAKER_COMPETENCE_W = 0.5             # the house elects a competent chair
+FUSE_SAFE_MARGIN = 0.15                # cohesion this far above the gate is "safe"
 STANDING_W = 0.6               # appointment weight on earned standing
 BACKING_W = 0.4                # appointment weight on the appointer's relationship
 RUNG_W = 0.4                   # appointment weight on junior service
@@ -327,6 +335,7 @@ SCORE_W = {
     "junior": 1,      # terms in junior office
     "minister": 3,    # terms in cabinet
     "pm": 5,          # terms as prime minister
+    "speaker": 4,     # terms in the chair — the exit office
     "laws": 1,        # statutes bearing your name
     "founded": 3,     # parties you founded that outlived you
     "struck": 1,      # statutes the court killed on your filing

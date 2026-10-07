@@ -68,6 +68,7 @@ def main() -> None:
     c.parties[pa].platform = bill.pos                       # whips aye (d < 0.4)
     c.parties[pb].platform = (1.0, 1.0)                     # whips no (far)
     c.government.parties = set()
+    c.speaker = None                        # no chair sits this division
     mids = [m for m in sorted(c.mps) if m != c.player_id]
     for i, mid in enumerate(mids):
         m = c.mps[mid]

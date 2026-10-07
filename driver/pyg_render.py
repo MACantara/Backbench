@@ -31,7 +31,8 @@ INTERRUPTS = {"ConfidenceLost", "CoalitionFormed", "PartyFormed", "Defection",
               "ScandalBreaks", "Expelled", "Resigned", "MinisterSacked",
               "PressCycle", "OfferMade", "OfferDeclined", "OfferLapsed",
               "LawRepealed", "LawLapsed", "PmChange", "BudgetSet",
-              "AttackLands", "DebtCrisis", "AmbitionMet", "AmbitionFailed"}
+              "AttackLands", "DebtCrisis", "AmbitionMet", "AmbitionFailed",
+              "PayrollFall", "Elected"}
 
 
 def party_color(state, pid) -> tuple:
@@ -374,10 +375,15 @@ def draw_panel(drv) -> None:
         pt = s.parties.get(mp.party)
         _text(drv, f"You: {mp.name}", (x, y))
         y += 20
-        _text(drv, f"{pt.name if pt else 'independent'}  d{mp.district}  safety {mp.seat_safety:.0%}", (x, y), DIM)
+        _text(drv, f"{pt.name if pt else 'Speaker' if mp.id == s.speaker else 'independent'}"
+                   f"  d{mp.district}  safety {mp.seat_safety:.0%}", (x, y), DIM)
         y += 20
         _text(drv, f"portfolio: {mp.portfolio or '—'}", (x, y), DIM)
-        y += 24
+        y += 20
+        if mp.junior:
+            _text(drv, f"party post: {mp.junior} ({mp.junior_weeks}wk)", (x, y), DIM)
+            y += 20
+        y += 4
     if s.phase == "campaign" and mp:
         from sim.election import district_forecast
         key = (s.week, mp.district)
@@ -561,7 +567,8 @@ def draw_action_panel(drv) -> None:
     _button(drv, "continue", "continue >>", pygame.Rect(34, H - 50, 110, 28))
     _button(drv, "why", "why?", pygame.Rect(154, H - 50, 70, 28))
     _button(drv, "bench", "bench", pygame.Rect(234, H - 50, 70, 28))
-    _button(drv, "auto", "auto: " + ("on" if drv.auto_play else "off"), pygame.Rect(314, H - 50, 90, 28))
+    _button(drv, "party", "party", pygame.Rect(312, H - 50, 70, 28))
+    _button(drv, "auto", "auto: " + ("on" if drv.auto_play else "off"), pygame.Rect(390, H - 50, 90, 28))
 
 
 def draw_inspect(drv) -> None:

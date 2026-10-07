@@ -98,6 +98,26 @@ def junior_lifecycle(state: GameState) -> None:
             leader.junior, leader.junior_weeks = None, 0
         held = {state.mps[m].junior for m in pt.members
                 if m in state.mps and state.mps[m].junior is not None}
+        # the second rung fills first — a bench holder climbs, vacating
+        # the lower post for the refill pass below
+        for post in p.SENIOR_POSTS:
+            if post in held:
+                continue
+            cands = [m for m in sorted(pt.members)
+                     if m in state.mps and state.mps[m].junior in p.JUNIOR_POSTS
+                     and (post != "Chief Whip" or state.mps[m].junior == "Whip")]
+            if not cands:
+                continue
+            ranked = _ranked(state, cands, pt.leader)
+            best, terms = ranked[0]
+            mp = state.mps[best]
+            held.discard(mp.junior)
+            mp.junior, mp.junior_weeks = post, 0
+            held.add(post)
+            state.emit("Promoted", f"{mp.name} becomes {pt.name} {post}.",
+                       mp=best, ministry=post, party=pid, reason="senior",
+                       terms=terms)
+            _passed_over(state, ranked, f"{pt.name} {post}")
         for post in p.JUNIOR_POSTS:
             if post in held:
                 continue
@@ -160,39 +180,109 @@ def ministerial_lifecycle(state: GameState) -> None:
             held.add(ministry)
 
 
+def challenge_votes(state: GameState, pt) -> dict[int, list[int]]:
+    """The member-vote a leadership challenge would run today — {candidate:
+    [backers]}. The real contest and the party-card preview read one source."""
+    if pt.leader is None:
+        return {}
+    challengers = [m for m in sorted(pt.members)
+                   if m != pt.leader and (m == state.player_id
+                   or state.mps[m].ambition > p.CHALLENGE_AMBITION_MIN)]
+    candidates = [pt.leader] + challengers
+    fleaders = {f.leader for f in pt.factions}
+    votes: dict[int, list[int]] = {c: [] for c in candidates}
+    for m in pt.members:
+        mp = state.mps[m]
+        best = max(candidates, key=lambda c: (
+            -dist(mp.pos, state.mps[c].pos)
+            + mp.relationships.get(c, 0.0)
+            + 0.3 * state.mps[c].competence
+            + p.LEADERSHIP_STANDING_W * state.mps[c].standing
+            + (p.FACTION_LEADER_BONUS if c in fleaders else 0.0)
+            + (p.DEPUTY_HEIR_BONUS if state.mps[c].junior == "Deputy Leader"
+               else 0.0)))
+        votes[best].append(m)
+    return votes
+
+
 def leadership_challenge(state: GameState) -> None:
     """Weak leaders face ambitious challengers — members vote on utility."""
     for pid, pt in state.parties.items():
-        if pt.leader is None or len(pt.members) < 4:
+        if pt.leader is None or len(pt.members) < p.CHALLENGE_MIN_MEMBERS:
             continue
         if pt.cohesion >= p.LEADERSHIP_COHESION_MIN:
             continue
         # the player is the careerist by definition — a declared arc
         # qualifies them whenever the chair is weak; their candidacy
         # lives or dies on the relationships they built
-        challengers = [m for m in sorted(pt.members)
-                       if m != pt.leader and (m == state.player_id
-                       or state.mps[m].ambition > p.CHALLENGE_AMBITION_MIN)]
-        if not challengers:
-            continue
-        candidates = [pt.leader] + challengers
-        fleaders = {f.leader for f in pt.factions}
-        votes = {c: 0 for c in candidates}
-        for m in pt.members:
-            mp = state.mps[m]
-            best = max(candidates, key=lambda c: (
-                -dist(mp.pos, state.mps[c].pos)
-                + mp.relationships.get(c, 0.0)
-                + 0.3 * state.mps[c].competence
-                + p.LEADERSHIP_STANDING_W * state.mps[c].standing
-                + (p.FACTION_LEADER_BONUS if c in fleaders else 0.0)))
-            votes[best] += 1
-        winner = max(votes, key=votes.get)
+        votes = challenge_votes(state, pt)
+        winner = max(votes, key=lambda c: len(votes[c]))
         if winner != pt.leader:
             old = state.mps[pt.leader].name
             pt.leader = winner
+            w = state.mps[winner]
+            w.junior, w.junior_weeks = None, 0   # the chair vacates the bench
             state.emit("CareerEvent", f"{state.mps[winner].name} ousts {old} as {pt.name} leader.",
                        party=pid, new_leader=winner)
+
+
+def successor(state: GameState, pt, pool=None) -> int | None:
+    """Who takes a vacant chair: the Deputy Leader — the named heir —
+    else the hungriest member. pool defaults to the whole party; a
+    defection passes the stayers so a walker can't inherit."""
+    cands = [m for m in sorted(pool if pool is not None else pt.members)
+             if m in state.mps]
+    deputy = next((m for m in cands if state.mps[m].junior == "Deputy Leader"),
+                  None)
+    if deputy is not None:
+        return deputy
+    return max(cands, key=lambda m: state.mps[m].ambition) if cands else None
+
+
+def speaker_election(state: GameState) -> None:
+    """A vacant chair goes to a house vote: every MP casts for the candidate
+    they regard most — relationships + standing + the seniority weight.
+    The winner renounces party and post; the office is the career."""
+    if state.speaker is not None:
+        return
+    leaders = {pt.leader for pt in state.parties.values()}
+    cands = [m for m in sorted(state.mps)
+             if m not in leaders and m != state.government.pm]
+    if len(cands) < 2:
+        return
+    votes = {c: 0 for c in cands}
+    for mp in state.mps.values():
+        best = max(cands, key=lambda c: (
+            mp.relationships.get(c, 0.0)
+            + state.mps[c].standing
+            + p.SPEAKER_COMPETENCE_W * state.mps[c].competence
+            + p.SENIORITY_W * min(state.mps[c].seniority / p.SENIORITY_CAP_WEEKS, 1)))
+        votes[best] += 1
+    winner = max(votes, key=votes.get)
+    mp = state.mps[winner]
+    pt = state.parties.get(mp.party)
+    if pt is not None:
+        pt.members.discard(mp.id)
+        for f in pt.factions:      # the wing loses its member — and maybe its heir
+            f.members.discard(mp.id)
+            if f.leader == mp.id:
+                f.leader = (max(sorted(f.members),
+                                key=lambda m: state.mps[m].ambition)
+                            if f.members else None)
+    old = pt.name if pt is not None else "independent"
+    mp.party, mp.faction = None, None
+    mp.junior, mp.junior_weeks = None, 0
+    mp.portfolio, mp.portfolio_weeks = None, 0
+    state.speaker = mp.id
+    if mp.id == state.player_id:
+        # the house released you — pledges to a party you no longer
+        # serve die with the whip, not as betrayal
+        state.deals.clear()
+        state.promises.clear()
+    dragged = ", dragged to the chair," if mp.id == state.player_id else ""
+    state.emit("Elected", f"{mp.name}{dragged} takes the Speaker's chair — "
+                          f"leaves {old}, beyond the whip.",
+               mp=mp.id, votes=votes[winner])
 
 
 def remove_mp(state: GameState, mp) -> None:
@@ -202,12 +292,15 @@ def remove_mp(state: GameState, mp) -> None:
     if pt is not None:
         pt.members.discard(mp.id)
         if pt.leader == mp.id:
-            cands = [m for m in sorted(pt.members) if m in state.mps]
-            pt.leader = max(cands, key=lambda m: state.mps[m].ambition) if cands else None
+            pt.leader = successor(state, pt)
             if pt.leader is not None:
+                new = state.mps[pt.leader]
+                new.junior, new.junior_weeks = None, 0   # the chair vacates the bench
                 state.emit("CareerEvent",
                            f"{state.mps[pt.leader].name} succeeds {mp.name} as {pt.name} leader.",
                            party=pt.id, new_leader=pt.leader)
+    if state.speaker == mp.id:
+        state.speaker = None      # the chair falls vacant — the house re-elects
     if state.government.pm == mp.id:
         succ = pt.leader if pt is not None and pt.members else None
         state.government.pm = succ
@@ -260,6 +353,8 @@ def update_score(state: GameState) -> None:
         state.score_terms["minister"] += 1
     if state.government.pm == state.player_id:
         state.score_terms["pm"] += 1
+    if state.speaker == state.player_id:
+        state.score_terms["speaker"] = state.score_terms.get("speaker", 0) + 1
 
 
 def score_breakdown(state: GameState) -> list[tuple[str, int, int, int]]:
@@ -280,6 +375,7 @@ def score_breakdown(state: GameState) -> list[tuple[str, int, int, int]]:
         ("terms in junior office", t.get("junior", 0), w["junior"]),
         ("terms in cabinet", t.get("minister", 0), w["minister"]),
         ("terms as prime minister", t.get("pm", 0), w["pm"]),
+        ("terms in the Speaker's chair", t.get("speaker", 0), w["speaker"]),
         ("laws bearing your name", state.legacy_bills, w["laws"]),
         ("parties founded, still standing", founded, w["founded"]),
         ("statutes struck on your filing", struck, w["struck"]),
@@ -365,7 +461,8 @@ def epilogue(state: GameState) -> list[str]:
     lines = [f"{name} served {t.get('mp', 0)} term(s) in parliament."]
     posts = ([f"{t['junior']} term(s) on the party bench"] if t.get("junior") else []) \
         + ([f"{t['minister']} in cabinet"] if t.get("minister") else []) \
-        + ([f"{t['pm']} as Prime Minister"] if t.get("pm") else [])
+        + ([f"{t['pm']} as Prime Minister"] if t.get("pm") else []) \
+        + ([f"{t['speaker']} in the Speaker's chair"] if t.get("speaker") else [])
     if posts:
         lines.append("High office: " + ", ".join(posts) + ".")
     if state.legacy_bills:

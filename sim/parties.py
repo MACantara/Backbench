@@ -117,4 +117,5 @@ def party_lifecycle(state: GameState) -> None:
             state.government.parties.discard(pid)
             del state.parties[pid]
         elif pt.leader not in pt.members:
-            pt.leader = max(sorted(pt.members), key=lambda m: state.mps[m].ambition)
+            from .career import successor
+            pt.leader = successor(state, pt)

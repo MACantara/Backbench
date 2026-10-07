@@ -7,7 +7,7 @@ import random
 import numpy as np
 
 from . import params as p
-from .career import remove_mp
+from .career import remove_mp, successor
 from .conditions import mood, responsibility
 from .state import GameState, Hopeful, MP, dist
 from .naming import mp_name
@@ -36,6 +36,12 @@ def _ballot(state: GameState, d: int, incs: list, rnd: random.Random
     """Who stands in a district: cand positions + the named roster voters see."""
     cand: dict[int, tuple] = {}
     ballot: dict[int, dict] = {}
+    spk = next((i for i in incs if i.id == state.speaker), None)
+    if spk is not None and state.district_magnitude == 1:
+        # the chair stands unopposed by convention — a seat for life
+        cand[INDEPENDENT] = spk.pos
+        ballot[INDEPENDENT] = {"name": spk.name, "incumbent": True}
+        return cand, ballot
     for pid in state.parties:
         inc_p = next((i for i in incs if i.party == pid), None)
         pos, hopeful = _candidate(state, d, pid, inc_p, rnd)
@@ -269,7 +275,7 @@ def resolve_election(state: GameState) -> None:
     state.government.sacked = set()   # a fresh cabinet may bring anyone back
     for pt in state.parties.values():  # leaders who lost their seat leave a dead reference
         if pt.leader not in state.mps:
-            pt.leader = max(sorted(pt.members), key=lambda m: state.mps[m].ambition) if pt.members else None
+            pt.leader = successor(state, pt) if pt.members else None
     state.emit("ElectionResult",
                render(state, "ElectionResult", country=state.country),
                seats={"ind" if k == INDEPENDENT else k: n for k, n in seat_counts.items()},
