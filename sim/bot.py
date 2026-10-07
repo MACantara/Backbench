@@ -193,6 +193,91 @@ def _r_division_ops(c: _Ctx) -> None:
                    gate=f"warms {cold.relationships.get(pl.id, 0.0):.2f}")
 
 
+def _rival(c: _Ctx):
+    """A target with a reason: the colleague outranking you on the
+    ladder, else the government's weakest minister."""
+    s, pl = c.state, c.player
+    mine = [m for m in s.mps.values()
+            if m.party == pl.party and m.id != pl.id]
+    ladder = max(mine, key=lambda m: m.standing, default=None)
+    if ladder is not None and ladder.standing > pl.standing \
+            and ladder.standing >= p.BOT_DIG_STANDING:
+        return ladder
+    ministers = [m for m in s.mps.values() if m.portfolio is not None]
+    if pl.party not in s.government.parties and ministers:
+        return min(ministers, key=lambda m: m.perf)
+    return None
+
+
+def _leak_venue(c: _Ctx) -> int | None:
+    """Route the story through a friendly desk when one exists — it
+    shields the source; unrouted rides the open market."""
+    pl = c.player
+    warm = [o for o in c.state.outlets
+            if o.warmth.get(pl.party, 0.0) >= p.COURT_FRIENDLY_MIN]
+    return max(warm, key=lambda o: o.warmth[pl.party]).id if warm else None
+
+
+def _r_dark_ops(c: _Ctx) -> None:
+    """The deniable toolkit — fires only under the dossier-heat budget,
+    and only at a target with a reason."""
+    if _hot(c):
+        return
+    rival = _rival(c)
+    if rival is None:
+        return
+    if rival.dossier > p.LEAK_MIN_DOSSIER * 2 and rival.scandal_weeks <= 0:
+        c.take("leak", target=rival.id, outlet=_leak_venue(c),
+               gate=f"dossier {rival.dossier:.2f}")
+    else:
+        c.take("dig_dirt", target=rival.id,
+               gate=f"rival standing {rival.standing:.2f}")
+
+
+def _r_public_ops(c: _Ctx) -> None:
+    """Open moves: scrutiny at odds worth the swing, a warm-press media
+    hit, a leader's platform pull, a statute the court can strike, a
+    bill when the party sits too far away."""
+    s, pl = c.state, c.player
+    if pl.party not in s.government.parties and s.government.parties:
+        weak = -mood(s.conditions) - min(
+            (m.perf for m in s.mps.values() if m.portfolio is not None),
+            default=0.0)
+        chance = float(np.clip(p.ATTACK_P + p.ATTACK_WEAK_W * weak, 0.02, 0.9))
+        if chance >= p.BOT_ATTACK_MIN \
+                and (not _hot(c) or chance >= p.BOT_ATTACK_SURE):
+            c.take("attack", gate=f"odds {chance:.2f}")
+    if not _hot(c) and s.outlets:
+        pt = s.parties.get(pl.party)
+        ref = np.asarray(pt.platform if pt is not None else pl.pos)
+        friend = 1 - min(1.0, np.mean(
+            [dist(o.slant, ref) for o in s.outlets]) / 2)
+        if friend >= p.BOT_MEDIA_FRIEND:
+            c.take("media", gate=f"friend {friend:.2f}")
+    pt = s.parties.get(pl.party)
+    if pt is not None and pt.leader == pl.id:
+        if dist(pt.platform, pl.pos) > p.BOT_PLATFORM_DIST:
+            c.take("platform", gate=f"gap {dist(pt.platform, pl.pos):.2f}")
+        # a promise is a pull on your own platform — only a leader can
+        # cash it; anyone else is writing a check that bounces
+        if s.phase == "campaign" and pl.seat_safety < p.BOT_PROMISE_SAFETY:
+            c.take("promise", pos=pl.pos, gate="leader pull")
+    if "challenge" in c.menu:
+        from .courts import challengeable, legal_risk
+        ok = {id(l) for l in challengeable(s)}
+        suits = [(i, l) for i, l in enumerate(s.laws)
+                 if id(l) in ok and pl.party not in l.enacted_by
+                 and l.author != pl.id]
+        if suits:
+            i, law = max(suits, key=lambda il: legal_risk(s, il[1]))
+            c.take("challenge", law=i, gate=f"risk {legal_risk(s, law):.2f}")
+    if pt is not None and pl.party not in s.government.parties \
+            and dist(pt.platform, pl.pos) > p.BOT_TABLE_DIST:
+        ax = int(np.argmax(np.abs(np.asarray(pl.pos) - np.asarray(pt.platform))))
+        c.take("table", axis=ax,
+               gate=f"platform gap {dist(pt.platform, pl.pos):.2f}")
+
+
 def _r_relations(c: _Ctx) -> None:
     """Build the career: lobby the leader while unpromoted, court the
     hostile desk."""
@@ -210,7 +295,8 @@ def _r_relations(c: _Ctx) -> None:
 
 
 _RULES = (_r_seat_defense, _r_offers, _r_division, _r_pm_desk,
-          _r_ambition, _r_division_ops, _r_relations)
+          _r_ambition, _r_division_ops, _r_public_ops, _r_dark_ops,
+          _r_relations)
 
 
 def auto_actions(state: GameState, trace: list | None = None) -> list[Action]:
