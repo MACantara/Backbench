@@ -129,11 +129,9 @@ class Driver:
         self._reset_view()
 
     def advance(self, actions: list | None = None) -> None:
-        """One week forward; collects events for animation and interrupts."""
-        self.results = None
-        self.reveal = None            # a new week closes the broadcast
-        self.night_final = False
-        self.night_done_t = 0.0
+        """One week forward; collects events for animation and interrupts.
+        The election-night broadcast is presentation state — it survives
+        until the player dismisses it or the next election replaces it."""
         if self.state.phase == "over":
             self._autosave()        # the career's final state survives a crash
             if not self.fame_recorded:
