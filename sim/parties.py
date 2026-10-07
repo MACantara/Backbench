@@ -34,7 +34,7 @@ def _found(state: GameState, founder, followers: list[int]) -> int:
     else:
         name = f"{state.mps[founder].name.split()[-1]} List"  # a lone founder's vehicle
     pt = Party(id=pid, name=name, platform=state.mps[founder].pos, leader=founder,
-               founded_week=state.week)
+               founded_week=state.week, founded_by=founder)
     for mid in [founder, *followers]:
         old = state.mps[mid].party
         if old is not None and old in state.parties:

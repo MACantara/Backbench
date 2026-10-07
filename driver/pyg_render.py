@@ -31,7 +31,7 @@ INTERRUPTS = {"ConfidenceLost", "CoalitionFormed", "PartyFormed", "Defection",
               "ScandalBreaks", "Expelled", "Resigned", "MinisterSacked",
               "PressCycle", "OfferMade", "OfferDeclined", "OfferLapsed",
               "LawRepealed", "LawLapsed", "PmChange", "BudgetSet",
-              "AttackLands", "DebtCrisis"}
+              "AttackLands", "DebtCrisis", "AmbitionMet", "AmbitionFailed"}
 
 
 def party_color(state, pid) -> tuple:
@@ -294,6 +294,14 @@ def draw_action_panel(drv) -> None:
             w = 8 + 9 * len(kind) + 16
             _button(drv, f"act:{kind}", kind, pygame.Rect(x, H - 110, w, 30))
             x += w + 8
+        if drv.state.week == 0 and drv.state.ambition is None:
+            # the opening pick — pass it by and the career stays open-ended
+            _text(drv, "ambition:", (34, H - 84), GOLD)
+            x = 100
+            for k in ("pm", "majority", "founder", "survivor", "reformer"):
+                w = 16 + 9 * len(k)
+                _button(drv, f"amb:{k}", k, pygame.Rect(x, H - 88, w, 28))
+                x += w + 8
     _button(drv, "continue", "continue >>", pygame.Rect(34, H - 50, 110, 28))
     _button(drv, "why", "why?", pygame.Rect(154, H - 50, 70, 28))
     _button(drv, "bench", "bench", pygame.Rect(234, H - 50, 70, 28))

@@ -17,16 +17,16 @@ from dataclasses import fields, is_dataclass
 
 import numpy as np
 
-from .state import (Article, Bill, Conditions, CourtCase, Deal, Event,
-                    Faction, GameState, Government, Grave, Hopeful, Justice,
-                    Law, MP, Outlet, Party, Treasury, Voters)
+from .state import (Ambition, Article, Bill, Conditions, CourtCase, Deal,
+                    Event, Faction, GameState, Government, Grave, Hopeful,
+                    Justice, Law, MP, Outlet, Party, Treasury, Voters)
 
 FORMAT = 1
 
 _TYPES = {c.__name__: c for c in
           (Voters, MP, Hopeful, Faction, Party, Grave, Outlet, Bill, Deal,
            Law, CourtCase, Article, Justice, Conditions, Treasury, Event,
-           Government, GameState)}
+           Government, GameState, Ambition)}
 
 
 def _enc_body(obj, ctx: dict) -> dict:

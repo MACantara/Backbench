@@ -86,6 +86,16 @@ class Faction:
 
 
 @dataclass
+class Ambition:
+    """A chosen arc layered on the open career — met/failed resolve as
+    events; meeting one banks a score_terms entry but doesn't end the run."""
+    kind: str                     # "pm" | "majority" | "founder" | "survivor" | "reformer"
+    met: bool = False
+    failed: bool = False
+    party: int | None = None      # founder arc: the vehicle on record
+
+
+@dataclass
 class Party:
     id: int
     name: str
@@ -97,6 +107,7 @@ class Party:
     cohesion: float = 1.0           # derived: mean member-platform alignment
     schism_cooldown: int = 0
     founded_week: int = 0           # for the memberless-entrant grace window
+    founded_by: int | None = None   # the MP who founded it — the legacy trail
     seated: bool = True             # False only for entrants born with no MPs
     factions: list[Faction] = field(default_factory=list)
 
@@ -268,6 +279,7 @@ class GameState:
     press_subject: int | None = None  # party id of last week's lead story
     press_weeks: int = 0              # consecutive weeks that subject has led
     last_poll: dict | None = None     # the *published* poll — sponsored, biased, dated
+    ambition: "Ambition | None" = None  # the player's chosen arc; None = sandbox
     government: Government = field(default_factory=Government)
     current_bill: Bill | None = None
     offers: list = field(default_factory=list)  # coalition slates on the table (formation week)

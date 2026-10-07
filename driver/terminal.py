@@ -40,7 +40,9 @@ INTERRUPTS = {"ConfidenceLost", "CoalitionFormed", "PartyFormed", "Defection",
               "ScandalBreaks", "Expelled", "Resigned", "MinisterSacked",
               "PressCycle", "OfferMade", "OfferDeclined", "OfferLapsed",
               "LawRepealed", "LawLapsed", "PmChange", "BudgetSet",
-              "AttackLands", "DebtCrisis"}
+              "AttackLands", "DebtCrisis", "AmbitionMet", "AmbitionFailed"}
+
+AMBITION_KINDS = ("pm", "majority", "founder", "survivor", "reformer")
 
 
 def _ask(prompt: str, ok) -> str | None:
@@ -226,6 +228,12 @@ def run(seed: int = 0, load: bool = False) -> None:
         state = new_game(seed)
     print(f"=== BACKBENCH - the Republic of {state.country} - seed {state.seed} ===")
     print(f"You are {state.mps[state.player_id].name}, MP for district {state.mps[state.player_id].district}.")
+    if not load and state.ambition is None:
+        from sim.state import Ambition
+        s = _ask(f"ambition? {' | '.join(AMBITION_KINDS)} (blank = open career) > ",
+                 lambda s: s == "" or s in AMBITION_KINDS)
+        if s:
+            state.ambition = Ambition(s)
     while state.phase != "over":
         print(f"\n-- Week {state.week} [{state.phase}] {'-' * 40}")
         show_poll(state)
@@ -243,6 +251,9 @@ def run(seed: int = 0, load: bool = False) -> None:
                                         if e.text.startswith("You ") else e.text
                                         for e in echoes))
     print(f"\n=== Game over - score {final_score(state)} ===")
+    from sim.career import epilogue
+    for line in epilogue(state):
+        print(" ", line)
     print(explain_mp(state, state.player_id) if state.player_id in state.mps else "You are out of parliament.")
 
 

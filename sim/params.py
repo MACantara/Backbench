@@ -299,3 +299,8 @@ REL_DECAY = 0.97                 # relationships decay toward neutral
 
 # --- cosmetic prose ---
 PROSE_SEED_KEY = 0x5EED  # prose_rng fork — wording draws never touch state.rng
+
+# --- ambitions ---
+AMBITION_SURVIVOR_TERMS = 4    # hold your seat through this many elections
+AMBITION_REFORMER_LAWS  = 3    # authored statutes on the book
+AMBITION_SCORE          = 2    # score_terms entry a met arc banks

@@ -74,7 +74,9 @@ class Driver:
     def advance(self, actions: list | None = None) -> None:
         """One week forward; collects events for animation and interrupts."""
         if self.state.phase == "over":
+            from sim.career import epilogue
             self.banner = f"Game over — score {final_score(self.state)}"
+            self.why_text = "\n".join(epilogue(self.state))
             self.paused = True
             return
         self.district_prev = district_owners(self.state)
@@ -258,6 +260,9 @@ class Driver:
             self.why_text = explain_bench(self.state)
         elif bid == "auto":
             self.toggle_auto()
+        elif bid.startswith("amb:"):
+            from sim.state import Ambition
+            self.state.ambition = Ambition(bid[4:])
         elif bid.startswith("flt:"):
             f = bid[4:]
             self.chronicle["filter"] = None if f == "all" or f == self.chronicle["filter"] else f
