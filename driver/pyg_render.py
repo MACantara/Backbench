@@ -526,7 +526,8 @@ def draw_burger(drv) -> None:
     else:
         items = [
             ("menu:save", "save"), ("menu:load", "load"),
-            ("gm:settings", "settings"), ("menu:quit", "quit"),
+            ("gm:settings", "settings"), ("menu:home", "main menu"),
+            ("menu:quit", "quit"),
         ]
     _scrim(drv)
     bw = 320

@@ -205,16 +205,23 @@ class Driver:
         self.paused = self._banner_paused
         self._to_menu_if_over()
 
+    def _to_menu(self) -> None:
+        """Leave the run for the title screen — state survives for a
+        resume via load, but the view belongs to the menu now."""
+        self.mode, self.menu_page = "menu", "main"
+        self.menu_open = False
+        self.save_picker = None
+        self.chronicle["open"] = False
+        self.inspect_mp = None
+        self.why_text = None
+        self.banner = None
+
     def _to_menu_if_over(self) -> None:
         """A dead career leaves nothing to watch — once the game-over
         banner and the epilogue are both closed, land on the title menu."""
         if (self.state is not None and self.state.phase == "over"
                 and self.banner is None and self.why_text is None):
-            self.mode, self.menu_page = "menu", "main"
-            self.menu_open = False
-            self.save_picker = None
-            self.chronicle["open"] = False
-            self.inspect_mp = None
+            self._to_menu()
 
     def _space(self) -> None:
         if self.banner:
@@ -441,6 +448,8 @@ class Driver:
             self._shot()
         elif bid == "menu:quit":
             self.running = False
+        elif bid == "menu:home":
+            self._to_menu()
         elif bid == "menu:settings":
             self.menu_open = True
             self.menu_sub = "settings"
