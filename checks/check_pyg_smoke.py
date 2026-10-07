@@ -8,7 +8,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 from driver.pyg import Driver
 
-d = Driver(seed=3, headless=True)
+d = Driver(seed=4, headless=True)  # 30k voters sharpened races — pick a seat the player keeps
 saw_election = saw_seats = saw_night = False
 for _ in range(35):
     d.banner = None

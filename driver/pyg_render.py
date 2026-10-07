@@ -129,10 +129,14 @@ def draw_map(drv) -> None:
     sx, sy, sz = 565, 60, 395
     pygame.draw.rect(drv.screen, PANEL, (sx - 12, sy - 12, sz + 24, sz + 24))
     pygame.draw.rect(drv.screen, DIM, (sx - 12, sy - 12, sz + 24, sz + 24), 1)
-    for x_, y_ in v.pos[::3]:                    # ~10k sampled voters
-        px = int(sx + (x_ + 1) / 2 * sz)
-        py = int(sy + (1 - (y_ + 1) / 2) * sz)
-        drv.screen.set_at((px, py), (95, 95, 108))
+    # the voter cloud is a numpy write, not a pixel loop — set_at can't take 10k
+    surf = pygame.Surface((sz, sz))
+    arr = np.full((sz, sz), surf.map_rgb(PANEL), dtype=np.int32)
+    px = ((v.pos[::3, 0] + 1) / 2 * (sz - 1)).astype(np.int32)
+    py = ((1 - (v.pos[::3, 1] + 1) / 2) * (sz - 1)).astype(np.int32)
+    arr[px, py] = surf.map_rgb((95, 95, 108))
+    pygame.surfarray.blit_array(surf, arr)
+    drv.screen.blit(surf, (sx, sy))
     for pt in s.parties.values():
         if not pt.members:
             continue
