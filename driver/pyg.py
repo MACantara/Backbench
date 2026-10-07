@@ -47,6 +47,7 @@ class Driver:
         self.clock = pygame.time.Clock()
         self.font = pygame.font.Font(None, 22)
         self.big = pygame.font.Font(None, 34)
+        self.small = pygame.font.Font(None, 17)  # hover previews, dense lines
         self.mode = "menu" if menu else "game"
         self.seed = seed
         self.save_dir = SAVES
@@ -68,6 +69,8 @@ class Driver:
         self.vote_flash = {}        # mp_id -> "yes"/"no" during vote cascade
         self.vote_anim = None       # {"order": [...], "votes": {...}, "t": seconds}
         self.seat_rects = {}        # mp_id -> Rect, rebuilt each draw for hit tests
+        self.hover_bid = None       # button under the cursor — drives previews
+        self.hover_mp = None        # seat under the cursor — target previews
         self.buttons = {}           # button id -> Rect, rebuilt each draw
         self.inspect_mp = None      # mp_id shown in inspect card
         self.action_pause = False   # modal: waiting for weekly action picks
@@ -571,6 +574,13 @@ class Driver:
         elif e.type == pygame.MOUSEBUTTONDOWN:
             wx, wy = self.window.get_size()
             self.on_click((int(e.pos[0] * W / wx), int(e.pos[1] * H / wy)))
+        elif e.type == pygame.MOUSEMOTION:
+            wx, wy = self.window.get_size()
+            pos = (int(e.pos[0] * W / wx), int(e.pos[1] * H / wy))
+            self.hover_bid = next((b for b, r in self.buttons.items()
+                                   if r.collidepoint(pos)), None)
+            self.hover_mp = next((m for m, r in self.seat_rects.items()
+                                  if r.collidepoint(pos)), None)
 
     def on_click(self, pos) -> None:
         if self.banner:

@@ -10,7 +10,8 @@ sys.stdout.reconfigure(encoding="utf-8", errors="replace")  # cp1252 consoles
 from sim import params as p_mod
 from sim.actions import Action, available_actions, cost_of
 from sim.career import final_score
-from sim.inspect import explain_bench, explain_bill, explain_mp, explain_vote
+from sim.inspect import (explain_action, explain_bench, explain_bill,
+                         explain_mp, explain_vote)
 from sim.persist import from_json, to_json
 from sim.tick import tick
 from sim.worldgen import new_game
@@ -100,6 +101,7 @@ def prompt_actions(state) -> tuple[list[Action], "object | None"]:
             if cost_of(kind) > left:
                 print(f"  {kind} costs {cost_of(kind)} — {left} pts left")
                 continue
+            print(f"  {explain_action(state, kind)}")
             target = axis = vote = offer = law = judge = None
             article = entrench = outlet = None
             if kind in ("lobby", "dig_dirt", "deal", "leak"):

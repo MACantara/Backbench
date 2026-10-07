@@ -143,3 +143,166 @@ def player_status(state: GameState) -> str:
              f"upkeep {upkeep(state):.3f} interest {interest(state):.3f} "
              f"flow {flow(state):+.3f}/wk")
     return explain_mp(state, state.player_id) + "\n" + country + "\n" + books
+
+
+# --- action legibility ------------------------------------------------
+# Every weekly pick gets a blurb (what it is) and a live preview (what it
+# would do now, with real numbers where the code can compute them).
+
+ACTION_INFO: dict[str, str] = {
+    "campaign": "knock doors in your seat — voters drift toward your platform",
+    "constituency": "casework — loyalty up, grudges fade, standing up",
+    "speech": "push an axis in your seat — salience rises, voters drift to you",
+    "promise": "a public pledge — the electorate checks it at the election",
+    "media": "a broadcast slot — brand up if it lands, a gaffe if it doesn't",
+    "dig_dirt": "hire researchers — a dossier grows, unless you're noticed",
+    "leak": "detonate a dossier through a venue — friendly press shields you",
+    "court": "wine and dine an editorial board — warmth buys coverage",
+    "lobby": "press a colleague — their regard for you rises",
+    "scheme": "quiet dinners with colleagues — a little regard, a little dirt",
+    "vote": "your column on the pending division — a duty, not a pick",
+    "deal": "promise your column to a colleague — they bank the credit",
+    "amend": "drag the pending bill toward your ground — once per bill",
+    "attack": "go for the government — lands only when it's weak",
+    "table": "write and divide your own bill — your name on the book",
+    "platform": "pull the party platform toward you — a leader's prerogative",
+    "budget": "signal the next budget's posture — the treasury reads it",
+    "defect": "cross the floor — your district remembers betrayal",
+    "found": "walk out and name a vehicle — whoever loves you walks too",
+    "challenge": "sue a statute — the venue for losers takes your filing",
+    "appoint": "seat a justice — the bench outlasts governments",
+    "amendment": "move the constitution — repeal a clause or fence a pole",
+    "pick_offer": "choose a coalition — a hung parliament waits on you",
+    "decline_offers": "refuse the slates — bargain another week",
+    "nothing": "a quiet week — the world ticks without you",
+}
+
+
+def explain_action(state: GameState, kind: str,
+                   target: int | None = None,
+                   outlet: int | None = None) -> str:
+    """What this pick does right now — live numbers where the code can
+    compute them, the blurb when it can't. Never lies: odds are the same
+    expressions apply_action rolls against."""
+    blurb = ACTION_INFO.get(kind, kind)
+    me = state.mps.get(state.player_id)
+    if me is None:
+        return blurb
+    v = state.voters
+    mask = v.district == me.district
+    t = state.mps.get(target) if target is not None else None
+
+    if kind == "campaign":
+        pt = state.parties.get(me.party)
+        plat = pt.platform if pt else me.pos
+        gap = dist(v.pos[mask].mean(axis=0), plat) if mask.any() else 0.0
+        return (f"the district sits {gap:.2f} from the platform — "
+                "each knock closes ~0.03")
+    if kind == "constituency":
+        return (f"standing {me.standing:.2f} -> "
+                f"{min(1.0, me.standing + p.STANDING_SERVICE):.2f}, "
+                "loyalty +0.02, grudges fade 15%")
+    if kind == "speech":
+        return ("salience +0.05 on the axis you pick; the district "
+                "drifts ~0.03 toward you on it")
+    if kind == "promise":
+        return f"{len(state.promises)} pledges on record — this adds one"
+    if kind == "media":
+        pt = state.parties.get(me.party)
+        ref = pt.platform if pt else me.pos
+        friend = 1 - min(1.0, sum(dist(o.slant, ref) for o in state.outlets)
+                         / max(len(state.outlets), 1) / 2)
+        return (f"~80%: brand +{p.MEDIA_APPEAR_BRAND * (0.5 + friend):.2f} "
+                f"(press friendliness {friend:.0%}); ~20%: a gaffe "
+                f"(+0.15 dossier, -0.05 brand)")
+    if kind == "dig_dirt":
+        if t is None:
+            return blurb + " — pick a colleague"
+        return (f"{t.name}'s dossier {t.dossier:.2f} -> "
+                f"{t.dossier + 0.25:.2f}; ~30% they notice (-0.20 regard)")
+    if kind == "leak":
+        if t is None:
+            return blurb + " — pick a colleague"
+        thin = (f"their dossier is thin ({t.dossier:.2f} < "
+                f"{p.LEAK_MIN_DOSSIER}) — nothing will move the press"
+                if t.dossier <= p.LEAK_MIN_DOSSIER else
+                f"their dossier will burn ({t.dossier:.2f})")
+        if outlet is None:
+            return (f"{thin}; open-market trace ~{p.LEAK_TRACE_P:.0%}, "
+                    f"friendly venue ~{p.LEAK_TRACE_P * p.FRIENDLY_TRACE_MULT:.0%}, "
+                    f"hostile ~{p.LEAK_TRACE_P * p.HOSTILE_TRACE_MULT:.0%}")
+        o = next((x for x in state.outlets if x.id == outlet), None)
+        warm = o.warmth.get(me.party, 0.0) if o else -1.0
+        mult = 1.0 if o is None else (
+            p.FRIENDLY_TRACE_MULT if warm >= p.COURT_FRIENDLY_MIN
+            else p.HOSTILE_TRACE_MULT)
+        venue = (f"{o.name} (warmth {warm:.2f})" if o else "the open market")
+        return f"{thin}; through {venue} the trace risk is ~{p.LEAK_TRACE_P * mult:.0%}"
+    if kind == "court":
+        o = next((x for x in state.outlets if x.id == target), None)
+        if o is None or me.party is None:
+            return blurb + " — pick an editorial board"
+        w = o.warmth.get(me.party, 0.0)
+        return (f"{o.name} warmth {w:.2f} -> "
+                f"{min(1.0, w + p.COURT_WARMTH):.2f} — friendlier "
+                "coverage, safer leaks")
+    if kind == "lobby":
+        if t is None:
+            return blurb + " — pick a colleague"
+        r = t.relationships.get(me.id, 0.0)
+        return f"{t.name}'s regard {r:.2f} -> {r + 0.2:.2f} — careers run on this ledger"
+    if kind == "scheme":
+        pt = state.parties.get(me.party)
+        n = max(0, min(8, len(pt.members) - 1)) if pt else 0
+        return (f"+0.05 regard with up to {n} colleagues; your dossier "
+                f"+0.03 (now {me.dossier:.2f})")
+    if kind == "attack":
+        ministers = [m for m in state.mps.values() if m.portfolio is not None]
+        weak = -mood(state.conditions) - min((m.perf for m in ministers),
+                                           default=0.0)
+        odds = float(max(0.02, min(0.9, p.ATTACK_P + p.ATTACK_WEAK_W * weak)))
+        return (f"lands ~{odds:.0%}: -{p.ATTACK_BRAND:.2f} brand across the "
+                f"coalition, your standing +{p.ATTACK_STANDING:.2f}; "
+                f"whiff -{p.ATTACK_WHIFF:.2f}")
+    if kind == "amend" and state.current_bill is not None:
+        import numpy as np
+        d = float(np.linalg.norm(p.AMEND_STEP
+                                 * (np.asarray(me.pos)
+                                    - np.asarray(state.current_bill.pos))))
+        return f"the {state.current_bill.name} would move ~{d:.2f} toward you"
+    if kind == "table":
+        return (f"a bill on your ground ({me.pos[0]:+.1f},{me.pos[1]:+.1f}), "
+                "your name in the record — the whole week")
+    if kind == "platform":
+        pt = state.parties.get(me.party)
+        if pt is None:
+            return blurb
+        return (f"the platform pulls ~5% toward you "
+                f"(now {pt.platform[0]:+.2f},{pt.platform[1]:+.2f})")
+    if kind == "budget":
+        cur = ["austerity", "balanced", "stimulus"][state.government.budget_stance]
+        return f"the books currently read '{cur}' — signal a different posture"
+    if kind == "deal":
+        return (f"promise your column — they bank +{p.DEAL_REL:.2f} regard "
+                "and the whip sees the pledge")
+    if kind == "vote":
+        return "the pending division — 'why?' decomposes it"
+    if kind == "defect":
+        return (f"betrayal +{p.DEFECT_BETRAYAL:.2f} in your seat, standing "
+                "resets — pick where you land")
+    if kind == "found":
+        from .parties import _stay_utility
+        old = me.party
+        followers = [m.id for m in state.mps.values()
+                     if m.party == old and m.id != me.id
+                     and m.id != state.government.pm
+                     and m.relationships.get(me.id, 0.0) >= p.FOUND_REL_MIN
+                     and _stay_utility(state, m) < p.PARTY_FORM_STAY_UTILITY]
+        return f"{len(followers)} colleagues would walk out with you"
+    if kind == "challenge":
+        from .courts import challengeable
+        n = len(challengeable(state))
+        return f"{n} statute(s) are contestable — risk shows on the pick"
+    if kind == "appoint":
+        return f"{len(state.bench_shortlist)} nominee(s) wait — lean and activism show on the pick"
+    return blurb
