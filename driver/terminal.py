@@ -10,8 +10,30 @@ sys.stdout.reconfigure(encoding="utf-8", errors="replace")  # cp1252 consoles
 from sim.actions import Action, available_actions
 from sim.career import final_score
 from sim.inspect import explain_bench, explain_bill, explain_mp, explain_vote
+from sim.persist import from_json, to_json
 from sim.tick import tick
 from sim.worldgen import new_game
+
+SAVES = Path(__file__).resolve().parent.parent / "saves"
+
+
+def _save(state) -> None:
+    SAVES.mkdir(exist_ok=True)
+    text = to_json(state)
+    p = SAVES / f"s{state.seed}-w{state.week}.json"
+    p.write_text(text, encoding="utf-8")
+    (SAVES / "latest.json").write_text(text, encoding="utf-8")
+    print(f"  saved -> {p}")
+
+
+def _load():
+    p = SAVES / "latest.json"
+    if not p.exists():
+        print("  no save found")
+        return None
+    st = from_json(p.read_text(encoding="utf-8"))
+    print(f"  loaded week {st.week} [{st.phase}]")
+    return st
 
 INTERRUPTS = {"ConfidenceLost", "CoalitionFormed", "PartyFormed", "Defection",
               "PartyDissolved", "Scandal", "ElectionCalled", "ElectionResult", "SeatLost",
@@ -33,16 +55,26 @@ def _ask(prompt: str, ok) -> str | None:
         return None
 
 
-def prompt_actions(state) -> list[Action]:
+def prompt_actions(state) -> tuple[list[Action], "object | None"]:
+    """Returns (picks, loaded_state) — a `load` abandons the pick and the
+    caller swaps in the fresh state without ticking."""
     menu = available_actions(state)
     picks = []
     while len(picks) < 2:
         print("\nActions (pick 2):", ", ".join(f"{i}:{a}" for i, a in enumerate(menu)),
-              "| inspect <mp_id|bench> | why")
+              "| inspect <mp_id|bench> | why | save | load")
         try:
             raw = input(f"action {len(picks) + 1}/2 > ").strip()
         except EOFError:
-            return picks + [Action("nothing")] * (2 - len(picks))
+            return picks + [Action("nothing")] * (2 - len(picks)), None
+        if raw == "save":
+            _save(state)
+            continue
+        if raw == "load":
+            st = _load()
+            if st is not None:
+                return [], st
+            continue
         if raw == "why":
             print(explain_vote(state))
             continue
@@ -172,7 +204,7 @@ def prompt_actions(state) -> list[Action]:
                                 outlet=outlet))
         else:
             print("?")
-    return picks
+    return picks, None
 
 
 def show_poll(state) -> None:
@@ -185,14 +217,22 @@ def show_poll(state) -> None:
         print(f"  {label}:", "  ".join(f"{k} {v}" for k, v in shares.items()))
 
 
-def run(seed: int = 0) -> None:
-    state = new_game(seed)
-    print(f"=== BACKBENCH - seed {seed} ===")
+def run(seed: int = 0, load: bool = False) -> None:
+    if load:
+        state = _load()
+        if state is None:
+            return
+    else:
+        state = new_game(seed)
+    print(f"=== BACKBENCH - seed {state.seed} ===")
     print(f"You are {state.mps[state.player_id].name}, MP for district {state.mps[state.player_id].district}.")
     while state.phase != "over":
         print(f"\n-- Week {state.week} [{state.phase}] {'-' * 40}")
         show_poll(state)
-        actions = prompt_actions(state)
+        actions, loaded = prompt_actions(state)
+        if loaded is not None:
+            state = loaded
+            continue
         for e in tick(state, actions):
             mark = "***" if e.type in INTERRUPTS else "   "
             print(f" {mark} {e.text}")
@@ -201,4 +241,7 @@ def run(seed: int = 0) -> None:
 
 
 if __name__ == "__main__":
-    run(int(sys.argv[1]) if len(sys.argv) > 1 else 0)
+    if "--load" in sys.argv:
+        run(load=True)
+    else:
+        run(int(sys.argv[1]) if len(sys.argv) > 1 else 0)

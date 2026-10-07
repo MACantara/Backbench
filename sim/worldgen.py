@@ -173,6 +173,7 @@ def new_game(seed: int) -> GameState:
     bench = make_bench(rng, np_rng, centroid, activism)
     return GameState(
         rng=rng, week=0, phase="campaign", voters=voters, mps=mps, parties=parties,
+        seed=seed,
         hopefuls=hopefuls, outlets=make_outlets(rng, np_rng, parties),
         conditions=Conditions(**conds),
         player_id=int(med), weeks_to_election=p.CAMPAIGN_WEEKS,

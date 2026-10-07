@@ -247,6 +247,7 @@ class GameState:
     mps: dict[int, MP]
     parties: dict[int, Party]
     player_id: int
+    seed: int = 0                       # the world seed — saves name themselves by it
     hopefuls: list[Hopeful] = field(default_factory=list)
     outlets: list[Outlet] = field(default_factory=list)
     conditions: Conditions = field(default_factory=Conditions)

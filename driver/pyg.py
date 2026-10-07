@@ -11,8 +11,11 @@ import pygame
 
 from sim.actions import Action
 from sim.career import final_score
+from sim.persist import from_json, to_json
 from sim.tick import tick
 from sim.worldgen import new_game
+
+SAVES = Path(__file__).resolve().parent.parent / "saves"
 
 from driver.pyg_render import (H, INTERRUPTS, W, district_owners, draw,
                                seat_positions)
@@ -128,6 +131,21 @@ class Driver:
         self.need_law = self.need_judge = self.need_amend = False
         self.need_outlet = False
         self.leak_outlet = None
+
+    def _reset_view(self) -> None:
+        """A loaded state invalidates every per-week visual — drop them all."""
+        self._clear_pending()
+        self.picks = []
+        self.events = []
+        self.vote_anim = None
+        self.vote_flash = {}
+        self.reveal = None
+        self.inspect_mp = None
+        self.why_text = None
+        self.week_timer = 0.0
+        self.action_pause = False
+        self.district_prev = district_owners(self.state)
+        self.chronicle["scroll"] = 0
 
     def on_button(self, bid: str) -> None:
         from sim.inspect import explain_bench, explain_vote
@@ -289,6 +307,21 @@ class Driver:
                 self.speed_i = min(self.speed_i + 1, len(SPEEDS) - 1)
             elif e.key == pygame.K_MINUS:
                 self.speed_i = max(self.speed_i - 1, 0)
+            elif e.key == pygame.K_F5:
+                SAVES.mkdir(exist_ok=True)
+                text = to_json(self.state)
+                (SAVES / f"s{self.state.seed}-w{self.state.week}.json") \
+                    .write_text(text, encoding="utf-8")
+                (SAVES / "latest.json").write_text(text, encoding="utf-8")
+                self.banner = f"Saved — week {self.state.week}"
+                self.paused = True
+            elif e.key == pygame.K_F9:
+                p = SAVES / "latest.json"
+                if p.exists():
+                    self.state = from_json(p.read_text(encoding="utf-8"))
+                    self._reset_view()
+                    self.banner = f"Loaded — week {self.state.week}"
+                    self.paused = True
             elif e.key == pygame.K_F12:
                 Path("shots").mkdir(exist_ok=True)
                 pygame.image.save(self.screen, f"shots/week{self.state.week}.png")
