@@ -87,6 +87,7 @@ class Driver:
         self.need_judge = False     # "appoint" awaiting a nominee pick
         self.need_amend = False     # "amendment" awaiting a clause pick
         self.need_outlet = False    # "court" awaiting an outlet pick
+        self.need_evolve = False    # "evolve" awaiting an anchor pick
         self.leak_outlet = None     # pending leak target awaiting venue pick
         self.why_text = None        # explain_vote output while paused
         self.viz_rng = random.Random(1)  # visuals only — never touches sim rng
@@ -326,6 +327,7 @@ class Driver:
         self.need_offer = self.need_budget = self.need_defect = False
         self.need_law = self.need_judge = self.need_amend = False
         self.need_outlet = False
+        self.need_evolve = False
         self.leak_outlet = None
 
     def _reset_view(self) -> None:
@@ -383,6 +385,8 @@ class Driver:
                 self.need_amend = True
             elif kind == "court":
                 self.need_outlet = True
+            elif kind == "evolve":
+                self.need_evolve = True
             else:
                 self.picks.append(Action(kind))
                 self._after_pick()
@@ -412,6 +416,17 @@ class Driver:
             self.picks.append(Action("defect",
                                      target=None if bid[4:] == "i" else int(bid[4:])))
             self.need_defect = False
+            self._after_pick()
+        elif bid.startswith("evo:") and self.need_evolve:
+            me = self.state.mps[self.state.player_id]
+            if bid[4:] == "d":
+                mask = self.state.voters.district == me.district
+                anchor = self.state.voters.pos[mask].mean(axis=0)
+            else:
+                anchor = self.state.parties[me.party].platform
+            self.picks.append(Action("evolve",
+                                     pos=(float(anchor[0]), float(anchor[1]))))
+            self.need_evolve = False
             self._after_pick()
         elif bid.startswith("law:") and self.need_law:
             from sim.courts import challengeable
@@ -455,6 +470,7 @@ class Driver:
             self.need_offer = self.need_budget = self.need_defect = False
             self.need_law = self.need_judge = self.need_amend = False
             self.need_outlet = False
+            self.need_evolve = False
             self.leak_outlet = None
             picks = [pk for pk in self.picks
                      if pk.kind != "deal" or pk.vote is not None]  # unfinished deal = no deal

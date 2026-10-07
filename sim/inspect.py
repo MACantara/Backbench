@@ -221,6 +221,7 @@ ACTION_INFO: dict[str, str] = {
     "attack": "go for the government — lands only when it's weak",
     "table": "write and divide your own bill — your name on the book",
     "platform": "pull the party platform toward you — a leader's prerogative",
+    "evolve": "reposition — the voters price the slide, the whip reads the direction",
     "budget": "signal the next budget's posture — the treasury reads it",
     "defect": "cross the floor — your district remembers betrayal",
     "found": "walk out and name a vehicle — whoever loves you walks too",
@@ -306,6 +307,12 @@ def explain_action(state: GameState, kind: str,
             return blurb + " — pick a colleague"
         r = t.relationships.get(me.id, 0.0)
         return f"{t.name}'s regard {r:.2f} -> {r + 0.2:.2f} — careers run on this ledger"
+    if kind == "evolve":
+        gap = dist(me.pos, tuple(v.pos[mask].mean(axis=0))) if mask.any() else 0.0
+        moved = p.EVOLVE_STEP * gap
+        return (f"the district sits {gap:.2f} away — this week's slide moves "
+                f"{moved:.2f} (+{p.EVOLVE_BETRAYAL_W * moved:.2f} mistrust); "
+                "the whip prices the direction")
     if kind == "scheme":
         pt = state.parties.get(me.party)
         n = max(0, min(8, len(pt.members) - 1)) if pt else 0
