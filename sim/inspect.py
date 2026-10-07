@@ -149,6 +149,18 @@ def explain_party(state: GameState, pid: int) -> str:
         h = hold(post)
         you = " [YOU]" if h is not None and h.id == state.player_id else ""
         lines.append(f"  {post.lower()}: {h.name if h else '—'}{you}")
+    gov = state.government
+    pm_pid = state.mps[gov.pm].party if gov.pm in state.mps else None
+    if pid in gov.parties and pid != pm_pid and gov.platform is not None:
+        strain = dist(pt.platform, gov.platform)
+        share = state.last_poll["shares"].get(pid, 0.0) if state.last_poll else None
+        seat = len(pt.members) / max(len(state.mps), 1)
+        risk = (" — LEAVING RISK" if strain > p.COAL_EXIT_DIST
+                and share is not None and share < seat else "")
+        lines.append(f"  in government: strain {strain:.2f}, poll "
+                     f"{share:.0%} vs seats {seat:.0%}{risk}"
+                     if share is not None else
+                     f"  in government: strain {strain:.2f}{risk}")
     for f in pt.factions:
         heir = state.mps.get(f.leader)
         lines.append(f"  {f.name}: {len(f.members)} members"

@@ -146,6 +146,8 @@ SNAP_COLLAPSE_MAX = 2            # collapses since last election that force diss
 SNAP_WINDOW = (20, 32)           # weeks_in_office range where a strategic call is allowed
 SNAP_POLL_EDGE = 0.08            # gov poll share must beat its seat share by this much
 SNAP_CALL_P = 0.10               # per-week chance while the window + poll gate hold
+COAL_EXIT_DIST = 0.5             # platform-agenda strain that lets a partner walk
+COAL_EXIT_GRACE = 26             # weeks_in_office before a partner may leave
 
 # --- parties ---
 PARTY_COHESION_SPLIT = 0.35      # below this + spread trigger → schism possible

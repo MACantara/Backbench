@@ -11,8 +11,8 @@ from .career import (assign_portfolios, check_ambition, junior_lifecycle,
 from .conditions import conditions_lifecycle
 from .courts import courts_lifecycle
 from .election import publish_poll, resolve_election
-from .government import (call_election, collapse, resolve_formation,
-                         strategic_call)
+from .government import (call_election, coalition_exits, collapse,
+                         resolve_formation, strategic_call)
 from .media import media_lifecycle
 from .parliament import resolve_vote, table_bill
 from .parties import party_lifecycle
@@ -67,6 +67,8 @@ def tick(state: GameState, actions: list | None = None) -> list[Event]:
         if state.current_bill is None and state.phase == "governing":
             table_bill(state)
         # insolvency's forced confidence fires from treasury_lifecycle — immediate
+        if state.phase == "governing":
+            coalition_exits(state)  # a strained, bleeding partner may walk
         if state.phase == "governing":
             publish_poll(state)     # a sponsor prints the week's numbers
             strategic_call(state)   # the PM reads the published poll
