@@ -14,7 +14,7 @@ from sim.worldgen import new_game
 
 def main() -> None:
     # forced secession: party split into two distant wings, cohesion destroyed
-    s = new_game(5)
+    s = new_game(8)
     pt = s.parties[0]
     members = list(pt.members)
     half = len(members) // 2
@@ -36,7 +36,7 @@ def main() -> None:
     assert any(e.type == "PartyFormed" for e in s.log)
 
     # lone founder: tank party cohesion, one ambitious MP far from platform walks
-    s2 = new_game(6)
+    s2 = new_game(9)
     mp = next(iter(s2.mps.values()))
     pt2 = s2.parties[mp.party]
     for m in pt2.members:

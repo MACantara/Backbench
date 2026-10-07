@@ -28,12 +28,15 @@ SPEEDS = [0.5, 1.0, 2.0, 4.0]
 class Driver:
     """Owns pygame + clock + pause state. Sim interaction is advance() only."""
 
-    def __init__(self, seed: int = 0, headless: bool = False, scenario=None):
+    def __init__(self, seed: int = 0, headless: bool = False, scenario=None,
+                 fullscreen: bool = False):
         if headless:
             import os
             os.environ.setdefault("SDL_VIDEODRIVER", "dummy")
         pygame.init()
-        self.screen = pygame.display.set_mode((W, H))
+        flags = pygame.RESIZABLE | (pygame.FULLSCREEN if fullscreen else 0)
+        self.window = pygame.display.set_mode((W, H), flags)
+        self.screen = pygame.Surface((W, H))   # fixed canvas, scaled to the window
         pygame.display.set_caption("Backbench")
         self.clock = pygame.time.Clock()
         self.font = pygame.font.Font(None, 22)
@@ -341,7 +344,8 @@ class Driver:
         elif e.type == pygame.MOUSEWHEEL and self.chronicle["open"]:
             self.chronicle["scroll"] += e.y * 3
         elif e.type == pygame.MOUSEBUTTONDOWN:
-            self.on_click(e.pos)
+            wx, wy = self.window.get_size()
+            self.on_click((int(e.pos[0] * W / wx), int(e.pos[1] * H / wy)))
 
     def on_click(self, pos) -> None:
         if self.banner:
@@ -379,12 +383,14 @@ class Driver:
                 self.handle_event(e)
             self.step(dt)
             self.draw()
+            self.window.blit(pygame.transform.scale(self.screen,
+                                                    self.window.get_size()), (0, 0))
             pygame.display.flip()
         pygame.quit()
 
 
-def run(seed: int = 0, scenario=None) -> None:
-    Driver(seed, scenario=scenario).loop()
+def run(seed: int = 0, scenario=None, fullscreen: bool = False) -> None:
+    Driver(seed, scenario=scenario, fullscreen=fullscreen).loop()
 
 
 if __name__ == "__main__":
@@ -392,4 +398,5 @@ if __name__ == "__main__":
         if "--scenario" in sys.argv else None
     seed = next((a for a in sys.argv[1:]
                  if not a.startswith("-") and a != sc), None)
-    run(int(seed) if seed else 0, sc)
+    run(int(seed) if seed else 0, sc,
+        fullscreen="--fullscreen" in sys.argv)

@@ -23,7 +23,7 @@ def _governing(seed: int):
 
 def main() -> None:
     # defect to independent: betrayal, bridge-burn, standing reset, posts gone
-    s = _governing(1)
+    s = _governing(7)
     me = s.mps[s.player_id]
     old_pid = me.party
     me.portfolio, me.standing = "Finance", 0.6
@@ -53,7 +53,7 @@ def main() -> None:
     assert s.government.pm != me.id, "defecting PM kept the office"
 
     # found: only real loyalty walks out
-    s = _governing(4)
+    s = _governing(8)
     me = s.mps[s.player_id]
     loyal = next(m for m in s.mps.values()
                  if m.party == me.party and m.id != me.id
@@ -81,7 +81,7 @@ def main() -> None:
         "independent founder didn't get a solo vehicle"
 
     # leak: a dirty dossier detonates on schedule; a clean one whiffs; no self-leak
-    s = _governing(5)
+    s = _governing(9)
     dirty = next(m for m in s.mps.values() if m.id != s.player_id)
     dirty.dossier, dirty.scandal_weeks = p.LEAK_MIN_DOSSIER + 0.2, 0
     apply_action(s, Action("leak", target=dirty.id))
@@ -102,7 +102,7 @@ def main() -> None:
                    for e in s.log[n:]), "self-leak detonated"
 
     # the trace cost: a caught leak burns the bridge and marks your own dossier
-    s = _governing(6)
+    s = _governing(11)
     me = s.mps[s.player_id]
     t = next(m for m in s.mps.values() if m.id != s.player_id)
     t.dossier, t.scandal_weeks = p.LEAK_MIN_DOSSIER + 0.2, 0

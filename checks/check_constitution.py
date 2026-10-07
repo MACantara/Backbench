@@ -31,7 +31,7 @@ def _striking_bench(s) -> None:
 
 def main() -> None:
     # the oracle scores clause breaches, not vibes
-    s = _governing(4)
+    s = _governing(2)
     s.constitution = [Article(0, "the Property Clause", "pos",
                               axis=0, pole=-1, limit=0.3)]
     radical = Bill(pos=(-0.8, 0.0), beneficiary_axis=0, cost=0.1)

@@ -63,7 +63,7 @@ def main() -> None:
     me.standing = 0.5
     mp_lifecycle(s)
     assert 0.4 < me.standing < 0.5, f"standing didn't decay: {me.standing:.3f}"
-    s2 = new_game(1)
+    s2 = new_game(3)
     while s2.phase not in ("governing", "over"):
         tick(s2)
     assert s2.phase == "governing"

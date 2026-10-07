@@ -183,7 +183,8 @@ def draw_panel(drv) -> None:
     y += 36
     speed = ["0.5x", "1x", "2x", "4x"][drv.speed_i]
     mode = "AUTO" if drv.auto_play else ("PAUSED" if drv.paused else "running")
-    _text(drv, f"{mode} {speed}   space=pause a=auto c=log tab=map q=quit", (x, y), DIM)
+    _text(drv, f"{mode} {speed}   space=pause a=auto c=log tab=map "
+               "f5=save f9=load q=quit", (x, y), DIM)
     y += 28
     last = next((e for e in reversed(s.log) if e.type == "PollShift"), None)
     if last:

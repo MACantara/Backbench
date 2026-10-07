@@ -63,6 +63,9 @@ def main() -> None:
     s.government.pm = next(iter(s.parties[0].members))
     s.week = 3           # week 0 is supply day — the budget's text carries cost
     bill = table_bill(s)
+    bill.pos = tuple(s.parties[0].platform)  # on-platform — the whip binds
+    for m in s.mps.values():
+        m.pos = tuple(s.parties[0].platform)  # and ideology can't buck it
     assert bill.name and bill.name in s.log[-1].text
     assert describe_pos(bill.pos) in s.log[-1].text, \
         "BillTabled should speak words, not coordinates"
@@ -88,7 +91,8 @@ def main() -> None:
     formed = [e for e in s.log if e.type == "PartyFormed"]
     assert formed, "the estranged wing should have walked"
     seceded = s.parties[formed[-1].data["party"]]
-    assert not seceded.name.endswith(" List"), \
+    surname = s.mps[formed[-1].data["founder"]].name.split()[-1]
+    assert seceded.name != f"{surname} List", \
         f"bloc secession should take an archetype name, got {seceded.name!r}"
 
     s = new_game(3)

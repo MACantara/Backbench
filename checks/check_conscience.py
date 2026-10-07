@@ -110,7 +110,7 @@ def main() -> None:
     assert abstained, "no abstentions in eight runs — the margin band is dead code"
 
     # --- quorum: an empty house stalls the division, the bill carries ---
-    s3 = _governing(1)
+    s3 = _governing(2)
     assert s3 is not None
     ev = tick(s3)
     bill = s3.current_bill
@@ -149,8 +149,17 @@ def main() -> None:
     assert any(e.type == "DealKept" for e in s5.log), "kept promise not honored"
     assert t.relationships.get(s5.player_id, 0.0) > rel0, "a kept deal paid nothing"
     tick(s5)  # next bill
+    for _ in range(40):                     # a term boundary or stall can leave
+        if s5.current_bill is not None:     # the dispatch box empty — wait for one
+            break
+        tick(s5)
     rel1 = t.relationships.get(s5.player_id, 0.0)
-    ev = tick(s5, [Action("deal", target=t.id, vote=1), Action("vote", vote=-1)])
+    saved = p.ATTEND_BASE, p.ATTEND_SHOCK_P
+    p.ATTEND_BASE = p.ATTEND_SHOCK_P = 0.0  # full house — no quorum luck
+    try:
+        ev = tick(s5, [Action("deal", target=t.id, vote=1), Action("vote", vote=-1)])
+    finally:
+        p.ATTEND_BASE, p.ATTEND_SHOCK_P = saved
     assert any(e.type == "DealBroken" for e in ev), "reneged silently"
     assert t.relationships.get(s5.player_id, 0.0) < rel1, "a broken deal cost nothing"
     assert not s5.deals, "judged deals linger on the books"
