@@ -320,6 +320,8 @@ LEAK_CAUGHT_DIRT = 0.15      # traced leaking marks the player's own dossier
 
 # --- drift ---
 VOTER_DRIFT_SD = 0.004           # weekly position noise
+GOV_FATIGUE_W = 0.0006           # per week-in-office push of voters off the agenda
+GOV_FATIGUE_CAP = 104            # fatigue stops compounding past ~2 years
 SALIENCE_REVERT = 0.02           # weekly pull of salience back toward base
 BRAND_DECAY = 0.95               # weekly brand multiplier — reputation mean-reverts
 REL_DECAY = 0.97                 # relationships decay toward neutral
