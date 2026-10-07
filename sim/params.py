@@ -354,6 +354,7 @@ CONFIDENCE_WOUND_BRAND = 0.25   # constructive-confidence survival tax
 
 # --- spectator bot ---
 BOT_MARGINAL_SAFETY = 0.10   # seat_safety below this gets district defense
+BOT_EVOLVE_GAP      = 0.5    # a losing forecast + this ground gap = reposition
 BOT_FREE_VOTE_DIST  = 0.6    # free votes: aye inside this ideological range
 BOT_AMEND_DIST      = 0.5    # bills farther than this earn an amend
 BOT_COURT_WARMTH    = 0.5    # court outlets colder than this

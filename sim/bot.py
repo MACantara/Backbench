@@ -92,13 +92,22 @@ def _r_seat_defense(c: _Ctx) -> None:
     get worked regardless, and the gate reads the projection rather
     than only the last margin: a seat the forecast says you're losing
     is marginal even if last time was safe."""
-    if c.state.phase == "campaign":
+    s = c.state
+    if s.phase == "campaign":
         from .election import district_forecast
-        f = district_forecast(c.state, c.player.district)
+        f = district_forecast(s, c.player.district)
         lead = f["candidates"][0] if f["candidates"] else None
         me_pid = c.player.party if c.player.party is not None else -1
         losing = not (lead and lead["name"] == c.player.name
                       and lead["party"] == me_pid)
+        if losing:
+            cent = s.voters.pos[s.voters.district == c.player.district].mean(axis=0)
+            gap = dist(c.player.pos, tuple(cent))
+            if gap > p.BOT_EVOLVE_GAP:
+                # the ground, not the ground game — a player repositions
+                c.take("evolve", pos=(float(cent[0]), float(cent[1])),
+                       gate=f"ground gap {gap:.2f}")
+                return
         c.take("campaign",
                gate="projection: losing" if losing else "projection: ahead")
     elif c.player.seat_safety < p.BOT_MARGINAL_SAFETY:
