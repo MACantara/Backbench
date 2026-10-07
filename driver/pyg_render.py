@@ -63,7 +63,12 @@ def seat_positions(state) -> dict[int, tuple[float, float]]:
 
 
 def district_owners(state) -> dict[int, int | None]:
-    return {m.district: m.party for m in state.mps.values()}
+    tallies: dict[int, dict] = {}
+    for m in state.mps.values():
+        d = tallies.setdefault(m.district, {})
+        d[m.party] = d.get(m.party, 0) + 1
+    return {d: max(ps.items(), key=lambda kv: kv[1])[0]
+            for d, ps in tallies.items()}
 
 
 def draw_map(drv) -> None:
@@ -75,7 +80,11 @@ def draw_map(drv) -> None:
     if drv.reveal:
         k = int(drv.reveal["t"] / 3.0 * len(drv.reveal["order"]))
         shown = set(drv.reveal["order"][:k])
+    drawn = set()
     for m in s.mps.values():
+        if m.district in drawn:
+            continue            # multi-member districts draw one cell each
+        drawn.add(m.district)
         mask = v.district == m.district
         if not mask.any():
             continue
@@ -83,15 +92,33 @@ def draw_map(drv) -> None:
         col = int(np.clip((cent[0] + 1) / 2 * gx, 0, gx - 1))
         row = int(np.clip((cent[1] + 1) / 2 * gy, 0, gy - 1))
         pid = owners[m.district]
-        if shown is not None and m.district not in shown:
-            pid = drv.district_prev.get(m.district, pid)  # pre-election holder
+        if shown is not None:
+            if m.district in shown:
+                pid = drv.reveal["winners"].get(m.district, pid)
+            else:
+                pid = drv.district_prev.get(m.district, pid)  # pre-election holder
         bright = 0.4 + 0.6 * m.seat_safety
         c = tuple(int(x * bright) for x in party_color(s, pid))
         r = pygame.Rect(ox + col * (cell + 2), oy + row * (cell + 2), cell, cell)
         pygame.draw.rect(drv.screen, c, r)
         if m.id == s.player_id:
             pygame.draw.rect(drv.screen, WHITE, r, 2)
-    _text(drv, "Districts (FPTP)", (ox, oy - 28), DIM)
+    title = "Districts" if s.district_magnitude > 1 else "Districts (FPTP)"
+    if drv.reveal:
+        tally: dict = {}
+        for d in drv.reveal["order"]:
+            if d in shown:
+                w = drv.reveal["winners"].get(d)
+                tally[w] = tally.get(w, 0) + 1
+        lead = "  ".join(
+            f"{s.parties[p].name if p in s.parties else 'ind'} {n}"
+            for p, n in sorted(tally.items(), key=lambda kv: -kv[1]))
+        title += f" — called {len(shown)}/{len(drv.reveal['order'])}: {lead}"
+        flips = [f"d{d}: {drv.reveal['flips'][d]}"
+                 for d in drv.reveal["order"] if d in shown and d in drv.reveal["flips"]]
+        if flips:
+            _text(drv, "flips: " + "; ".join(flips[-3:]), (ox, oy + gy * (cell + 2) + 6), WHITE)
+    _text(drv, title, (ox, oy - 28), DIM)
 
     sx, sy, sz = 560, 60, 420
     pygame.draw.rect(drv.screen, PANEL, (sx - 12, sy - 12, sz + 24, sz + 24))

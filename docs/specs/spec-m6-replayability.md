@@ -154,9 +154,13 @@ retained seats. One new emit inside the loop:
 
 ```python
 state.emit("DistrictResult", "...",
-           district=d, winner=winner, prev=prev_winner,
-           margin=margin, flipped=not retained, incumbent=inc_id)
+           district=d, winners=dict(won), prev={incumbent parties},
+           flipped=any_unseated, margin=margin, retained=[kept mp ids])
 ```
+
+(`winners`/`retained` are plural: multi-member districts can split a
+district's seats across parties — at magnitude 1 they degenerate to the
+single-winner shape.)
 
 Then drivers dramatize: the election tick's `DistrictResult`s buffer and
 reveal sequentially — pyg steps them on a timer (map seats fill as calls

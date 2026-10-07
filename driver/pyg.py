@@ -82,9 +82,16 @@ class Driver:
         self.district_prev = district_owners(self.state)
         self.events = tick(self.state, actions or [])
         if any(e.type == "ElectionResult" for e in self.events):
-            order = list(self.district_prev)
+            drs = [e for e in self.events if e.type == "DistrictResult"]
+            order = [e.data["district"] for e in drs] or list(self.district_prev)
             self.viz_rng.shuffle(order)
-            self.reveal = {"order": order, "t": 0.0}
+            self.reveal = {"order": order, "t": 0.0,
+                           "winners": {e.data["district"]: max(
+                               e.data["winners"].items(), key=lambda kv: kv[1])[0]
+                               for e in drs},
+                           "flips": {e.data["district"]: e.text.split(": ", 1)[-1]
+                                     for e in drs if e.data["flipped"]},
+                           "seats": {}}
             self.view = "map"
         vote = next((e for e in self.events if e.type == "VoteResult"), None)
         if vote and "detail" in vote.data:

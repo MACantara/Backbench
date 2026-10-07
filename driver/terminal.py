@@ -244,7 +244,24 @@ def run(seed: int = 0, load: bool = False, scenario=None) -> None:
             continue
         events = tick(state, actions)
         echoes = [e for e in events if e.data.get("echo")]
+        called = False
         for e in (e for e in events if not e.data.get("echo")):
+            if e.type == "DistrictResult":
+                if not called:
+                    called = True
+                    drs = [x for x in events if x.type == "DistrictResult"]
+                    res = next((x for x in events if x.type == "ElectionResult"), None)
+                    if res:
+                        tally = sorted(res.data["seats"].items(),
+                                       key=lambda kv: -kv[1])
+                        names = {pid: pt.name for pid, pt in state.parties.items()}
+                        print(f"   called {len(drs)}/{len(drs)} districts — "
+                              + " · ".join(f"{names.get(p, p)} {n}" for p, n in tally))
+                    flips = [x for x in drs if x.data["flipped"]]
+                    if flips:
+                        print("   flips:", "; ".join(x.text for x in flips[:8])
+                              + (f"; +{len(flips) - 8} more" if len(flips) > 8 else ""))
+                continue
             mark = "***" if e.type in INTERRUPTS else "   "
             print(f" {mark} {e.text}")
         if echoes:

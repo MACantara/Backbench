@@ -179,6 +179,15 @@ def resolve_election(state: GameState) -> None:
                 next_id += 1
         for i in unseated:
             remove_mp(state, i)
+        kept_ids = [i.id for i in incs if i.id in new_mps]
+        state.emit("DistrictResult",
+                   f"District {d}: " + ", ".join(
+                       f"{state.parties[w].name if w != INDEPENDENT else 'independent'} {k}"
+                       for w, k in won.items()),
+                   district=d, winners=dict(won),
+                   prev={i.party if i.party is not None else "ind" for i in incs},
+                   flipped=len(kept_ids) < len(incs), margin=float(margin),
+                   retained=kept_ids)
 
     player_lost = state.player_id not in new_mps
     if player_lost:
