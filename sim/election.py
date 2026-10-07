@@ -61,6 +61,7 @@ def resolve_election(state: GameState) -> None:
     v = state.voters
     n_districts = int(v.district.max()) + 1
     seat_counts: dict[int, int] = {}
+    nat_votes: dict[int, int] = {}
     rng = np.random.default_rng(int(state.rng.random() * 2**63))
     turnout_hit = rng.random(len(v.pos)) < np.clip(
         v.turnout + rng.normal(0, p.TURNOUT_MODEL_NOISE, len(v.pos)), 0, 1)
@@ -78,16 +79,28 @@ def resolve_election(state: GameState) -> None:
     for d in range(n_districts):
         incs = incumbents.get(d, [])
         cand = {}
+        ballot: dict[int, dict] = {}      # the race: who stood, incumbent?
         for pid in state.parties:
             inc_p = next((i for i in incs if i.party == pid), None)
-            cand[pid] = _candidate(state, d, pid, inc_p)[0]
+            pos, hopeful = _candidate(state, d, pid, inc_p)
+            cand[pid] = pos
+            ballot[pid] = {
+                "name": (inc_p.name if inc_p is not None
+                         else hopeful.name if hopeful is not None
+                         else mp_name(state.rng, state.name_pack)),
+                "incumbent": inc_p is not None}
         inc_indep = next((i for i in incs if i.party is None), None)
         if inc_indep is not None or state.rng.random() < p.INDEPENDENT_P:
             centroid = v.pos[v.district == d].mean(axis=0)
             cand[INDEPENDENT] = (inc_indep.pos if inc_indep is not None else tuple(float(np.clip(
                 c + state.rng.gauss(0, p.INDEPENDENT_POS_SD), -1, 1)) for c in centroid))
+            ballot[INDEPENDENT] = {
+                "name": inc_indep.name if inc_indep is not None
+                        else mp_name(state.rng, state.name_pack),
+                "incumbent": inc_indep is not None}
         mask = (v.district == d) & turnout_hit
         share: dict[int, float] = {}
+        votes: dict[int, int] = {}
         if not mask.any():  # nobody voted — incumbents survive, else nearest party takes all
             if incs:
                 won: dict[int, int] = {}
@@ -110,6 +123,7 @@ def resolve_election(state: GameState) -> None:
             picks = score.argmax(axis=1)
             tally = np.bincount(picks, minlength=len(parties))
             total = max(int(tally.sum()), 1)
+            votes = {parties[i]: int(tally[i]) for i in range(len(parties))}
             if mag == 1:
                 winner = parties[int(tally.argmax())]
                 runner_up = np.sort(tally)[-2] if len(parties) > 1 else 0
@@ -142,6 +156,8 @@ def resolve_election(state: GameState) -> None:
 
         unseated = list(incs)
         unseated.sort(key=lambda i: i.id != state.player_id)  # your seat defends first
+        for pid, nv in votes.items():
+            nat_votes[pid] = nat_votes.get(pid, 0) + nv
         for winner, k in won.items():
             seat_counts[winner] = seat_counts.get(winner, 0) + k
             safety = share.get(winner, margin)
@@ -184,11 +200,31 @@ def resolve_election(state: GameState) -> None:
         for i in unseated:
             remove_mp(state, i)
         kept_ids = [i.id for i in incs if i.id in new_mps]
-        state.emit("DistrictResult",
-                   f"District {d}: " + ", ".join(
-                       f"{state.parties[w].name if w != INDEPENDENT else 'independent'} {k}"
-                       for w, k in won.items()),
-                   district=d, winners=dict(won),
+        # the race as it was run — names, votes, who held the seat
+        cand_rows = [{"name": ballot[pid]["name"],
+                      "party": pid,
+                      "votes": votes.get(pid, 0),
+                      "share": votes.get(pid, 0) / max(int(mask.sum()), 1),
+                      "incumbent": ballot[pid]["incumbent"],
+                      "won": won.get(pid, 0) > 0}
+                     for pid in ballot]
+        cand_rows.sort(key=lambda c: -c["votes"])
+        pname = lambda w: (state.parties[w].name
+                           if w != INDEPENDENT else "independent")
+        if len(cand_rows) >= 2:
+            a, b = cand_rows[0], cand_rows[1]
+            what = ("holds" if a["incumbent"] and a["won"]
+                    else "gains" if a["won"] else "takes")
+            text = (f"District {d}: {a['name']} {a['votes']}, "
+                    f"{b['name']} {b['votes']} — "
+                    f"{pname(cand_rows[0]['party'])} {what} "
+                    f"by {a['votes'] - b['votes']}")
+        else:
+            text = f"District {d}: " + ", ".join(
+                f"{pname(w)} {k}" for w, k in won.items())
+        state.emit("DistrictResult", text,
+                   district=d, winners=dict(won), candidates=cand_rows,
+                   turnout=int(mask.sum()),
                    prev=[i.party if i.party is not None else "ind" for i in incs],
                    flipped=len(kept_ids) < len(incs), margin=float(margin),
                    retained=kept_ids)
@@ -207,6 +243,7 @@ def resolve_election(state: GameState) -> None:
     state.emit("ElectionResult",
                render(state, "ElectionResult", country=state.country),
                seats={"ind" if k == INDEPENDENT else k: n for k, n in seat_counts.items()},
+               votes={"ind" if k == INDEPENDENT else k: n for k, n in nat_votes.items()},
                prev=prev_seats)
 
 
