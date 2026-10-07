@@ -31,7 +31,8 @@ INTERRUPTS = {"ConfidenceLost", "CoalitionFormed", "PartyFormed", "Defection",
               "ScandalBreaks", "Expelled", "Resigned", "MinisterSacked",
               "PressCycle", "OfferMade", "OfferDeclined", "OfferLapsed",
               "LawRepealed", "LawLapsed", "PmChange", "BudgetSet",
-              "AttackLands", "DebtCrisis", "AmbitionMet", "AmbitionFailed"}
+              "AttackLands", "DebtCrisis", "AmbitionMet", "AmbitionFailed",
+              "PayrollFall", "Elected"}
 
 
 def party_color(state, pid) -> tuple:
@@ -381,7 +382,8 @@ def draw_panel(drv) -> None:
         y += 20
         if mp.junior:
             _text(drv, f"party post: {mp.junior} ({mp.junior_weeks}wk)", (x, y), DIM)
-        y += 24
+            y += 20
+        y += 4
     if s.phase == "campaign" and mp:
         from sim.election import district_forecast
         key = (s.week, mp.district)

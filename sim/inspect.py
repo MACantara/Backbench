@@ -45,11 +45,13 @@ def explain_bill(state: GameState) -> str:
     from .parliament import vote_terms
     rows = []
     for mp in state.mps.values():
+        if mp.id == state.speaker:
+            continue                # the chair only casts on a tie
         terms = vote_terms(state, mp, bill, noisy=False)
         rows.append((sum(terms.values()), mp, terms))
     yes = sum(1 for u, _, _ in rows if u > p.ABSTAIN_MARGIN)
     no = sum(1 for u, _, _ in rows if u < -p.ABSTAIN_MARGIN)
-    abstain = len(rows) - yes - no
+    abstain = len(state.mps) - yes - no
     is_amendment = bill.amends is not None or bill.entrenches is not None
     passes = (yes > 0 and yes >= p.AMEND_MAJORITY * (yes + no)) if is_amendment \
         else yes > no
@@ -138,7 +140,8 @@ def explain_party(state: GameState, pid: int) -> str:
     hold = lambda post: next((state.mps[m] for m in sorted(pt.members)
                               if m in state.mps and state.mps[m].junior == post), None)
     fuse = (" — fractious: a challenge could land" if pt.cohesion < p.LEADERSHIP_COHESION_MIN
-            else " — the chair is safe" if pt.cohesion >= p.LEADERSHIP_COHESION_MIN + 0.15 else "")
+            else " — the chair is safe" if pt.cohesion >= p.LEADERSHIP_COHESION_MIN
+            + p.FUSE_SAFE_MARGIN else "")
     leader = state.mps.get(pt.leader)
     lines = [f"{pt.name} — {len(pt.members)} members, cohesion {pt.cohesion:.2f}{fuse}",
              f"  leader: {leader.name if leader else '—'}"]
@@ -159,9 +162,10 @@ def explain_party(state: GameState, pid: int) -> str:
             lines.append(f"  your candidacy: rank {ranked.index(state.player_id) + 1}"
                          f"/{len(ranked)} — " + " ".join(
                              f"{k} {v:+.2f}" for k, v in terms.items()))
-        lines.append(f"  the leader's view of you: "
-                     f"{leader.relationships.get(state.player_id, 0.0):+.2f}")
-        if len(pt.members) >= 4:
+        if pt.leader != state.player_id:
+            lines.append(f"  the leader's view of you: "
+                         f"{leader.relationships.get(state.player_id, 0.0):+.2f}")
+        if len(pt.members) >= p.CHALLENGE_MIN_MEMBERS:
             votes = challenge_votes(state, pt)
             backers = [state.mps[m].name for m in votes.get(state.player_id, [])
                        if m != state.player_id and m in state.mps]

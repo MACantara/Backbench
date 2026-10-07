@@ -27,7 +27,7 @@ def whip_direction(state: GameState, party_id: int, bill: Bill) -> int:
 def whip_strength(state: GameState, party_id: int | None) -> float:
     """A staffed whips office makes the line bind: 1.0 unmanned, higher
     with a Whip, higher still with a Chief Whip. Applies to the party
-    whip only — a faction's counter-line staffs its own enforcers."""
+    whip only — a faction's counter-line gets no scaling."""
     if party_id is None or party_id not in state.parties:
         return 1.0
     return 1.0 + sum(
@@ -283,17 +283,26 @@ def resolve_vote(state: GameState, bill: Bill, player_vote: int | None = None) -
             # the payroll binds: an office-holder who votes against the line
             # loses the post. The whips office enforces — it doesn't pay.
             if cast == -whip and mp.junior not in p.WHIP_POSTS:
-                post = mp.junior or mp.portfolio
-                if post is not None:
+                posts = [x for x in (mp.junior, mp.portfolio) if x is not None]
+                if posts:
                     mp.junior, mp.junior_weeks = None, 0
-                    if mp.portfolio is not None:
-                        mp.portfolio, mp.portfolio_weeks = None, 0
-                        state.government.sacked.add(mp.id)
+                    mp.portfolio, mp.portfolio_weeks = None, 0
+                    # exiled until the next election — no same-week re-hire
+                    # off the very ladder the rebellion fell from
+                    state.government.sacked.add(mp.id)
                     who = ("You rebelled the whip" if mp.id == state.player_id
                            else f"{mp.name} rebelled the {state.parties[mp.party].name} whip")
-                    state.emit("PayrollFall", f"{who} — the {post} post is gone.",
-                               mp=mp.id, post=post, bill=bill.name)
+                    state.emit("PayrollFall",
+                               f"{who} — the {' and '.join(posts)} post"
+                               f"{'s are' if len(posts) > 1 else ' is'} gone.",
+                               mp=mp.id, post=posts[0], bill=bill.name)
     is_amendment = bill.amends is not None or bill.entrenches is not None
+    if yes == no and state.speaker in detail:
+        # Denison's rule: the chair casts to keep the status quo — a tied
+        # division dies on the Speaker's vote
+        detail[state.speaker]["cast"], detail[state.speaker]["terms"] = \
+            -1, {"chair_casts": -1.0}
+        no, abstain = no + 1, abstain - 1
     # amendments need two-thirds of votes cast — the constitution is hard
     # to move on purpose; abstentions waste the mover
     passed = (yes > 0 and yes >= p.AMEND_MAJORITY * (yes + no) if is_amendment

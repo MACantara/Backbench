@@ -7,7 +7,9 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 from sim import params as p
 from sim.actions import Action
-from sim.career import junior_lifecycle, remove_mp
+import random
+
+from sim.career import remove_mp
 from sim.election import _ballot
 from sim.inspect import explain_party
 from sim.parliament import vote_terms, whip_direction, whip_strength
@@ -69,8 +71,7 @@ def main() -> None:
     assert base > 1.0, f"whip_strength {base} with a Whip staffed"
     bill = Bill(pos=(0.0, 0.0), beneficiary_axis=0, cost=0.0)
     member = next(m for m in s3.parties[pid].members
-                  if s3.mps[m].junior not in p.WHIP_POSTS
-                  and s3.mps[m].junior is None and m != s3.parties[pid].leader)
+                  if s3.mps[m].junior is None and m != s3.parties[pid].leader)
     w = vote_terms(s3, s3.mps[member], bill, noisy=False)["whip"]
     for m in list(s3.parties[pid].members):
         if s3.mps[m].junior in p.WHIP_POSTS:
@@ -86,7 +87,8 @@ def main() -> None:
     for _ in range(80):
         b = s4.current_bill
         acts = []
-        if b is not None and s4.mps.get(s4.player_id) is not None:
+        if b is not None and s4.mps.get(s4.player_id) is not None \
+                and s4.mps[s4.player_id].party is not None:
             w4 = whip_direction(s4, s4.mps[s4.player_id].party, b)
             if w4 and s4.mps[s4.player_id].junior:
                 acts = [Action("vote", vote=-w4)]
@@ -98,26 +100,43 @@ def main() -> None:
     assert fell and s4.mps[s4.player_id].junior is None, \
         "payroll rebellion didn't cost the post"
 
-    # 5. the chair: elected, renounced, abstains, unopposed
+    # 5. the chair: elected, renounced, unopposed, and never a divider
     s5 = new_game(5)
     tick(s5, [])
     spk = s5.mps[s5.speaker]
     assert spk.party is None and spk.junior is None, "speaker didn't renounce"
-    cand, ballot = _ballot(s5, spk.district, [spk], s5.rng)
+    cand, ballot = _ballot(s5, spk.district, [spk], random.Random(0))
     assert len(ballot) == 1, f"speaker's ballot had {len(ballot)} candidates"
-    weeks_held = 0
-    for _ in range(220):
-        if s5.phase == "over":
+
+    # the chair's cast is always 0 (or -1 casting on a tie) — drive a real
+    # division rather than hoping a seed survives to governing
+    s5b = new_game(11)
+    for _ in range(120):
+        if s5b.phase == "governing":
             break
-        tick(s5, [])
-        weeks_held += 1
-    spk = s5.mps.get(s5.speaker)
-    assert spk is not None and spk.seat_safety >= 0.99, \
+        tick(s5b, [])
+    assert s5b.phase == "governing" and s5b.speaker in s5b.mps
+    from sim.parliament import resolve_vote
+    import copy
+    ev = copy.deepcopy(s5b)
+    bill = Bill(pos=(0.0, 0.0), beneficiary_axis=0)
+    res = resolve_vote(ev, bill)
+    spk_cast = ev.log[-1].data["detail"][ev.speaker]["cast"]
+    assert spk_cast in (0, -1), f"the chair cast {spk_cast}"
+
+    # and across a real run the uncontested seat holds
+    s5c = new_game(17)
+    held = 0
+    for _ in range(260):
+        if s5c.phase == "over":
+            break
+        tick(s5c, [])
+        held += 1
+    elections = sum(1 for e in s5c.log if e.type == "ElectionResult")
+    spk = s5c.mps.get(s5c.speaker)
+    assert spk is not None and (elections == 0 or spk.seat_safety >= 0.99), \
         "the chair's uncontested seat didn't hold"
-    cast = [d["cast"] for e in s5.log if e.type == "VoteResult"
-            for d in e.data.get("detail", {}).values()
-            if e.data.get("detail")]
-    assert s5.mps[s5.speaker].party is None
+    assert spk.party is None
 
     # 6. the party card reads rank, fuse, and the contest preview
     s6 = new_game(6)
@@ -140,12 +159,9 @@ def main() -> None:
     for _ in range(120):
         if s7.phase == "over":
             break
-        me7 = s7.mps.get(s7.player_id)
-        if me7 is not None and me7.junior:
-            assert not any(
-                e.type == "PayrollFall" and e.data.get("mp") == s7.player_id
-                for e in s7.log), "the bot fell off the payroll"
         tick(s7, auto_actions(s7))
+    assert not any(e.type == "PayrollFall" and e.data.get("mp") == s7.player_id
+                   for e in s7.log), "the bot fell off the payroll"
     print("offices: ladder order, deputy succession, whip bite, payroll, "
           "speaker, party card, bot discipline — all green")
 

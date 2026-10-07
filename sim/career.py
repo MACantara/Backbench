@@ -208,7 +208,7 @@ def challenge_votes(state: GameState, pt) -> dict[int, list[int]]:
 def leadership_challenge(state: GameState) -> None:
     """Weak leaders face ambitious challengers — members vote on utility."""
     for pid, pt in state.parties.items():
-        if pt.leader is None or len(pt.members) < 4:
+        if pt.leader is None or len(pt.members) < p.CHALLENGE_MIN_MEMBERS:
             continue
         if pt.cohesion >= p.LEADERSHIP_COHESION_MIN:
             continue
@@ -224,6 +224,19 @@ def leadership_challenge(state: GameState) -> None:
             w.junior, w.junior_weeks = None, 0   # the chair vacates the bench
             state.emit("CareerEvent", f"{state.mps[winner].name} ousts {old} as {pt.name} leader.",
                        party=pid, new_leader=winner)
+
+
+def successor(state: GameState, pt, pool=None) -> int | None:
+    """Who takes a vacant chair: the Deputy Leader — the named heir —
+    else the hungriest member. pool defaults to the whole party; a
+    defection passes the stayers so a walker can't inherit."""
+    cands = [m for m in sorted(pool if pool is not None else pt.members)
+             if m in state.mps]
+    deputy = next((m for m in cands if state.mps[m].junior == "Deputy Leader"),
+                  None)
+    if deputy is not None:
+        return deputy
+    return max(cands, key=lambda m: state.mps[m].ambition) if cands else None
 
 
 def speaker_election(state: GameState) -> None:
@@ -242,7 +255,7 @@ def speaker_election(state: GameState) -> None:
         best = max(cands, key=lambda c: (
             mp.relationships.get(c, 0.0)
             + state.mps[c].standing
-            + 0.5 * state.mps[c].competence
+            + p.SPEAKER_COMPETENCE_W * state.mps[c].competence
             + p.SENIORITY_W * min(state.mps[c].seniority / p.SENIORITY_CAP_WEEKS, 1)))
         votes[best] += 1
     winner = max(votes, key=votes.get)
@@ -250,11 +263,22 @@ def speaker_election(state: GameState) -> None:
     pt = state.parties.get(mp.party)
     if pt is not None:
         pt.members.discard(mp.id)
+        for f in pt.factions:      # the wing loses its member — and maybe its heir
+            f.members.discard(mp.id)
+            if f.leader == mp.id:
+                f.leader = (max(sorted(f.members),
+                                key=lambda m: state.mps[m].ambition)
+                            if f.members else None)
     old = pt.name if pt is not None else "independent"
     mp.party, mp.faction = None, None
     mp.junior, mp.junior_weeks = None, 0
     mp.portfolio, mp.portfolio_weeks = None, 0
     state.speaker = mp.id
+    if mp.id == state.player_id:
+        # the house released you — pledges to a party you no longer
+        # serve die with the whip, not as betrayal
+        state.deals.clear()
+        state.promises.clear()
     dragged = ", dragged to the chair," if mp.id == state.player_id else ""
     state.emit("Elected", f"{mp.name}{dragged} takes the Speaker's chair — "
                           f"leaves {old}, beyond the whip.",
@@ -268,12 +292,7 @@ def remove_mp(state: GameState, mp) -> None:
     if pt is not None:
         pt.members.discard(mp.id)
         if pt.leader == mp.id:
-            cands = [m for m in sorted(pt.members) if m in state.mps]
-            # the named successor takes the chair; else the hungriest member
-            deputy = next((m for m in cands
-                           if state.mps[m].junior == "Deputy Leader"), None)
-            pt.leader = deputy if deputy is not None else (
-                max(cands, key=lambda m: state.mps[m].ambition) if cands else None)
+            pt.leader = successor(state, pt)
             if pt.leader is not None:
                 new = state.mps[pt.leader]
                 new.junior, new.junior_weeks = None, 0   # the chair vacates the bench
@@ -335,7 +354,7 @@ def update_score(state: GameState) -> None:
     if state.government.pm == state.player_id:
         state.score_terms["pm"] += 1
     if state.speaker == state.player_id:
-        state.score_terms["speaker"] += 1
+        state.score_terms["speaker"] = state.score_terms.get("speaker", 0) + 1
 
 
 def score_breakdown(state: GameState) -> list[tuple[str, int, int, int]]:
@@ -442,7 +461,8 @@ def epilogue(state: GameState) -> list[str]:
     lines = [f"{name} served {t.get('mp', 0)} term(s) in parliament."]
     posts = ([f"{t['junior']} term(s) on the party bench"] if t.get("junior") else []) \
         + ([f"{t['minister']} in cabinet"] if t.get("minister") else []) \
-        + ([f"{t['pm']} as Prime Minister"] if t.get("pm") else [])
+        + ([f"{t['pm']} as Prime Minister"] if t.get("pm") else []) \
+        + ([f"{t['speaker']} in the Speaker's chair"] if t.get("speaker") else [])
     if posts:
         lines.append("High office: " + ", ".join(posts) + ".")
     if state.legacy_bills:

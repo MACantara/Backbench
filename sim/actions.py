@@ -38,8 +38,17 @@ def cost_of(kind: str) -> int:
 
 def available_actions(state: GameState) -> list[str]:
     """Context menu for the week."""
-    base = ["scheme", "lobby", "media", "dig_dirt", "leak"]
     player = state.mps.get(state.player_id)
+    if player is not None and player.id == state.speaker:
+        # the chair sits above the fray — casework, the press, the quiet
+        # rooms; no whip to read, no table to write on, no party to make
+        menu = ["scheme", "lobby", "media", "dig_dirt", "leak", "court",
+                "constituency", "speech"]
+        from .courts import challengeable
+        if challengeable(state):
+            menu.append("challenge")
+        return menu
+    base = ["scheme", "lobby", "media", "dig_dirt", "leak"]
     if player is not None and player.party is not None:
         base.append("court")         # cultivate an editorial board
     if state.offers:
@@ -78,6 +87,11 @@ def available_actions(state: GameState) -> list[str]:
 
 def apply_action(state: GameState, action: Action) -> None:
     player = state.mps[state.player_id]
+    if player.id == state.speaker and action.kind in (
+            "found", "defect", "table", "attack", "deal", "amend", "vote",
+            "promise", "platform", "budget", "appoint", "amendment",
+            "pick_offer"):
+        return      # the chair doesn't do politics — the menu gates, this walls
     v = state.voters
     mask = v.district == player.district
     rng = state.rng
@@ -451,7 +465,8 @@ def _leave_party(state: GameState, player, exclude=()) -> None:
         if old.leader == player.id:
             stayers = old.members - set(exclude)   # walkers can't inherit the chair
             if stayers:
-                old.leader = max(sorted(stayers), key=lambda m: state.mps[m].ambition)
+                from .career import successor
+                old.leader = successor(state, old, stayers)
     player.faction = None
     player.junior, player.junior_weeks = None, 0
     player.portfolio, player.portfolio_weeks = None, 0   # stripped at once
