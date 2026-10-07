@@ -6,6 +6,7 @@ import numpy as np
 from . import params as p
 from .conditions import enact, mood
 from .naming import austerity_name, bill_name, describe_pos
+from .prose import render
 from .state import Bill, GameState, MP, dist, gov_platform
 from .treasury import budget_posture, debt_pressure
 
@@ -304,7 +305,9 @@ def resolve_vote(state: GameState, bill: Bill, player_vote: int | None = None) -
         if gov_parties and bill.author is None:
             for i in gov_parties:
                 state.parties[i].brand += p.BILL_PASS_BRAND
-        state.emit("VoteResult", f"{label} passes {yes}-{no} ({abstain} abstain).",
+        state.emit("VoteResult",
+                   render(state, "VoteResultPass", label=label, yes=yes,
+                          no=no, abstain=abstain),
                    passed=True, yes=yes, no=no, abstain=abstain,
                    detail=detail, player=player_vote)
         if bill.budget:
@@ -350,7 +353,9 @@ def resolve_vote(state: GameState, bill: Bill, player_vote: int | None = None) -
                                  "cost": bill.cost})
             del state.failed[:-p.FAILED_MAX]
         short = " — the majority wasn't two-thirds" if is_amendment and yes > no else ""
-        state.emit("VoteResult", f"{label} fails {yes}-{no} ({abstain} abstain).{short}",
+        state.emit("VoteResult",
+                   render(state, "VoteResultFail", label=label, yes=yes,
+                          no=no, abstain=abstain, short=short),
                    passed=False, yes=yes, no=no, abstain=abstain,
                    detail=detail, player=player_vote)
     return passed

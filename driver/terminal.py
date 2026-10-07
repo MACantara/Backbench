@@ -224,7 +224,7 @@ def run(seed: int = 0, load: bool = False) -> None:
             return
     else:
         state = new_game(seed)
-    print(f"=== BACKBENCH - seed {state.seed} ===")
+    print(f"=== BACKBENCH - the Republic of {state.country} - seed {state.seed} ===")
     print(f"You are {state.mps[state.player_id].name}, MP for district {state.mps[state.player_id].district}.")
     while state.phase != "over":
         print(f"\n-- Week {state.week} [{state.phase}] {'-' * 40}")
@@ -233,9 +233,15 @@ def run(seed: int = 0, load: bool = False) -> None:
         if loaded is not None:
             state = loaded
             continue
-        for e in tick(state, actions):
+        events = tick(state, actions)
+        echoes = [e for e in events if e.data.get("echo")]
+        for e in (e for e in events if not e.data.get("echo")):
             mark = "***" if e.type in INTERRUPTS else "   "
             print(f" {mark} {e.text}")
+        if echoes:
+            print("   you:", "; ".join(e.text[4].lower() + e.text[5:]
+                                        if e.text.startswith("You ") else e.text
+                                        for e in echoes))
     print(f"\n=== Game over - score {final_score(state)} ===")
     print(explain_mp(state, state.player_id) if state.player_id in state.mps else "You are out of parliament.")
 

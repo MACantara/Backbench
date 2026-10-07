@@ -171,7 +171,7 @@ def _candidate(state: GameState, np_rng, near=None, appointed_by=None):
     jid = state.justice_seq     # monotonic — verdict and appointment records
     state.justice_seq += 1      # cite justice ids long after they've gone
     return Justice(
-        id=jid, name=mp_name(rng),
+        id=jid, name=mp_name(rng, state.name_pack),
         pos=tuple(np.clip(base + np_rng.normal(0, 0.25, 2), -1, 1)),
         activism=float(np.clip(rng.gauss(0.5, 0.15), 0, 1)),
         age=rng.randint(*p.JUDGE_APPOINT_AGE),

@@ -5,6 +5,7 @@ import numpy as np
 
 from . import params as p
 from .courts import legal_risk, worst_breach
+from .prose import render
 from .state import Bill, Conditions, GameState, Law
 
 _FIELDS = ("growth", "unemployment", "inflation", "services", "crime")
@@ -95,7 +96,9 @@ def enact(state: GameState, bill: Bill, yes: int, no: int) -> Law | None:
     cost_str = f"saves {-law.cost:.3f}/wk" if law.cost < 0 else f"cost {law.cost:.3f}/wk"
     breach = worst_breach(state, law)
     contested = f" — born contested under {breach.name}" if breach else ""
-    state.emit("LawEnacted", f"{law.name} becomes law{eff} ({cost_str}){contested}.",
+    state.emit("LawEnacted",
+               render(state, "LawEnacted", name=law.name, eff=eff,
+                      cost_str=cost_str, contested=contested),
                law=law.name, cost=law.cost, risk=legal_risk(state, law),
                article=breach.id if breach else None,
                austerity=bill.austerity)

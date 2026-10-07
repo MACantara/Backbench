@@ -64,7 +64,7 @@ def main() -> None:
     assert ev.data.get("routed") == warm_o.id, "the venue didn't stamp the story"
 
     # sponsored polls: the published number flatters the sponsor's friends
-    s3 = _governing(9)
+    s3 = _governing(10)
     big = max(s3.parties.values(), key=lambda pt: len(pt.members))
     sponsor = min(s3.outlets,
                   key=lambda x: dist(x.slant, big.platform))

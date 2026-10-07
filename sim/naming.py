@@ -218,7 +218,19 @@ def austerity_name(rng: random.Random) -> str:
     return rng.choice(_BILL_AUSTERITY)
 
 
+# --- country ---
+COUNTRIES = ("Aldermoor Brantfoss Carrow Dunverra Esthollow Fenmar Graymarch "
+             "Halloway Islesmark Kestrel Langford Merrowgate Norwick Ostmere "
+             "Pelham Quillbrook Ravenford Stonebridge Thornvale Uffmoor "
+             "Verrenhall Wexley Yarrowgate Zellmark").split()
+
+
+def country_name(rng: random.Random) -> str:
+    return rng.choice(COUNTRIES)
+
+
 # --- people ---
+# regional packs: the seed picks one flavor and names keep to it
 _FIRST = ("Ash Brook Cole Dawn Elm Fern Gale Hale Iris Jade Kite Lark Moss Nell Onyx "
           "Pine Reed Sage Teal Wren Aspen Bay Cedar Cliff Dale Echo Flint Glen Harbor "
           "Isla Jasper Knox Linden Maple North Oakley Pearl Quinn River Stone Thorn "
@@ -227,22 +239,39 @@ _LAST = ("Barton Croft Dale Ellis Frost Grange Holt Ingram Marsh North Pace Quil
          "Rook Shore Vale West York Ashford Blackwood Calder Draper Ellery Fenwick "
          "Gresham Harlow Ives Judd Kerr Loxley Mercer Norwood Oswald Pember Rowan "
          "Stanton Thatcher Underwood Vance Whitfield Yardley").split()
+_FIRST_C = ("Aldo Bastien Cosima Dario Elio Fiore Gilda Hugo Ilsa Jonas Katia Leone "
+            "Mirko Nadia Otto Pia Quirin Renata Silas Tessa Ulric Vera Willem Xenia "
+            "Yves Zora Anton Beatrix Claude Delia Emile Freya Gustav Helga").split()
+_LAST_C = ("Albinet Beaumont Castellan Delacroix Engel Fontaine Girard Hoffman "
+           "Keller Lambert Moreau Navarro Orsini Petit Rousseau Sartre Thibault "
+           "Verdi Wolff Zimmermann Ackermann Bonaventure Carre Dupont Esteve "
+           "Faure Grimaldi Huber Ivaldi Laurent").split()
+_FIRST_N = ("Ansgar Birgit Dag Einar Freya Gunnar Halvor Ingrid Jorunn Kjell Liv "
+            "Magnus Nils Oddrun Peder Ragnhild Sigrun Torsten Ulf Vendla Yngve "
+            "Astrid Bjorn Else Lars Mette Oskar Rune Sanna").split()
+_LAST_N = ("Aasen Berglund Dahl Eklund Fjell Granberg Haug Iversen Jansen "
+           "Knudsen Lindqvist Moe Nyberg Ostlund Pedersen Qvist Ronning "
+           "Strandberg Thorvald Ullman Vik Wergeland Ytter Zetterberg").split()
+NAME_PACKS = {"insular": (_FIRST, _LAST),
+              "continental": (_FIRST_C, _LAST_C),
+              "north": (_FIRST_N, _LAST_N)}
 
 
-def mp_name(rng: random.Random) -> str:
+def mp_name(rng: random.Random, pack: str = "insular") -> str:
     """One MP name; ~5% get a composed double surname."""
-    last = rng.choice(_LAST)
+    first, last_pool = NAME_PACKS.get(pack, NAME_PACKS["insular"])
+    last = rng.choice(last_pool)
     if rng.random() < p.COMPOSED_SURNAME_P:
-        last = f"{last}-{rng.choice(_LAST)}"
-    return f"{rng.choice(_FIRST)} {last}"
+        last = f"{last}-{rng.choice(last_pool)}"
+    return f"{rng.choice(first)} {last}"
 
 
-def mp_names(rng: random.Random, n: int) -> list[str]:
+def mp_names(rng: random.Random, n: int, pack: str = "insular") -> list[str]:
     """n unique names, insertion-ordered — set iteration order is hash-seeded
     per process, so a bare set would break cross-process determinism."""
     out, seen = [], set()
     while len(out) < n:
-        name = mp_name(rng)
+        name = mp_name(rng, pack)
         if name not in seen:
             seen.add(name)
             out.append(name)

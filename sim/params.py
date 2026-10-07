@@ -296,3 +296,6 @@ VOTER_DRIFT_SD = 0.004           # weekly position noise
 SALIENCE_REVERT = 0.02           # weekly pull of salience back toward base
 BRAND_DECAY = 0.95               # weekly brand multiplier — reputation mean-reverts
 REL_DECAY = 0.97                 # relationships decay toward neutral
+
+# --- cosmetic prose ---
+PROSE_SEED_KEY = 0x5EED  # prose_rng fork — wording draws never touch state.rng

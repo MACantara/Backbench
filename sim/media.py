@@ -4,6 +4,7 @@ from __future__ import annotations
 import numpy as np
 
 from . import params as p
+from .prose import render
 from .state import GameState, dist
 
 # type -> (newsworthiness, sign for the subject party, sensational?)
@@ -139,7 +140,8 @@ def media_lifecycle(state: GameState, base: int) -> None:
     state.press_weeks = state.press_weeks + 1 if pid == state.press_subject else 1
     state.press_subject = pid
     pt = state.parties[pid]
-    state.emit("Headline", f"{o.name} leads with \"{e.text}\"",
+    state.emit("Headline", render(state, "Headline", outlet=o.name,
+                                  text=e.text),
                outlet=o.id, party=pid, story=e.type)
     if state.press_weeks == p.PRESS_CYCLE_WEEKS:
         state.emit("PressCycle", f"The press will not let go of {pt.name}.",

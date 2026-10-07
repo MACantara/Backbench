@@ -243,7 +243,7 @@ def mp_lifecycle(state: GameState) -> None:
         np_rng = np.random.default_rng(int(state.rng.random() * 2**63))
         n_districts = int(state.voters.district.max()) + 1
         state.hopefuls.append(make_hopeful(state.rng, np_rng, state.parties, n_districts,
-                                           age=p.HOPEFUL_AGE[0]))
+                                           age=p.HOPEFUL_AGE[0], pack=state.name_pack))
 
 
 def update_score(state: GameState) -> None:

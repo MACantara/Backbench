@@ -6,6 +6,8 @@ import math
 import numpy as np
 import pygame
 
+from sim.naming import POLE_LABELS
+
 W, H = 1280, 720
 PANEL_X = 980                       # side panel starts here
 CX, CY = 470, 600                   # hemicycle center (bottom of the arc)
@@ -112,6 +114,10 @@ def draw_map(drv) -> None:
         if m.id == s.player_id:
             pygame.draw.circle(drv.screen, WHITE, (px, py), 6, 1)
     _text(drv, "Ideology space  (voters dim, MPs solid, parties lettered)", (sx, sy - 28), DIM)
+    _text(drv, POLE_LABELS[0][0], (sx + 4, sy + sz // 2), DIM)          # left edge
+    _text(drv, POLE_LABELS[0][1], (sx + sz - 44, sy + sz // 2), DIM)    # right edge
+    _text(drv, POLE_LABELS[1][1], (sx + sz // 2 - 38, sy + 4), DIM)     # top edge
+    _text(drv, POLE_LABELS[1][0], (sx + sz // 2 - 32, sy + sz - 18), DIM)  # bottom edge
 
 
 def _text(drv, s, xy, color=FG, font=None) -> None:
@@ -330,6 +336,11 @@ def draw_chronicle(drv) -> None:
     x = 28
     _button(drv, "flt:all", "all", pygame.Rect(x, 46, 50, 24))
     x += 56
+    for label, val in (("core", "_core"), ("echoes", "_echoes")):
+        _button(drv, f"flt:{val}", label, pygame.Rect(x, 46, 62, 24))
+        if c["filter"] == val:
+            pygame.draw.rect(drv.screen, GOLD, (x, 46, 62, 24), 2)
+        x += 68
     for t in types:
         w = 9 * len(t) + 22
         _button(drv, f"flt:{t}", t.lower(), pygame.Rect(x, 46, w, 24))
@@ -338,7 +349,13 @@ def draw_chronicle(drv) -> None:
         x += w + 6
         if x > PANEL_X - 140:
             break                        # out of room — types beyond this stay unfilterable
-    events = s.log if c["filter"] is None else [e for e in s.log if e.type == c["filter"]]
+    if c["filter"] == "_core":
+        events = [e for e in s.log if not e.data.get("echo")]
+    elif c["filter"] == "_echoes":
+        events = [e for e in s.log if e.data.get("echo")]
+    else:
+        events = (s.log if c["filter"] is None
+                  else [e for e in s.log if e.type == c["filter"]])
     visible = (H - 110) // 17
     c["scroll"] = max(0, min(c["scroll"], max(0, len(events) - visible)))
     start = max(0, len(events) - visible - c["scroll"])

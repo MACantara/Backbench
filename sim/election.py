@@ -8,6 +8,7 @@ from .career import remove_mp
 from .conditions import mood, responsibility
 from .state import GameState, Hopeful, MP
 from .naming import mp_name
+from .prose import render
 
 INDEPENDENT = -1  # sentinel pid in the district tally — keeps last_party int-typed
 
@@ -116,7 +117,7 @@ def resolve_election(state: GameState) -> None:
                            mp=next_id, district=d, party=winner, age=mp.age)
             else:
                 stat = lambda: min(1, max(0, state.rng.gauss(0.5, p.MP_STAT_SD)))
-                mp = MP(id=next_id, name=mp_name(state.rng),
+                mp = MP(id=next_id, name=mp_name(state.rng, state.name_pack),
                         pos=cand[winner], ambition=stat(), loyalty=stat(),
                         competence=stat(), integrity=stat(), district=d,
                         party=None if winner == INDEPENDENT else winner,
@@ -141,7 +142,8 @@ def resolve_election(state: GameState) -> None:
     for pt in state.parties.values():  # leaders who lost their seat leave a dead reference
         if pt.leader not in state.mps:
             pt.leader = max(pt.members, key=lambda m: state.mps[m].ambition) if pt.members else None
-    state.emit("ElectionResult", "Election resolved.",
+    state.emit("ElectionResult",
+               render(state, "ElectionResult", country=state.country),
                seats={"ind" if k == INDEPENDENT else k: n for k, n in seat_counts.items()})
 
 

@@ -6,7 +6,8 @@ import random
 import numpy as np
 
 from . import params as p
-from .naming import generate_parties, mp_name, mp_names
+from .naming import (NAME_PACKS, country_name, generate_parties, mp_name,
+                     mp_names)
 from .state import (Conditions, GameState, Hopeful, MP, Outlet, Party, Voters,
                     dist)
 
@@ -49,13 +50,14 @@ def make_voters(rng: random.Random, np_rng: np.random.Generator,
 
 def make_hopeful(rng: random.Random, np_rng: np.random.Generator,
                  parties: dict[int, Party], n_districts: int,
-                 name: str | None = None, age: int | None = None) -> Hopeful:
+                 name: str | None = None, age: int | None = None,
+                 pack: str = "insular") -> Hopeful:
     """One aspiring politician: stats rolled, leaning toward the nearest platform."""
     plat = np.asarray(rng.choice(list(parties.values())).platform)
     hpos = tuple(np.clip(plat + np_rng.normal(0, p.MP_POS_JITTER, 2), -1, 1))
     stat = lambda k: min(1, max(0, rng.gauss(p.MP_STAT_MEANS[k], p.MP_STAT_SD)))
     return Hopeful(
-        name=name or mp_name(rng), pos=hpos,
+        name=name or mp_name(rng, pack), pos=hpos,
         ambition=stat("ambition"), loyalty=stat("loyalty"),
         competence=stat("competence"), integrity=stat("integrity"),
         district=rng.randrange(n_districts),
@@ -110,12 +112,12 @@ def make_constitution(rng: random.Random, centroid) -> list:
 
 
 def make_bench(rng: random.Random, np_rng: np.random.Generator,
-               centroid, activism: float) -> list:
+               centroid, activism: float, pack: str = "insular") -> list:
     """The inaugural court: doctrine spread around the seed's character,
     temperament around the country's center, ages spread wide enough that
     vacancies open during play."""
     from .state import Justice
-    return [Justice(id=i, name=mp_name(rng),
+    return [Justice(id=i, name=mp_name(rng, pack),
                     pos=tuple(np.clip(np.asarray(centroid)
                                       + np_rng.normal(0, 0.2, 2), -1, 1)),
                     activism=float(np.clip(rng.gauss(activism, 0.12), 0, 1)),
@@ -125,6 +127,10 @@ def make_bench(rng: random.Random, np_rng: np.random.Generator,
 
 def new_game(seed: int) -> GameState:
     rng = random.Random(seed)
+    # cosmetic stream: seeded separately so wording/naming draws can never
+    # move the politics — prose changes must never perturb the mechanical rng
+    prose_rng = random.Random(seed ^ p.PROSE_SEED_KEY)
+    pack = prose_rng.choice(list(NAME_PACKS))
     np_rng = np.random.default_rng(seed)
     # the party system comes first — the electorate clusters around its anchors
     specs = generate_parties(rng, np_rng)
@@ -138,7 +144,7 @@ def new_game(seed: int) -> GameState:
 
     # one incumbent per district, anchored near the district centroid
     mps: dict[int, MP] = {}
-    names = mp_names(rng, n_districts + p.N_HOPEFULS)
+    names = mp_names(rng, n_districts + p.N_HOPEFULS, pack)
     centroids = np.array([voters.pos[voters.district == d].mean(axis=0) for d in range(n_districts)])
     for d in range(n_districts):
         centroid = tuple(np.clip(centroids[d] + np_rng.normal(0, p.MP_POS_JITTER, 2), -1, 1))
@@ -170,10 +176,11 @@ def new_game(seed: int) -> GameState:
     activism = rng.random()   # the seed's judicial character — inaugural bench doctrine
     centroid = voters.pos.mean(axis=0)
     constitution = make_constitution(rng, centroid)
-    bench = make_bench(rng, np_rng, centroid, activism)
+    bench = make_bench(rng, np_rng, centroid, activism, pack)
     return GameState(
         rng=rng, week=0, phase="campaign", voters=voters, mps=mps, parties=parties,
-        seed=seed,
+        seed=seed, prose_rng=prose_rng, country=country_name(prose_rng),
+        name_pack=pack,
         hopefuls=hopefuls, outlets=make_outlets(rng, np_rng, parties),
         conditions=Conditions(**conds),
         player_id=int(med), weeks_to_election=p.CAMPAIGN_WEEKS,

@@ -5,6 +5,7 @@ import numpy as np
 
 from . import params as p
 from .dynamism import niche_entry
+from .prose import render
 from .state import Bill, GameState, dist, gov_platform
 from .parliament import describe_pos, resolve_vote
 
@@ -106,7 +107,9 @@ def _form(state: GameState, offer: dict) -> None:
     state.government.amend_move = None        # and owns its pending moves
     state.bench_shortlist = []               # and picks its own nominees
     names = [state.parties[i].name for i in coalition]
-    state.emit("CoalitionFormed", f"{' + '.join(names)} form a government ({bloc} seats).",
+    state.emit("CoalitionFormed",
+               render(state, "CoalitionFormed", names=" + ".join(names),
+                      bloc=bloc),
                parties=sorted(coalition), seats=bloc)
 
 
@@ -127,7 +130,9 @@ def _minority(state: GameState, exclude_parties: set[int] | None = None) -> None
     state.government.amend_attempted = set()
     state.government.amend_move = None
     state.bench_shortlist = []
-    state.emit("CoalitionFormed", f"{state.parties[biggest].name} forms a minority government ({seats[biggest]} seats).",
+    state.emit("CoalitionFormed",
+               render(state, "MinorityFormed", name=state.parties[biggest].name,
+                      seats=seats[biggest]),
                parties=[biggest], seats=seats[biggest], minority=True)
 
 

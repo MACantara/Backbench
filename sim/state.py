@@ -248,6 +248,9 @@ class GameState:
     parties: dict[int, Party]
     player_id: int
     seed: int = 0                       # the world seed — saves name themselves by it
+    prose_rng: random.Random = field(default_factory=lambda: random.Random(0))
+    country: str = ""                   # generated dateline — the Republic of X
+    name_pack: str = "insular"          # regional flavor for person names
     hopefuls: list[Hopeful] = field(default_factory=list)
     outlets: list[Outlet] = field(default_factory=list)
     conditions: Conditions = field(default_factory=Conditions)
@@ -277,6 +280,8 @@ class GameState:
     legacy_bills: int = 0
 
     def emit(self, type_: str, text: str, **data) -> Event:
+        if text.startswith("You"):
+            data.setdefault("echo", True)   # player-action echoes — digestible tier
         e = Event(type_, text, {"week": self.week, **data})
         self.log.append(e)
         return e
