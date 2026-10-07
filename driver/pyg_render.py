@@ -75,7 +75,7 @@ def district_owners(state) -> dict[int, int | None]:
 def draw_map(drv) -> None:
     s, v = drv.state, drv.state.voters
     gx, gy = 12, 10
-    cell, ox, oy = 44, 40, 60
+    cell, ox, oy = 40, 40, 60
     owners = district_owners(s)
     shown = None
     if drv.reveal:
@@ -118,8 +118,9 @@ def draw_map(drv) -> None:
         flips = [f"d{d}: {drv.reveal['flips'][d]}"
                  for d in drv.reveal["order"] if d in shown and d in drv.reveal["flips"]]
         if flips:
-            _text(drv, "flips: " + "; ".join(flips[-3:]), (ox, oy + gy * (cell + 2) + 6), WHITE)
-    _text(drv, title, (ox, oy - 28), DIM)
+            _text(drv, _fit(drv, "flips: " + "; ".join(flips[-3:]), 540),
+                  (ox, oy + gy * (cell + 2) + 6), WHITE)
+    _text(drv, _fit(drv, title, 540), (ox, oy - 28), DIM)
 
     if drv.results:  # election-night card: every party's seats vs last parliament
         seats, prev = drv.results["seats"], drv.results["prev"]
@@ -129,13 +130,13 @@ def draw_map(drv) -> None:
                                        key=lambda k: -seats.get(k, 0))):
             n, was = seats.get(pid, 0), prev.get(pid, 0)
             delta = f"  ({'+' if n - was >= 0 else ''}{n - was})" if n != was else ""
-            name = s.parties[pid].name if pid in s.parties else "independent"
+            name = s.parties[pid].name[:18] if pid in s.parties else "independent"
             cx = ox + (i % 3) * 190
             cy = ry + (i // 3) * 20
             pygame.draw.circle(drv.screen, party_color(s, pid), (cx + 5, cy + 7), 5)
             _text(drv, f"{name} {n}{delta}", (cx + 14, cy), FG)
 
-    sx, sy, sz = 560, 60, 420
+    sx, sy, sz = 565, 60, 395
     pygame.draw.rect(drv.screen, PANEL, (sx - 12, sy - 12, sz + 24, sz + 24))
     pygame.draw.rect(drv.screen, DIM, (sx - 12, sy - 12, sz + 24, sz + 24), 1)
     for x_, y_ in v.pos[::7]:                    # ~1400 sampled voters
@@ -164,6 +165,37 @@ def draw_map(drv) -> None:
 
 def _text(drv, s, xy, color=FG, font=None) -> None:
     drv.screen.blit((font or drv.font).render(s, True, color), xy)
+
+
+def _fit(drv, text: str, width: int, font=None) -> str:
+    """Ellipsis-trim a line to `width` px — for single-line spots like titles."""
+    f = font or drv.font
+    if f.size(text)[0] <= width:
+        return text
+    while text and f.size(text + "...")[0] > width:
+        text = text[:-1]
+    return text + "..."
+
+
+def _wrap(drv, text: str, width: int, font=None) -> list:
+    """Greedy word wrap to `width` px."""
+    f = font or drv.font
+    lines, cur = [], ""
+    for word in text.split():
+        trial = f"{cur} {word}".strip()
+        if cur and f.size(trial)[0] > width:
+            lines.append(cur)
+            cur = word
+        else:
+            cur = trial
+    if cur:
+        lines.append(cur)
+    return lines or [""]
+
+
+def _close(drv, bid: str, x: int, y: int) -> None:
+    """Close affordance for overlay panels — small x in the corner."""
+    _button(drv, bid, "x", pygame.Rect(x, y, 22, 20))
 
 
 def draw_parliament(drv, pos) -> None:
@@ -199,9 +231,12 @@ def draw_panel(drv) -> None:
     y += 36
     speed = ["0.5x", "1x", "2x", "4x"][drv.speed_i]
     mode = "AUTO" if drv.auto_play else ("PAUSED" if drv.paused else "running")
-    _text(drv, f"{mode} {speed}   space=pause a=auto c=log tab=map "
-               "f5=save f9=load q=quit", (x, y), DIM)
-    y += 28
+    hint = (f"{mode} {speed} — space pause · a auto · c log · tab map · "
+            "+/- speed · f5 save · f9 load · f12 shot · q quit")
+    for ln in _wrap(drv, hint, W - PANEL_X - 32):
+        _text(drv, ln, (x, y), DIM)
+        y += 15
+    y += 10
     last = next((e for e in reversed(s.log) if e.type == "PollShift"), None)
     if last:
         _text(drv, "Polls", (x, y), DIM)
@@ -210,7 +245,8 @@ def draw_panel(drv) -> None:
             if pid not in s.parties:
                 continue
             pygame.draw.rect(drv.screen, party_color(s, pid), (x, y + 3, int(share * 160), 10))
-            _text(drv, f"{s.parties[pid].name} {share:.0%}", (x + 8 + int(share * 160), y), DIM)
+            _text(drv, f"{s.parties[pid].name[:14]} {share:.0%}",
+                  (x + 8 + int(share * 160), y), DIM)
             y += 16
         y += 8
     mp = s.mps.get(s.player_id)
@@ -226,8 +262,11 @@ def draw_panel(drv) -> None:
     y += 20
     for e in s.log[-9:]:
         c = RED if e.type in INTERRUPTS else FG
-        _text(drv, e.text[:46], (x, y), c)
-        y += 18
+        for ln in _wrap(drv, e.text, W - x - 14)[:2]:
+            if y > H - 22:
+                break
+            _text(drv, ln, (x, y), c)
+            y += 16
 
 
 def _button(drv, bid: str, label: str, rect) -> None:
@@ -356,11 +395,14 @@ def draw_inspect(drv) -> None:
     from sim.inspect import explain_mp
     if drv.inspect_mp is None or drv.inspect_mp not in drv.state.mps:
         return
-    lines = explain_mp(drv.state, drv.inspect_mp).split("\n")
-    pygame.draw.rect(drv.screen, PANEL, (700, 40, 260, 30 + 20 * len(lines)))
-    pygame.draw.rect(drv.screen, GOLD, (700, 40, 260, 30 + 20 * len(lines)), 1)
+    lines = [ln for line in explain_mp(drv.state, drv.inspect_mp).split("\n")
+             for ln in _wrap(drv, line.strip(), 236)]
+    h = 30 + 18 * len(lines)
+    pygame.draw.rect(drv.screen, PANEL, (700, 40, 260, h))
+    pygame.draw.rect(drv.screen, GOLD, (700, 40, 260, h), 1)
     for i, line in enumerate(lines):
-        _text(drv, line.strip()[:34], (712, 50 + 20 * i))
+        _text(drv, line, (712, 50 + 18 * i))
+    _close(drv, "close:inspect", 934, 44)
 
 
 def draw_why(drv) -> None:
@@ -372,8 +414,9 @@ def draw_why(drv) -> None:
     small = pygame.font.Font(None, 15)
     for i, line in enumerate(lines[1:118]):
         col, row = divmod(i, 59)
-        drv.screen.blit(small.render(line[:64], True, FG), (56 + col * 440, 50 + row * 11))
-    _text(drv, lines[0][:80], (56, 662), GOLD)
+        drv.screen.blit(small.render(line[:60], True, FG), (56 + col * 440, 50 + row * 11))
+    _text(drv, _fit(drv, lines[0], 860), (56, 662), GOLD)
+    _close(drv, "close:why", 906, 46)
 
 
 def draw_chronicle(drv) -> None:
@@ -384,6 +427,7 @@ def draw_chronicle(drv) -> None:
     pygame.draw.rect(drv.screen, BG, (16, 16, PANEL_X - 32, H - 32))
     pygame.draw.rect(drv.screen, DIM, (16, 16, PANEL_X - 32, H - 32), 1)
     _text(drv, "Chronicle — wheel/pgup/pgdn scroll, c/esc close", (28, 24), DIM)
+    _close(drv, "close:chr", PANEL_X - 74, 22)
     types = sorted({e.type for e in s.log})
     x = 28
     _button(drv, "flt:all", "all", pygame.Rect(x, 46, 50, 24))
@@ -422,10 +466,14 @@ def draw_chronicle(drv) -> None:
 def draw_banner(drv) -> None:
     if not drv.banner:
         return
-    pygame.draw.rect(drv.screen, PANEL, (200, 300, 880, 120))
-    pygame.draw.rect(drv.screen, RED, (200, 300, 880, 120), 2)
-    _text(drv, drv.banner[:90], (220, 330), font=drv.big)
-    _text(drv, "Space or click to continue", (220, 380), DIM)
+    lines = _wrap(drv, drv.banner, 820, drv.big)
+    h = 76 + 30 * len(lines)
+    pygame.draw.rect(drv.screen, PANEL, (200, 300, 880, h))
+    pygame.draw.rect(drv.screen, RED, (200, 300, 880, h), 2)
+    for i, ln in enumerate(lines):
+        _text(drv, ln, (220, 322 + 30 * i), font=drv.big)
+    _text(drv, "Space, click or x to continue", (220, 326 + 30 * len(lines)), DIM)
+    _close(drv, "close:banner", 1052, 308)
 
 
 def draw(drv) -> None:
