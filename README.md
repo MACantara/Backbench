@@ -25,9 +25,9 @@ python driver/terminal.py --load           # resume a save
 
 Scenarios set the opening deal: `standard`, `safe_seat`, `marginal`, `outsider` (start independent), `duopoly`, `fragmented`, `constructive` (German-model confidence). A `Scenario` instance can also raise `district_magnitude` — multi-member districts allocated by largest remainder instead of FPTP.
 
-In the graphical driver: weeks auto-run (**Space** pauses, **+/-** speed, **A** toggles bot auto-play — interrupt banners dismiss themselves so a spectator run never stalls), elections reveal district-by-district on the map. Every command is a button in the side panel — pause, auto, speed, map/house toggle, log, save, load, screenshot, quit — and the keys still work too (**Tab** view, **C** chronicle, **F5**/**F9** save/load — manual or autosave, whichever is newer; the run autosaves every 4 weeks — **Q**/**Esc** quits). Click a seat to inspect its MP. The window is resizable.
+In the graphical driver: weeks auto-run (**Space** pauses, **+/-** speed, **A** toggles bot auto-play — interrupt banners dismiss themselves so a spectator run never stalls), elections reveal district-by-district on the map. Session commands are tabs along the top — pause, auto, map/house, log, screenshot — and the **menu** tab (or **Esc**) opens a popup with save, load, settings, quit. Keys still work too (**Tab** view, **C** chronicle, **F5**/**F9** save/load — manual or autosave, whichever is newer; the run autosaves every 4 weeks — **Q** quits). Click a seat to inspect its MP. The window is resizable.
 
-In the terminal driver each week you pick **2 actions** from the menu (campaign, speech, lobby, media, scheme, dig dirt, promise, court, leak — more unlock with office). Before committing you can:
+Each week you spend **3 action points**. Duties are free (vote, amend, pick a coalition, appoint, defect, found); routine work costs 1 (campaign, constituency, speech, lobby, scheme, court, deal); operations cost 2 (media, dig_dirt, attack, challenge, amendment, leak); tabling your own bill costs all 3. Hover an action (or pick it in the terminal) and the preview says what it does right now — odds, deltas, targets — and the event log reports the numbers it moved. Before committing you can also:
 
 - `inspect <mp_id>` — an MP's stats, relationships, seat safety
 - `inspect bench` — the judicial bench: doctrine, ages, who appointed whom
@@ -78,7 +78,7 @@ sim/        pure state machine — no I/O, no prints
   parliament.py bill tabling, per-MP vote utility terms, whips
   government.py coalition formation, confidence, collapse
   parties.py    cohesion, defections, schisms, dissolutions
-  actions.py    the player's 2 weekly actions
+  actions.py    the player's weekly actions — costed in action points
   career.py     portfolios, challenges, scoring, ambitions, epilogue
   bot.py        spectator policy — a legible rule list
   inspect.py    explainability: why did an MP vote that way
