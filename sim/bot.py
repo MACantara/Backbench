@@ -95,6 +95,38 @@ def _r_seat_defense(c: _Ctx) -> None:
                gate=f"safety {c.player.seat_safety:.2f}")
 
 
+def _r_party_home(c: _Ctx) -> None:
+    """A dying party drags the seat under: found with a bloc, defect
+    to compatible ground when the seat is sinking too, stay otherwise."""
+    s, pl = c.state, c.player
+    if pl.party is None or s.phase not in ("governing", "formation"):
+        return
+    stay = _stay_utility(s, pl)
+    founder = s.ambition is not None and s.ambition.kind == "founder"
+    if stay >= p.BOT_STAY_UTILITY and not founder:
+        return
+    followers = [m.id for m in s.mps.values()
+                 if m.party == pl.party and m.id != pl.id
+                 and m.id != s.government.pm
+                 and m.relationships.get(pl.id, 0.0) >= p.FOUND_REL_MIN
+                 and _stay_utility(s, m) < p.PARTY_FORM_STAY_UTILITY]
+    need = 1 if founder else p.BOT_FOUND_MIN_WALK
+    if len(followers) >= need:
+        c.take("found", gate=f"stay {stay:.2f}, {len(followers)} walking")
+        return
+    if founder or stay >= p.BOT_STAY_UTILITY \
+            or pl.seat_safety >= p.BOT_MARGINAL_SAFETY:
+        return                        # recruit before you walk; a safe
+                                      # seat is worth the bad home
+    near = min((pt for pt in s.parties.values() if pt.id != pl.party),
+               key=lambda pt: dist(pt.platform, pl.pos), default=None)
+    if near is not None and dist(near.platform, pl.pos) <= p.BOT_DEFECT_MAX_DIST:
+        c.take("defect", target=near.id,
+               gate=f"stay {stay:.2f}, seat {pl.seat_safety:.2f}")
+    elif stay < p.BOT_STAY_UTILITY * 0.5:
+        c.take("defect", gate=f"stay {stay:.2f} — out alone")
+
+
 def _r_offers(c: _Ctx) -> None:
     """A hung parliament waits on your answer: take the slate that
     seats you; else back the nearest ground, decline if all are far."""
@@ -294,7 +326,7 @@ def _r_relations(c: _Ctx) -> None:
             c.take("court", target=hostile.id, gate=f"warmth {warm:.2f}")
 
 
-_RULES = (_r_seat_defense, _r_offers, _r_division, _r_pm_desk,
+_RULES = (_r_seat_defense, _r_party_home, _r_offers, _r_division, _r_pm_desk,
           _r_ambition, _r_division_ops, _r_public_ops, _r_dark_ops,
           _r_relations)
 
