@@ -493,11 +493,47 @@ def draw_banner(drv) -> None:
     _close(drv, "close:banner", 1052, 308)
 
 
+def draw_menu(drv) -> None:
+    from sim.worldgen import SCENARIOS
+    drv.screen.fill(BG)
+    drv.buttons = {}
+    cx = W // 2
+    t = drv.big.render("Backbench", True, FG)
+    drv.screen.blit(t, (cx - t.get_width() // 2, 120))
+    tag = "a career inside a parliament that runs itself"
+    _text(drv, tag, (cx - drv.font.size(tag)[0] // 2, 158), DIM)
+    _text(drv, "starting situation:", (cx - 240, 230), DIM)
+    names = list(SCENARIOS)
+    for i, name in enumerate(names):
+        col, row = divmod(i, 4)
+        rect = pygame.Rect(cx - 240 + col * 124, 256 + row * 34, 116, 28)
+        _button(drv, f"scn:{name}", name, rect)
+        if name == drv.menu_scenario:
+            pygame.draw.rect(drv.screen, GOLD, rect, 2)
+    y = 256 + ((len(names) + 3) // 4) * 34 + 24
+    lab = f"new game — {drv.menu_scenario}"
+    _button(drv, "start:new", lab,
+            pygame.Rect(cx - (20 + 9 * len(lab)) // 2, y, 20 + 9 * len(lab), 34))
+    y += 50
+    saves = [q for q in (drv.save_dir / "latest.json",
+                         drv.save_dir / "autosave.json") if q.exists()]
+    if saves:
+        _button(drv, "start:load", "load saved game",
+                pygame.Rect(cx - 90, y, 180, 34))
+    else:
+        _text(drv, "no saved games yet", (cx - 76, y + 8), DIM)
+    _button(drv, "menu:quit", "quit", pygame.Rect(cx - 42, y + 50, 84, 28))
+    _text(drv, "enter: new game · esc: quit", (cx - 110, H - 40), DIM)
+
+
 def draw(drv) -> None:
     """Whole frame. drv: .screen .font .big .state .banner .paused .speed_i .vote_flash .view"""
     drv.screen.fill(BG)
     drv.buttons = {}
     drv.seat_rects = {}
+    if drv.mode == "menu":
+        draw_menu(drv)
+        return
     if drv.view == "map":
         draw_map(drv)
     else:

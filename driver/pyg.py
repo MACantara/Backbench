@@ -31,7 +31,7 @@ class Driver:
     """Owns pygame + clock + pause state. Sim interaction is advance() only."""
 
     def __init__(self, seed: int = 0, headless: bool = False, scenario=None,
-                 fullscreen: bool = False):
+                 fullscreen: bool = False, menu: bool = False):
         if headless:
             import os
             os.environ.setdefault("SDL_VIDEODRIVER", "dummy")
@@ -43,7 +43,11 @@ class Driver:
         self.clock = pygame.time.Clock()
         self.font = pygame.font.Font(None, 22)
         self.big = pygame.font.Font(None, 34)
-        self.state = new_game(seed, scenario)
+        self.mode = "menu" if menu else "game"
+        self.seed = seed
+        self.save_dir = SAVES
+        self.menu_scenario = scenario if isinstance(scenario, str) else "standard"
+        self.state = new_game(seed, scenario) if not menu else None
         self.running = True
         self.paused = False
         self.speed_i = 1
@@ -79,6 +83,11 @@ class Driver:
         self.chronicle = {"open": False, "scroll": 0, "filter": None}
         self.auto_play = False      # skip the weekly action pause
         self.autosaved_week = -1    # last week written to autosave.json
+
+    def _new_game(self) -> None:
+        self.state = new_game(self.seed, self.menu_scenario)
+        self.mode = "game"
+        self._reset_view()
 
     def advance(self, actions: list | None = None) -> None:
         """One week forward; collects events for animation and interrupts."""
@@ -123,6 +132,8 @@ class Driver:
 
     def step(self, dt: float) -> None:
         """Advance animations and the auto-run clock; pause/banner blocks progress."""
+        if self.state is None:
+            return                  # still on the menu
         if self.reveal:
             self.reveal["t"] += dt
             if self.reveal["t"] > 4.5:
@@ -376,6 +387,14 @@ class Driver:
             self._shot()
         elif bid == "menu:quit":
             self.running = False
+        elif bid.startswith("scn:"):
+            self.menu_scenario = bid[4:]
+        elif bid == "start:new":
+            self._new_game()
+        elif bid == "start:load":
+            self._load()
+            if self.state is not None:
+                self.mode = "game"
 
     def _after_pick(self) -> None:
         if len(self.picks) >= 2:
@@ -387,6 +406,22 @@ class Driver:
             self.on_button("continue")  # flush picks, resume the clock
 
     def handle_event(self, e) -> None:
+        if self.mode == "menu":
+            if e.type == pygame.QUIT:
+                self.running = False
+            elif e.type == pygame.KEYDOWN:
+                if e.key in (pygame.K_ESCAPE, pygame.K_q):
+                    self.running = False
+                elif e.key in (pygame.K_RETURN, pygame.K_KP_ENTER, pygame.K_n):
+                    self._new_game()
+            elif e.type == pygame.MOUSEBUTTONDOWN:
+                wx, wy = self.window.get_size()
+                pos = (int(e.pos[0] * W / wx), int(e.pos[1] * H / wy))
+                for bid, rect in self.buttons.items():
+                    if rect.collidepoint(pos):
+                        self.on_button(bid)
+                        return
+            return
         if e.type == pygame.QUIT:
             self.running = False
         elif e.type == pygame.KEYDOWN:
@@ -480,7 +515,7 @@ class Driver:
 
 
 def run(seed: int = 0, scenario=None, fullscreen: bool = False) -> None:
-    Driver(seed, scenario=scenario, fullscreen=fullscreen).loop()
+    Driver(seed, scenario=scenario, fullscreen=fullscreen, menu=True).loop()
 
 
 if __name__ == "__main__":
