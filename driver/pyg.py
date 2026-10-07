@@ -50,6 +50,7 @@ class Driver:
         self.week_timer = 0.0
         self.banner = None          # interrupt event text awaiting dismiss
         self.banner_t = 0.0         # seconds the banner has been up
+        self._banner_paused = False # pause state before the banner stole it
         self.events = []            # events from latest tick, for animation
         self.view = "parliament"    # or "map" (Tab)
         self.vote_flash = {}        # mp_id -> "yes"/"no" during vote cascade
@@ -85,9 +86,8 @@ class Driver:
         if self.state.phase == "over":
             self._autosave()        # the career's final state survives a crash
             from sim.career import epilogue
-            self.banner = f"Game over — score {final_score(self.state)}"
+            self._show_banner(f"Game over — score {final_score(self.state)}")
             self.why_text = "\n".join(epilogue(self.state))
-            self.paused = True
             return
         self.district_prev = district_owners(self.state)
         self.events = tick(self.state, actions or [])
@@ -117,8 +117,7 @@ class Driver:
         hit = next((e for e in self.events
                     if e.type in INTERRUPTS and e.type != "ElectionResult"), None)
         if hit:
-            self.banner = hit.text
-            self.paused = True
+            self._show_banner(hit.text)
         if self.state.week % AUTOSAVE_WEEKS == 0:
             self._autosave()
 
@@ -139,7 +138,7 @@ class Driver:
         self.banner_t = self.banner_t + dt if self.banner else 0.0
         if (self.banner and self.auto_play and self.state.phase != "over"
                 and self.banner_t > AUTO_BANNER_SECONDS):
-            self.banner, self.paused = None, False   # spectators keep watching
+            self._dismiss_banner()  # spectators keep watching
         if self.paused or self.banner:
             return
         self.week_timer += dt * SPEEDS[self.speed_i]
@@ -152,9 +151,19 @@ class Driver:
                 self.action_pause = True   # stop the clock for the weekly decision
                 self.paused = True
 
+    def _show_banner(self, text: str) -> None:
+        """Interrupt the clock — remembers the pause state to restore on dismiss."""
+        self._banner_paused = self.paused
+        self.banner = text
+        self.paused = True
+
+    def _dismiss_banner(self) -> None:
+        self.banner = None
+        self.paused = self._banner_paused
+
     def _space(self) -> None:
         if self.banner:
-            self.banner, self.paused = None, False
+            self._dismiss_banner()
         elif self.action_pause:
             self.on_button("continue")
         else:
@@ -172,8 +181,7 @@ class Driver:
         (SAVES / f"s{self.state.seed}-w{self.state.week}.json") \
             .write_text(text, encoding="utf-8")
         (SAVES / "latest.json").write_text(text, encoding="utf-8")
-        self.banner = f"Saved — week {self.state.week}"
-        self.paused = True
+        self._show_banner(f"Saved — week {self.state.week}")
 
     def _load(self) -> None:
         saves = [q for q in (SAVES / "latest.json",
@@ -183,14 +191,12 @@ class Driver:
             self.state = from_json(p.read_text(encoding="utf-8"))
             self._reset_view()
             self.autosaved_week = self.state.week
-            self.banner = f"Loaded — week {self.state.week}"
-            self.paused = True
+            self._show_banner(f"Loaded — week {self.state.week}")
 
     def _shot(self) -> None:
         Path("shots").mkdir(exist_ok=True)
         pygame.image.save(self.screen, f"shots/week{self.state.week}.png")
-        self.banner = "Screenshot saved"
-        self.paused = True
+        self._show_banner("Screenshot saved")
 
     def _autosave(self) -> None:
         if self.autosaved_week == self.state.week:
@@ -349,7 +355,7 @@ class Driver:
         elif bid == "close:inspect":
             self.inspect_mp = None
         elif bid == "close:banner":
-            self.banner, self.paused = None, False
+            self._dismiss_banner()
         elif bid == "menu:pause":
             self._space()
         elif bid == "menu:auto":
@@ -386,7 +392,7 @@ class Driver:
         elif e.type == pygame.KEYDOWN:
             if e.key == pygame.K_ESCAPE:
                 if self.banner:
-                    self.banner, self.paused = None, False
+                    self._dismiss_banner()
                 elif self.chronicle["open"]:
                     self.chronicle["open"] = False
                 elif self.why_text:
@@ -427,7 +433,7 @@ class Driver:
 
     def on_click(self, pos) -> None:
         if self.banner:
-            self.banner, self.paused = None, False
+            self._dismiss_banner()
             return
         for bid, rect in self.buttons.items():
             if rect.collidepoint(pos):
