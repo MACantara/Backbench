@@ -289,6 +289,14 @@ class Driver:
         elif bid.startswith("flt:"):
             f = bid[4:]
             self.chronicle["filter"] = None if f == "all" or f == self.chronicle["filter"] else f
+        elif bid == "close:chr":
+            self.chronicle["open"] = False
+        elif bid == "close:why":
+            self.why_text = None
+        elif bid == "close:inspect":
+            self.inspect_mp = None
+        elif bid == "close:banner":
+            self.banner, self.paused = None, False
 
     def _after_pick(self) -> None:
         if len(self.picks) >= 2:
@@ -304,8 +312,14 @@ class Driver:
             self.running = False
         elif e.type == pygame.KEYDOWN:
             if e.key == pygame.K_ESCAPE:
-                if self.chronicle["open"]:
+                if self.banner:
+                    self.banner, self.paused = None, False
+                elif self.chronicle["open"]:
                     self.chronicle["open"] = False
+                elif self.why_text:
+                    self.why_text = None
+                elif self.inspect_mp is not None:
+                    self.inspect_mp = None
                 else:
                     self.running = False
             elif e.key == pygame.K_q and not self.chronicle["open"]:
@@ -365,6 +379,11 @@ class Driver:
             return
         for bid, rect in self.buttons.items():
             if rect.collidepoint(pos):
+                # the chronicle overlays everything — only its own controls
+                # stay live; buttons beneath it must not fire through it
+                if self.chronicle["open"] and not (
+                        bid.startswith("flt:") or bid == "close:chr"):
+                    return
                 self.on_button(bid)
                 return
         if self.chronicle["open"]:
