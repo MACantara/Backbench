@@ -89,9 +89,8 @@ class Driver:
         self.reveal = None          # {"order": [districts], "t": s} election reveal
         self.results = None         # {"seats", "prev"} — seat-change card
         self.chronicle = {"open": False, "scroll": 0, "filter": None}
-        self.menu_open = False      # hamburger dropdown
-        self.menu_sub = "main"      # main | settings — which page it shows
-        self.menu_rect = None       # popup bounds, set by the renderer
+        self.menu_open = False      # settings popup
+        self.menu_rect = None       # its bounds, set by the renderer
         self.save_picker = None     # "save" | "load" — file-picker modal
         self.picker_rect = None     # its bounds, set by the renderer
         self.auto_play = False      # skip the weekly action pause
@@ -422,12 +421,10 @@ class Driver:
             self._shot()
         elif bid == "menu:quit":
             self.running = False
-        elif bid == "burger":
-            self.menu_open = not self.menu_open
-            if self.menu_open:
-                self.menu_sub = "main"
-        elif bid.startswith("gm:"):
-            self.menu_sub = bid[3:]
+        elif bid == "menu:settings":
+            self.menu_open = True
+        elif bid == "menu:close":
+            self.menu_open = False
         elif bid.startswith("pg:"):
             self.menu_page = bid[3:]
         elif bid.startswith("scn:"):
@@ -565,7 +562,7 @@ class Driver:
             inside = self.menu_rect and self.menu_rect.collidepoint(pos)
             hit = next((bid for bid, rect in self.buttons.items()
                         if rect.collidepoint(pos)), None)
-            if hit and (inside or bid == "burger"):
+            if hit and inside:
                 self.on_button(hit)
                 if hit.startswith("menu:"):
                     self.menu_open = False   # commands close on selection
