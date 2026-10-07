@@ -186,9 +186,12 @@ def draw_election_night(drv) -> None:
 
     res = drv.results or {}
     seats, prev = res.get("seats", {}), res.get("prev", {})
-    total = max(sum(seats.values()), 1)
-    majority = total // 2 + 1
     order, data = drv.reveal["order"], drv.reveal["data"]
+    # the house size comes from the ballots themselves — the broadcast must
+    # render even if `results` was already replaced by a later week
+    total = max(sum(sum(dd["winners"].values()) for dd in data.values()),
+                sum(seats.values()), 1)
+    majority = total // 2 + 1
     k = len(order) if drv.night_final else int(
         drv.reveal["t"] / 3.0 * len(order))
     called = order[:k]
