@@ -146,6 +146,8 @@ SNAP_COLLAPSE_MAX = 2            # collapses since last election that force diss
 SNAP_WINDOW = (20, 32)           # weeks_in_office range where a strategic call is allowed
 SNAP_POLL_EDGE = 0.08            # gov poll share must beat its seat share by this much
 SNAP_CALL_P = 0.10               # per-week chance while the window + poll gate hold
+COAL_EXIT_DIST = 0.5             # platform-agenda strain that lets a partner walk
+COAL_EXIT_GRACE = 26             # weeks_in_office before a partner may leave
 
 # --- parties ---
 PARTY_COHESION_SPLIT = 0.35      # below this + spread trigger → schism possible
@@ -176,6 +178,8 @@ DYNAMIC_GAP_DIST = 0.55          # district centroid this far from every platfor
 DYNAMIC_GAP_MIN_SEATS = 6        # contiguous unserved districts needed to support a party
 DYNAMIC_ENTRIES_PER_ELECTION = 2 # cap on niche entries/revivals per campaign
 DYNAMIC_GRACE_WEEKS = 12         # memberless entrants survive until after their first election
+ROOKIE_FRONTIER_P = 0.35         # share of hopefuls arriving from unserved ground
+PLATFORM_BASE_PULL = 0.01        # weekly lerp of opposition platforms toward own base
 GRAVE_WEEKS = 520                # a dissolved party stays revivable for ~10 terms
 GRAVE_MAX = 24                   # the graveyard itself is bounded — most recent kept
 
@@ -320,6 +324,8 @@ LEAK_CAUGHT_DIRT = 0.15      # traced leaking marks the player's own dossier
 
 # --- drift ---
 VOTER_DRIFT_SD = 0.004           # weekly position noise
+GOV_FATIGUE_W = 0.00035          # per week-in-office push of voters off the agenda
+GOV_FATIGUE_CAP = 104            # fatigue stops compounding past ~2 years
 SALIENCE_REVERT = 0.02           # weekly pull of salience back toward base
 BRAND_DECAY = 0.95               # weekly brand multiplier — reputation mean-reverts
 REL_DECAY = 0.97                 # relationships decay toward neutral

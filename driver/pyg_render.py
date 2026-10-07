@@ -26,7 +26,7 @@ PARTY_COLORS = [(200, 70, 70), (80, 180, 90), (210, 170, 60), (70, 110, 200), (1
                 (90, 190, 190), (190, 120, 60), (120, 120, 200)]
 DEFAULT_COLOR = (140, 140, 150)
 
-INTERRUPTS = {"ConfidenceLost", "CoalitionFormed", "PartyFormed", "Defection",
+INTERRUPTS = {"ConfidenceLost", "CoalitionFormed", "CoalitionExit", "PartyFormed", "Defection",
               "PartyDissolved", "Scandal", "ElectionCalled", "ElectionResult", "SeatLost",
               "ScandalBreaks", "Expelled", "Resigned", "MinisterSacked",
               "PressCycle", "OfferMade", "OfferDeclined", "OfferLapsed",

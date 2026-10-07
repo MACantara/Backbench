@@ -119,3 +119,21 @@ def party_lifecycle(state: GameState) -> None:
         elif pt.leader not in pt.members:
             from .career import successor
             pt.leader = successor(state, pt)
+
+    # differentiation: outside government a party follows its own voters —
+    # the opposition's structural advantage is the space fatigue opens
+    v = state.voters
+    pids = list(state.parties)
+    if len(pids) > 1:
+        plats = np.array([state.parties[pid].platform for pid in pids])
+        near = np.argmin(np.linalg.norm(
+            v.pos[:, None, :] - plats[None, :, :], axis=2), axis=1)
+        for i, pid in enumerate(pids):
+            pt = state.parties[pid]
+            if pid in state.government.parties or pt.founded_week == state.week:
+                continue   # governments hold the agenda; newborns get a week
+            base = v.pos[near == i]
+            if len(base):
+                pt.platform = tuple(np.clip(
+                    np.asarray(pt.platform) + p.PLATFORM_BASE_PULL
+                    * (base.mean(axis=0) - np.asarray(pt.platform)), -1, 1))
