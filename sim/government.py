@@ -5,10 +5,12 @@ import numpy as np
 
 from . import params as p
 from .dynamism import niche_entry
+from .prose import render
 from .state import Bill, GameState, dist, gov_platform
 from .parliament import describe_pos, resolve_vote
 
-MAJORITY = 61  # of 120 seats
+def _majority(state: GameState) -> int:
+    return len(state.mps) // 2 + 1
 
 _ELECTION_TEXT = {
     "scheduled": "Term ends — election called.",
@@ -40,12 +42,13 @@ def _viable_offers(state: GameState, exclude_parties: set[int] | None = None) ->
     seats = _seats(state)
     for pid in (exclude_parties or ()):
         seats.pop(pid, None)
+    majority = _majority(state)
     offers = []
     for proposer in sorted(seats, key=seats.get, reverse=True):
         coalition, bloc, price = {proposer}, seats[proposer], {}
         for partner in sorted(seats, key=lambda pid: dist(state.parties[pid].platform,
                                                           state.parties[proposer].platform)):
-            if bloc >= MAJORITY:
+            if bloc >= majority:
                 break
             if partner == proposer:
                 continue
@@ -54,7 +57,7 @@ def _viable_offers(state: GameState, exclude_parties: set[int] | None = None) ->
                 coalition.add(partner)
                 bloc += seats[partner]
                 price[partner] = pr
-        if bloc >= MAJORITY:
+        if bloc >= majority:
             offers.append({"proposer": proposer, "coalition": coalition,
                            "bloc": bloc, "price": price})
     return offers
@@ -106,7 +109,9 @@ def _form(state: GameState, offer: dict) -> None:
     state.government.amend_move = None        # and owns its pending moves
     state.bench_shortlist = []               # and picks its own nominees
     names = [state.parties[i].name for i in coalition]
-    state.emit("CoalitionFormed", f"{' + '.join(names)} form a government ({bloc} seats).",
+    state.emit("CoalitionFormed",
+               render(state, "CoalitionFormed", names=" + ".join(names),
+                      bloc=bloc),
                parties=sorted(coalition), seats=bloc)
 
 
@@ -127,7 +132,9 @@ def _minority(state: GameState, exclude_parties: set[int] | None = None) -> None
     state.government.amend_attempted = set()
     state.government.amend_move = None
     state.bench_shortlist = []
-    state.emit("CoalitionFormed", f"{state.parties[biggest].name} forms a minority government ({seats[biggest]} seats).",
+    state.emit("CoalitionFormed",
+               render(state, "MinorityFormed", name=state.parties[biggest].name,
+                      seats=seats[biggest]),
                parties=[biggest], seats=seats[biggest], minority=True)
 
 
@@ -231,15 +238,32 @@ def collapse(state: GameState, cause: str = "confidence") -> None:
     majority exists, else it dissolves. cause: 'confidence' | 'supply'."""
     pm_party = state.mps[state.government.pm].party \
         if state.government.pm in state.mps else None
+    fallen_largest = max(sorted(state.government.parties),
+                         key=lambda pid: len(state.parties[pid].members), default=None)
+    alt = _best_coalition(state, exclude_parties={fallen_largest})
+    if state.constructive_confidence and cause == "confidence" \
+            and alt is None \
+            and state.government.collapses + 1 < p.SNAP_COLLAPSE_MAX:
+        # constructive no-confidence: a lost division falls the government
+        # only when a successor slate exists — no slate, no dissolution; the
+        # wounded PM limps on, brand bleeding, pending business dead
+        state.government.collapses += 1
+        for pid in state.government.parties:
+            if pid in state.parties:
+                state.parties[pid].brand -= p.CONFIDENCE_WOUND_BRAND
+        state.current_bill = None
+        state.deals = []
+        state.emit("ConfidenceHeld",
+                   "The government loses the division — but no successor "
+                   "slate exists, so it limps on wounded.",
+                   parties=sorted(state.government.parties))
+        return
     text = {"supply": "Government loses supply — the budget is dead.",
             "defection": "The Prime Minister's defection brings the government down.",
             }.get(cause, "Government loses confidence of the house.")
     state.emit("ConfidenceLost", text,
                party=pm_party, parties=sorted(state.government.parties))
     state.government.collapses += 1
-    fallen_largest = max(state.government.parties,
-                         key=lambda pid: len(state.parties[pid].members), default=None)
-    alt = _best_coalition(state, exclude_parties={fallen_largest})
     state.government.parties = set()
     state.government.pm = None
     state.government.platform = None   # the agreement dies with the government

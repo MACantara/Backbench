@@ -6,6 +6,8 @@ import math
 import numpy as np
 import pygame
 
+from sim.naming import POLE_LABELS
+
 W, H = 1280, 720
 PANEL_X = 980                       # side panel starts here
 CX, CY = 470, 600                   # hemicycle center (bottom of the arc)
@@ -29,7 +31,7 @@ INTERRUPTS = {"ConfidenceLost", "CoalitionFormed", "PartyFormed", "Defection",
               "ScandalBreaks", "Expelled", "Resigned", "MinisterSacked",
               "PressCycle", "OfferMade", "OfferDeclined", "OfferLapsed",
               "LawRepealed", "LawLapsed", "PmChange", "BudgetSet",
-              "AttackLands", "DebtCrisis"}
+              "AttackLands", "DebtCrisis", "AmbitionMet", "AmbitionFailed"}
 
 
 def party_color(state, pid) -> tuple:
@@ -41,11 +43,12 @@ def seat_positions(state) -> dict[int, tuple[float, float]]:
     ordered = sorted(state.parties.values(), key=lambda pt: pt.platform[0])
     mps = [state.mps[i] for pt in ordered for i in sorted(pt.members)]
     mps += [m for m in sorted(state.mps.values(), key=lambda m: m.id) if m.party is None]
-    mps = mps[:120]
     n = len(mps)
     if n == 0:
         return {}
-    rows, radii = 5, [150 + i * 48 for i in range(5)]
+    # a bigger house gets more arcs packed into the same span
+    rows = min(9, max(5, math.ceil(n / 40)))
+    radii = [150 + i * (192 / (rows - 1)) for i in range(rows)]
     weights = [r / sum(radii) for r in radii]
     counts = [round(n * w) for w in weights]
     counts[-1] += n - sum(counts)     # rounding residue lands in the outermost row
@@ -61,7 +64,12 @@ def seat_positions(state) -> dict[int, tuple[float, float]]:
 
 
 def district_owners(state) -> dict[int, int | None]:
-    return {m.district: m.party for m in state.mps.values()}
+    tallies: dict[int, dict] = {}
+    for m in state.mps.values():
+        d = tallies.setdefault(m.district, {})
+        d[m.party] = d.get(m.party, 0) + 1
+    return {d: max(ps.items(), key=lambda kv: kv[1])[0]
+            for d, ps in tallies.items()}
 
 
 def draw_map(drv) -> None:
@@ -73,7 +81,11 @@ def draw_map(drv) -> None:
     if drv.reveal:
         k = int(drv.reveal["t"] / 3.0 * len(drv.reveal["order"]))
         shown = set(drv.reveal["order"][:k])
+    drawn = set()
     for m in s.mps.values():
+        if m.district in drawn:
+            continue            # multi-member districts draw one cell each
+        drawn.add(m.district)
         mask = v.district == m.district
         if not mask.any():
             continue
@@ -81,15 +93,33 @@ def draw_map(drv) -> None:
         col = int(np.clip((cent[0] + 1) / 2 * gx, 0, gx - 1))
         row = int(np.clip((cent[1] + 1) / 2 * gy, 0, gy - 1))
         pid = owners[m.district]
-        if shown is not None and m.district not in shown:
-            pid = drv.district_prev.get(m.district, pid)  # pre-election holder
+        if shown is not None:
+            if m.district in shown:
+                pid = drv.reveal["winners"].get(m.district, pid)
+            else:
+                pid = drv.district_prev.get(m.district, pid)  # pre-election holder
         bright = 0.4 + 0.6 * m.seat_safety
         c = tuple(int(x * bright) for x in party_color(s, pid))
         r = pygame.Rect(ox + col * (cell + 2), oy + row * (cell + 2), cell, cell)
         pygame.draw.rect(drv.screen, c, r)
         if m.id == s.player_id:
             pygame.draw.rect(drv.screen, WHITE, r, 2)
-    _text(drv, "Districts (FPTP)", (ox, oy - 28), DIM)
+    title = "Districts" if s.district_magnitude > 1 else "Districts (FPTP)"
+    if drv.reveal:
+        tally: dict = {}
+        for d in drv.reveal["order"]:
+            if d in shown:
+                w = drv.reveal["winners"].get(d)
+                tally[w] = tally.get(w, 0) + 1
+        lead = "  ".join(
+            f"{s.parties[p].name if p in s.parties else 'ind'} {n}"
+            for p, n in sorted(tally.items(), key=lambda kv: -kv[1]))
+        title += f" — called {len(shown)}/{len(drv.reveal['order'])}: {lead}"
+        flips = [f"d{d}: {drv.reveal['flips'][d]}"
+                 for d in drv.reveal["order"] if d in shown and d in drv.reveal["flips"]]
+        if flips:
+            _text(drv, "flips: " + "; ".join(flips[-3:]), (ox, oy + gy * (cell + 2) + 6), WHITE)
+    _text(drv, title, (ox, oy - 28), DIM)
 
     sx, sy, sz = 560, 60, 420
     pygame.draw.rect(drv.screen, PANEL, (sx - 12, sy - 12, sz + 24, sz + 24))
@@ -112,6 +142,10 @@ def draw_map(drv) -> None:
         if m.id == s.player_id:
             pygame.draw.circle(drv.screen, WHITE, (px, py), 6, 1)
     _text(drv, "Ideology space  (voters dim, MPs solid, parties lettered)", (sx, sy - 28), DIM)
+    _text(drv, POLE_LABELS[0][0], (sx + 4, sy + sz // 2), DIM)          # left edge
+    _text(drv, POLE_LABELS[0][1], (sx + sz - 44, sy + sz // 2), DIM)    # right edge
+    _text(drv, POLE_LABELS[1][1], (sx + sz // 2 - 38, sy + 4), DIM)     # top edge
+    _text(drv, POLE_LABELS[1][0], (sx + sz // 2 - 32, sy + sz - 18), DIM)  # bottom edge
 
 
 def _text(drv, s, xy, color=FG, font=None) -> None:
@@ -120,17 +154,18 @@ def _text(drv, s, xy, color=FG, font=None) -> None:
 
 def draw_parliament(drv, pos) -> None:
     s = drv.state
+    r = min(SEAT_R, max(2, int(SEAT_R * 160 / max(len(pos), 1))))
     for mid, (x, y) in pos.items():
         mp = s.mps[mid]
         col = party_color(s, mp.party) if mp.party is not None else DEFAULT_COLOR
         vote = drv.vote_flash.get(mid)  # "yes"/"no"/"abs" during vote cascade
         if vote:
             col = GREEN if vote == "yes" else RED if vote == "no" else DIM
-        pygame.draw.circle(drv.screen, col, (int(x), int(y)), SEAT_R)
+        pygame.draw.circle(drv.screen, col, (int(x), int(y)), r)
         if mid == s.player_id:
-            pygame.draw.circle(drv.screen, WHITE, (int(x), int(y)), SEAT_R + 3, 2)
+            pygame.draw.circle(drv.screen, WHITE, (int(x), int(y)), r + 3, 2)
         if mid == s.government.pm:
-            pygame.draw.circle(drv.screen, GOLD, (int(x), int(y) - 14), 3)
+            pygame.draw.circle(drv.screen, GOLD, (int(x), int(y) - r - 7), 3)
     # legend: party, seats
     y = 18
     for pt in sorted(s.parties.values(), key=lambda p: p.platform[0]):
@@ -150,7 +185,8 @@ def draw_panel(drv) -> None:
     y += 36
     speed = ["0.5x", "1x", "2x", "4x"][drv.speed_i]
     mode = "AUTO" if drv.auto_play else ("PAUSED" if drv.paused else "running")
-    _text(drv, f"{mode} {speed}   space=pause a=auto c=log tab=map q=quit", (x, y), DIM)
+    _text(drv, f"{mode} {speed}   space=pause a=auto c=log tab=map "
+               "f5=save f9=load q=quit", (x, y), DIM)
     y += 28
     last = next((e for e in reversed(s.log) if e.type == "PollShift"), None)
     if last:
@@ -288,6 +324,14 @@ def draw_action_panel(drv) -> None:
             w = 8 + 9 * len(kind) + 16
             _button(drv, f"act:{kind}", kind, pygame.Rect(x, H - 110, w, 30))
             x += w + 8
+        if drv.state.week == 0 and drv.state.ambition is None:
+            # the opening pick — pass it by and the career stays open-ended
+            _text(drv, "ambition:", (34, H - 84), GOLD)
+            x = 100
+            for k in ("pm", "majority", "founder", "survivor", "reformer"):
+                w = 16 + 9 * len(k)
+                _button(drv, f"amb:{k}", k, pygame.Rect(x, H - 88, w, 28))
+                x += w + 8
     _button(drv, "continue", "continue >>", pygame.Rect(34, H - 50, 110, 28))
     _button(drv, "why", "why?", pygame.Rect(154, H - 50, 70, 28))
     _button(drv, "bench", "bench", pygame.Rect(234, H - 50, 70, 28))
@@ -330,6 +374,11 @@ def draw_chronicle(drv) -> None:
     x = 28
     _button(drv, "flt:all", "all", pygame.Rect(x, 46, 50, 24))
     x += 56
+    for label, val in (("core", "_core"), ("echoes", "_echoes")):
+        _button(drv, f"flt:{val}", label, pygame.Rect(x, 46, 62, 24))
+        if c["filter"] == val:
+            pygame.draw.rect(drv.screen, GOLD, (x, 46, 62, 24), 2)
+        x += 68
     for t in types:
         w = 9 * len(t) + 22
         _button(drv, f"flt:{t}", t.lower(), pygame.Rect(x, 46, w, 24))
@@ -338,7 +387,13 @@ def draw_chronicle(drv) -> None:
         x += w + 6
         if x > PANEL_X - 140:
             break                        # out of room — types beyond this stay unfilterable
-    events = s.log if c["filter"] is None else [e for e in s.log if e.type == c["filter"]]
+    if c["filter"] == "_core":
+        events = [e for e in s.log if not e.data.get("echo")]
+    elif c["filter"] == "_echoes":
+        events = [e for e in s.log if e.data.get("echo")]
+    else:
+        events = (s.log if c["filter"] is None
+                  else [e for e in s.log if e.type == c["filter"]])
     visible = (H - 110) // 17
     c["scroll"] = max(0, min(c["scroll"], max(0, len(events) - visible)))
     start = max(0, len(events) - visible - c["scroll"])

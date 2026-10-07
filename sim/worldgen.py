@@ -2,11 +2,13 @@
 from __future__ import annotations
 
 import random
+from dataclasses import dataclass, field
 
 import numpy as np
 
 from . import params as p
-from .naming import generate_parties, mp_name, mp_names
+from .naming import (NAME_PACKS, country_name, generate_parties, mp_name,
+                     mp_names)
 from .state import (Conditions, GameState, Hopeful, MP, Outlet, Party, Voters,
                     dist)
 
@@ -49,13 +51,14 @@ def make_voters(rng: random.Random, np_rng: np.random.Generator,
 
 def make_hopeful(rng: random.Random, np_rng: np.random.Generator,
                  parties: dict[int, Party], n_districts: int,
-                 name: str | None = None, age: int | None = None) -> Hopeful:
+                 name: str | None = None, age: int | None = None,
+                 pack: str = "insular") -> Hopeful:
     """One aspiring politician: stats rolled, leaning toward the nearest platform."""
     plat = np.asarray(rng.choice(list(parties.values())).platform)
     hpos = tuple(np.clip(plat + np_rng.normal(0, p.MP_POS_JITTER, 2), -1, 1))
     stat = lambda k: min(1, max(0, rng.gauss(p.MP_STAT_MEANS[k], p.MP_STAT_SD)))
     return Hopeful(
-        name=name or mp_name(rng), pos=hpos,
+        name=name or mp_name(rng, pack), pos=hpos,
         ambition=stat("ambition"), loyalty=stat("loyalty"),
         competence=stat("competence"), integrity=stat("integrity"),
         district=rng.randrange(n_districts),
@@ -110,12 +113,12 @@ def make_constitution(rng: random.Random, centroid) -> list:
 
 
 def make_bench(rng: random.Random, np_rng: np.random.Generator,
-               centroid, activism: float) -> list:
+               centroid, activism: float, pack: str = "insular") -> list:
     """The inaugural court: doctrine spread around the seed's character,
     temperament around the country's center, ages spread wide enough that
     vacancies open during play."""
     from .state import Justice
-    return [Justice(id=i, name=mp_name(rng),
+    return [Justice(id=i, name=mp_name(rng, pack),
                     pos=tuple(np.clip(np.asarray(centroid)
                                       + np_rng.normal(0, 0.2, 2), -1, 1)),
                     activism=float(np.clip(rng.gauss(activism, 0.12), 0, 1)),
@@ -123,11 +126,90 @@ def make_bench(rng: random.Random, np_rng: np.random.Generator,
             for i in range(p.BENCH_SIZE)]
 
 
-def new_game(seed: int) -> GameState:
+@dataclass
+class Scenario:
+    """A dealt world: same generator, named overrides. params entries are
+    worldgen-scoped — applied to sim.params while new_game runs, restored
+    after, so a scenario can't leak tunables into the next run."""
+    name: str
+    player_seat: str = "median"       # "safe" | "marginal" | "median"
+    player_party: str | None = None   # "largest" | "smallest" | "outsider"
+    party_pool: list | None = None    # pins generate_parties' archetype draw
+    constructive_confidence: bool = False
+    district_magnitude: int = 1
+    params: dict = field(default_factory=dict)
+
+
+SCENARIOS = {
+    "standard": Scenario("standard"),
+    "safe_seat": Scenario("safe_seat", player_seat="safe"),
+    "marginal": Scenario("marginal", player_seat="marginal"),
+    "outsider": Scenario("outsider", player_party="outsider",
+                         player_seat="marginal"),
+    "duopoly": Scenario("duopoly",
+                        party_pool=["social_democrat", "conservative"]),
+    "fragmented": Scenario("fragmented",
+                           party_pool=["social_democrat", "liberal", "conservative",
+                                       "green", "nationalist", "agrarian"]),
+    "constructive": Scenario("constructive", constructive_confidence=True),
+}
+
+
+def _player_district(voters, parties, mps, n_districts: int,
+                     sc: Scenario) -> int:
+    """Which incumbent the player replaces. 'safe' takes the largest district
+    margin among eligible parties, 'marginal' the thinnest, 'median' the
+    middling-centroid seat (the classic start)."""
+    cands = list(range(n_districts))
+    if sc.player_party in ("largest", "smallest"):
+        sizes = sorted((pt.id for pt in parties.values() if pt.members),
+                       key=lambda i: len(parties[i].members))
+        want = sizes[-1] if sc.player_party == "largest" else sizes[0]
+        cands = [d for d in cands if mps[d].party == want] or cands
+    if sc.player_seat == "median":
+        centroids = np.array([voters.pos[voters.district == d].mean(axis=0)
+                              for d in range(n_districts)])
+        norms = np.linalg.norm(centroids, axis=1)
+        return sorted(cands, key=lambda d: norms[d])[len(cands) // 2]
+    # margins: winner share minus runner-up share over nearest-platform tally
+    plats = np.array([parties[i].platform for i in sorted(parties)])
+    d2 = np.linalg.norm(voters.pos[:, None] - plats[None, :], axis=2)
+    near = d2.argmin(1)
+    margins = np.zeros(n_districts)
+    for d in cands:
+        tally = np.bincount(near[voters.district == d], minlength=len(plats))
+        t = np.sort(tally)
+        margins[d] = (t[-1] - t[-2]) / max(int(tally.sum()), 1)
+    best = max if sc.player_seat == "safe" else min
+    return best(cands, key=lambda d: margins[d])
+
+
+def new_game(seed: int, scenario: "Scenario | str | None" = None) -> GameState:
+    if isinstance(scenario, str) and scenario not in SCENARIOS:
+        raise ValueError(f"unknown scenario {scenario!r} — "
+                         f"choices: {', '.join(SCENARIOS)}")
+    sc = (SCENARIOS[scenario] if isinstance(scenario, str)
+          else scenario or SCENARIOS["standard"])
+    saved = {k: getattr(p, k) for k in sc.params if hasattr(p, k)}
+    for k, v in sc.params.items():
+        if hasattr(p, k):
+            setattr(p, k, v)
+    try:
+        return _worldgen(seed, sc)
+    finally:
+        for k, v in saved.items():
+            setattr(p, k, v)
+
+
+def _worldgen(seed: int, sc: Scenario) -> GameState:
     rng = random.Random(seed)
+    # cosmetic stream: seeded separately so wording/naming draws can never
+    # move the politics — prose changes must never perturb the mechanical rng
+    prose_rng = random.Random(seed ^ p.PROSE_SEED_KEY)
+    pack = prose_rng.choice(list(NAME_PACKS))
     np_rng = np.random.default_rng(seed)
     # the party system comes first — the electorate clusters around its anchors
-    specs = generate_parties(rng, np_rng)
+    specs = generate_parties(rng, np_rng, party_pool=sc.party_pool)
     voters = make_voters(rng, np_rng, np.array([pl for _, pl in specs]))
     n_districts = int(voters.district.max()) + 1
 
@@ -138,7 +220,7 @@ def new_game(seed: int) -> GameState:
 
     # one incumbent per district, anchored near the district centroid
     mps: dict[int, MP] = {}
-    names = mp_names(rng, n_districts + p.N_HOPEFULS)
+    names = mp_names(rng, n_districts + p.N_HOPEFULS, pack)
     centroids = np.array([voters.pos[voters.district == d].mean(axis=0) for d in range(n_districts)])
     for d in range(n_districts):
         centroid = tuple(np.clip(centroids[d] + np_rng.normal(0, p.MP_POS_JITTER, 2), -1, 1))
@@ -163,16 +245,28 @@ def new_game(seed: int) -> GameState:
     hopefuls = [make_hopeful(rng, np_rng, parties, n_districts, name=names[n_districts + i])
                 for i in range(p.N_HOPEFULS)]
 
-    # player: an MP in a middling district (near the median centroid)
-    med = np.argsort(np.linalg.norm(centroids, axis=1))[n_districts // 2]
+    # player: the scenario names the seat — median centroid is the classic deal
+    med = _player_district(voters, parties, mps, n_districts, sc)
+    if sc.player_party == "outsider":
+        old = mps[med].party
+        if old in parties:
+            parties[old].members.discard(med)
+            if parties[old].leader == med:  # the chair can't leave with you
+                parties[old].leader = max(sorted(parties[old].members),
+                                          key=lambda m: mps[m].ambition, default=None)
+        mps[med].party = None
     conds = {f: float(np.clip(v + np_rng.normal(0, p.COND_JITTER_SD), -1, 1))
              for f, v in p.COND_BASE.items()}
     activism = rng.random()   # the seed's judicial character — inaugural bench doctrine
     centroid = voters.pos.mean(axis=0)
     constitution = make_constitution(rng, centroid)
-    bench = make_bench(rng, np_rng, centroid, activism)
+    bench = make_bench(rng, np_rng, centroid, activism, pack)
     return GameState(
         rng=rng, week=0, phase="campaign", voters=voters, mps=mps, parties=parties,
+        seed=seed, prose_rng=prose_rng, country=country_name(prose_rng),
+        name_pack=pack, scenario=sc.name,
+        constructive_confidence=sc.constructive_confidence,
+        district_magnitude=sc.district_magnitude,
         hopefuls=hopefuls, outlets=make_outlets(rng, np_rng, parties),
         conditions=Conditions(**conds),
         player_id=int(med), weeks_to_election=p.CAMPAIGN_WEEKS,

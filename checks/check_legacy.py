@@ -33,7 +33,7 @@ def _law(s, name, week=None, pos=(0.5, 0.0)) -> Law:
 
 def main() -> None:
     # authorship: an enacted law names the PM and the coalition that passed it
-    s = _governing(1)
+    s = _governing(2)
     for _ in range(200):
         tick(s)
         if s.laws:
@@ -87,7 +87,7 @@ def main() -> None:
     assert any(e.type == "LawLapsed" for e in s.log), "no LawLapsed event"
 
     # retable: a cooled-off failure returns on the agenda's own motion
-    s = _governing(4)
+    s = _governing(8)
     s.failed.append({"pos": tuple(gov_platform(s)), "name": "Dead Bill",
                      "week": s.week - p.RETABLE_CD - 1, "axis": 0, "cost": 0.01})
     saved = p.RETABLE_P
@@ -105,7 +105,7 @@ def main() -> None:
 
     # budget supply: a passed budget sets the standing posture; a lost one
     # falls the government and the event names supply
-    s = _governing(6)
+    s = _governing(11)
     bb = None
     for _ in range(60):
         if s.current_bill is not None and s.current_bill.budget:

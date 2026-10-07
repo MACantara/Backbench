@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 from . import params as p
+from .prose import render
 from .career import remove_mp
 from .state import GameState
 
@@ -22,7 +23,8 @@ def detonate(state: GameState, mp) -> None:
            else "serious" if mp.dossier > p.SEVERITY_SERIOUS
            else "embarrassing")
     mp.scandal_weeks = state.rng.randint(*p.SCANDAL_WEEKS)
-    state.emit("ScandalBreaks", f"Scandal breaks around {mp.name} ({sev}).",
+    state.emit("ScandalBreaks",
+               render(state, "ScandalBreaks", name=mp.name, sev=sev),
                mp=mp.id, party=mp.party, dossier=mp.dossier, severity=sev)
     if mp.portfolio is not None and mp.dossier > p.SACK_THRESHOLD * p.MINISTER_SACK_FRAC:
         state.emit("MinisterSacked", f"{mp.name} is sacked as {mp.portfolio}.",

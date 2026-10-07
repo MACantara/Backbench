@@ -78,8 +78,10 @@ def apply_action(state: GameState, action: Action) -> None:
     rng = state.rng
 
     if action.kind == "campaign":
-        # door-knocking: pull district voters slightly toward your party's platform
-        plat = np.asarray(state.parties[player.party].platform)
+        # door-knocking: pull district voters slightly toward your platform —
+        # an independent's platform is their own ground
+        pt = state.parties.get(player.party)
+        plat = np.asarray(pt.platform if pt else player.pos)
         v.pos[mask] += 0.03 * np.sign(plat - v.pos[mask])
         state.emit("CareerEvent", "You campaign door-to-door.", action="campaign")
 
@@ -87,7 +89,8 @@ def apply_action(state: GameState, action: Action) -> None:
         # casework: the district remembers you and forgives a little
         v.betrayal[mask] *= 0.85
         v.loyalty[mask] = np.clip(v.loyalty[mask] + 0.02, 0, 1)
-        v.last_party[mask] = player.party
+        if player.party is not None:
+            v.last_party[mask] = player.party
         player.standing = float(np.clip(player.standing + p.STANDING_SERVICE, -1, 1))
         state.emit("CareerEvent", "You hold constituency surgeries.", action="constituency")
 
@@ -98,25 +101,32 @@ def apply_action(state: GameState, action: Action) -> None:
         state.emit("CareerEvent", f"You give a speech on the {'economic' if ax == 0 else 'social'} axis.", action="speech")
 
     elif action.kind == "promise":
-        state.promises.append({"pos": action.pos or player.pos,
+        pt = state.parties.get(player.party)
+        pos = action.pos or player.pos
+        state.promises.append({"pos": pos,
                                "party": player.party,
-                               "platform_dist": dist(state.parties[player.party].platform, action.pos or player.pos)})
+                               "platform_dist": dist(pt.platform, pos) if pt else 0.0})
         state.emit("CareerEvent", "You make a public promise.", action="promise")
 
     elif action.kind == "media":
-        pt = state.parties[player.party]
-        # how friendly is the outlet landscape to your party?
+        pt = state.parties.get(player.party)
+        # how friendly is the outlet landscape to you — or your party?
+        ref = np.asarray(pt.platform) if pt else np.asarray(player.pos)
         friend = 1 - min(1.0, np.mean(
-            [dist(o.slant, pt.platform) for o in state.outlets] or [1.0]) / 2)
+            [dist(o.slant, ref) for o in state.outlets] or [1.0]) / 2)
         if rng.random() < 0.2:
             player.dossier += 0.15
-            pt.brand -= 0.05
+            if pt is not None:
+                pt.brand -= 0.05
             state.emit("Scandal", "A gaffe on air — the clip is circulating.", mp=player.id)
         else:
-            pt.brand += p.MEDIA_APPEAR_BRAND * (0.5 + friend)
-            # friendly coverage pulls the perceived party toward respectability
-            pt.pub_pos = tuple(np.asarray(pt.pub_pos)
-                               - p.MEDIA_APPEAR_PUBPOS * friend * np.asarray(pt.pub_pos))
+            if pt is not None:
+                pt.brand += p.MEDIA_APPEAR_BRAND * (0.5 + friend)
+                # friendly coverage pulls the perceived party toward respectability
+                pt.pub_pos = tuple(np.asarray(pt.pub_pos)
+                                   - p.MEDIA_APPEAR_PUBPOS * friend * np.asarray(pt.pub_pos))
+            else:
+                player.standing = float(np.clip(player.standing + 0.02, -1, 1))
             state.emit("CareerEvent", "A solid media appearance.", action="media")
 
     elif action.kind == "dig_dirt" and action.target in state.mps:
@@ -179,7 +189,7 @@ def apply_action(state: GameState, action: Action) -> None:
         # quiet dinners with colleagues — builds support, slightly risky
         pt = state.parties.get(player.party)
         if pt:
-            for mid in list(pt.members)[:8]:
+            for mid in sorted(pt.members)[:8]:
                 if mid != player.id:
                     state.mps[mid].relationships[player.id] = \
                         state.mps[mid].relationships.get(player.id, 0) + 0.05
@@ -383,7 +393,7 @@ def _leave_party(state: GameState, player, exclude=()) -> None:
         if old.leader == player.id:
             stayers = old.members - set(exclude)   # walkers can't inherit the chair
             if stayers:
-                old.leader = max(stayers, key=lambda m: state.mps[m].ambition)
+                old.leader = max(sorted(stayers), key=lambda m: state.mps[m].ambition)
     player.faction = None
     player.junior, player.junior_weeks = None, 0
     player.portfolio, player.portfolio_weeks = None, 0   # stripped at once
@@ -398,13 +408,13 @@ def _leave_party(state: GameState, player, exclude=()) -> None:
         # largest coalition party's leader; nobody legitimate → it falls.
         # Successors must be *staying* members — a pending walker can't
         # inherit an office in a coalition they're about to leave.
-        largest = max((i for i in state.government.parties if i in state.parties),
+        largest = max(sorted(i for i in state.government.parties if i in state.parties),
                       key=lambda i: len(state.parties[i].members), default=None)
         pool = (state.parties[largest].members - set(exclude) - {player.id}
                 if largest is not None else set())
         succ = (state.parties[largest].leader
                 if pool and state.parties[largest].leader in pool
-                else (max(pool, key=lambda m: state.mps[m].ambition) if pool else None))
+                else (max(sorted(pool), key=lambda m: state.mps[m].ambition) if pool else None))
         if succ is not None and succ in state.mps:
             state.government.pm = succ
             # the premiership vacates any held ministry — one chair per head

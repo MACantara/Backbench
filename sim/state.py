@@ -18,7 +18,7 @@ def gov_platform(state: "GameState") -> Vec:
     formation, or the plain coalition mean when none was bargained."""
     if state.government is not None and state.government.platform is not None:
         return state.government.platform
-    gov = [state.parties[i].platform for i in state.government.parties
+    gov = [state.parties[i].platform for i in sorted(state.government.parties)
            if i in state.parties] if state.government is not None else []
     return tuple(np.mean(gov, axis=0)) if gov else (0.0, 0.0)
 
@@ -86,6 +86,16 @@ class Faction:
 
 
 @dataclass
+class Ambition:
+    """A chosen arc layered on the open career — met/failed resolve as
+    events; meeting one banks a score_terms entry but doesn't end the run."""
+    kind: str                     # "pm" | "majority" | "founder" | "survivor" | "reformer"
+    met: bool = False
+    failed: bool = False
+    party: int | None = None      # founder arc: the vehicle on record
+
+
+@dataclass
 class Party:
     id: int
     name: str
@@ -97,6 +107,7 @@ class Party:
     cohesion: float = 1.0           # derived: mean member-platform alignment
     schism_cooldown: int = 0
     founded_week: int = 0           # for the memberless-entrant grace window
+    founded_by: int | None = None   # the MP who founded it — the legacy trail
     seated: bool = True             # False only for entrants born with no MPs
     factions: list[Faction] = field(default_factory=list)
 
@@ -247,6 +258,10 @@ class GameState:
     mps: dict[int, MP]
     parties: dict[int, Party]
     player_id: int
+    seed: int = 0                       # the world seed — saves name themselves by it
+    prose_rng: random.Random = field(default_factory=lambda: random.Random(0))
+    country: str = ""                   # generated dateline — the Republic of X
+    name_pack: str = "insular"          # regional flavor for person names
     hopefuls: list[Hopeful] = field(default_factory=list)
     outlets: list[Outlet] = field(default_factory=list)
     conditions: Conditions = field(default_factory=Conditions)
@@ -264,6 +279,10 @@ class GameState:
     press_subject: int | None = None  # party id of last week's lead story
     press_weeks: int = 0              # consecutive weeks that subject has led
     last_poll: dict | None = None     # the *published* poll — sponsored, biased, dated
+    ambition: "Ambition | None" = None  # the player's chosen arc; None = sandbox
+    scenario: str = ""                  # the scenario name, if this world was dealt one
+    constructive_confidence: bool = False  # a lost confidence vote needs a successor slate
+    district_magnitude: int = 1         # seats per district; >1 = largest remainder
     government: Government = field(default_factory=Government)
     current_bill: Bill | None = None
     offers: list = field(default_factory=list)  # coalition slates on the table (formation week)
@@ -276,6 +295,8 @@ class GameState:
     legacy_bills: int = 0
 
     def emit(self, type_: str, text: str, **data) -> Event:
+        if "action" in data:
+            data.setdefault("echo", True)   # player-action echoes — digestible tier
         e = Event(type_, text, {"week": self.week, **data})
         self.log.append(e)
         return e

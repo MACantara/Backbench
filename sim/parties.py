@@ -15,8 +15,9 @@ def update_cohesion(state: GameState) -> None:
         if not pt.members:
             pt.cohesion = 0.0
             continue
-        align = np.mean([1 - dist(state.mps[m].pos, pt.platform) / 2 for m in pt.members])
-        loyal = np.mean([state.mps[m].loyalty for m in pt.members])
+        align = np.mean([1 - dist(state.mps[m].pos, pt.platform) / 2
+                         for m in sorted(pt.members)])
+        loyal = np.mean([state.mps[m].loyalty for m in sorted(pt.members)])
         pt.cohesion = float(np.clip(align * 0.7 + loyal * 0.3, 0, 1))
 
 
@@ -34,7 +35,7 @@ def _found(state: GameState, founder, followers: list[int]) -> int:
     else:
         name = f"{state.mps[founder].name.split()[-1]} List"  # a lone founder's vehicle
     pt = Party(id=pid, name=name, platform=state.mps[founder].pos, leader=founder,
-               founded_week=state.week)
+               founded_week=state.week, founded_by=founder)
     for mid in [founder, *followers]:
         old = state.mps[mid].party
         if old is not None and old in state.parties:
@@ -116,4 +117,4 @@ def party_lifecycle(state: GameState) -> None:
             state.government.parties.discard(pid)
             del state.parties[pid]
         elif pt.leader not in pt.members:
-            pt.leader = max(pt.members, key=lambda m: state.mps[m].ambition)
+            pt.leader = max(sorted(pt.members), key=lambda m: state.mps[m].ambition)

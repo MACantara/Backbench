@@ -23,7 +23,7 @@ def run_cycle(seed: int, max_weeks: int = 200) -> tuple:
 
 def main() -> None:
     formed, verdicts, cycles = 0, 0, 0
-    for seed in range(5):
+    for seed in range(10):   # a wider window — stream churn thins any fixed five
         s, completed = run_cycle(seed)
         types = [e.type for e in s.log]
         # a run only counts as a formation verdict if it reached formation — either

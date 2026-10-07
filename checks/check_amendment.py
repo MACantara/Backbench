@@ -42,7 +42,7 @@ def _house(s, share: float) -> Bill:
 def main() -> None:
     # 55% ayes loses; 70% carries — the supermajority gate is real
     for share, expect in ((0.55, False), (0.70, True)):
-        s = _governing(4)
+        s = _governing(0)
         bill = _house(s, share)
         passed = resolve_vote(s, bill)
         assert passed == expect, \
@@ -61,7 +61,7 @@ def main() -> None:
 
     # an all-abstain division can't move the book — nobody casting means
     # nobody carried it, and 0-0 must never satisfy the supermajority
-    s = _governing(4)
+    s = _governing(0)
     s.constitution = [Article(0, "the Property Clause", "pos",
                               axis=0, pole=-1, limit=0.3)]
     s.government.parties = set()              # a dead coalition whips nobody
@@ -84,7 +84,7 @@ def main() -> None:
 
     # the closed loop: court strikes the coalition's law under a clause →
     # the wounded government tables that clause's repeal (once per term)
-    s = _governing(4)
+    s = _governing(0)
     gov = set(s.government.parties)
     s.constitution = [Article(0, "the Property Clause", "pos",
                               axis=0, pole=-1, limit=0.3)]

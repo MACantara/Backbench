@@ -42,7 +42,7 @@ def _to_opposition(s) -> None:
 def main() -> None:
     # attack lands on a weak government and whiffs on a strong one
     lands_weak = lands_strong = 0
-    for seed, strong in ((1, False), (2, True)):
+    for seed, strong in ((7, False), (2, True)):
         s = _governing(seed)
         _to_opposition(s)
         _set_mood(s, strong)
@@ -75,7 +75,7 @@ def main() -> None:
 
     # private member's bill: positioned on the government's ground it can pass,
     # and the sponsor — not the PM — gets the authorship
-    s = _governing(8)    # this house passes an agenda-aligned private bill
+    s = _governing(12)   # this house passes an agenda-aligned private bill
     _to_opposition(s)
     me = s.mps[s.player_id]
     me.pos = tuple(gov_platform(s))
@@ -88,7 +88,7 @@ def main() -> None:
     assert s.legacy_bills >= 1
 
     # selfpres: a burning whipped MP's terms pull against the line
-    s = _governing(5)
+    s = _governing(9)
     for _ in range(40):
         if s.current_bill is not None:
             break

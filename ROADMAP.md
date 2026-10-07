@@ -41,7 +41,7 @@ The build queue. Items live in the phase catalog, tagged `[M1]`–`[M6]`.
 | **M2 — Playable career** (done) | Advancement is attainable and legible | Career ladder, appointment logic, "why wasn't I picked" |
 | **M3 — Strategic politics** (done) | The player moves parliamentary outcomes | Kingmaking, conscience votes, abstention/attendance, independents, deals & favors, decisive explanations |
 | **M4 — Full political lifecycle** (done) | Decisions have lasting consequences | Budget power, legislative legacy, opposition role, cross the floor, scandal as a weapon |
-| **M5 — Institutional depth** | Institutions constrain and shape power | Constitution, court appointments, press relations |
+| **M5 — Institutional depth** (done) | Institutions constrain and shape power | Constitution, court appointments, press relations |
 | **M6 — Replayability & presentation** | Runs are replayable, inspectable, shareable | Save/load, scenarios, goals, better writing, election night, spectator mode |
 
 Done-when, per milestone:

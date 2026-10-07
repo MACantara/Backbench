@@ -10,15 +10,39 @@ sys.stdout.reconfigure(encoding="utf-8", errors="replace")  # cp1252 consoles
 from sim.actions import Action, available_actions
 from sim.career import final_score
 from sim.inspect import explain_bench, explain_bill, explain_mp, explain_vote
+from sim.persist import from_json, to_json
 from sim.tick import tick
 from sim.worldgen import new_game
+
+SAVES = Path(__file__).resolve().parent.parent / "saves"
+
+
+def _save(state) -> None:
+    SAVES.mkdir(exist_ok=True)
+    text = to_json(state)
+    p = SAVES / f"s{state.seed}-w{state.week}.json"
+    p.write_text(text, encoding="utf-8")
+    (SAVES / "latest.json").write_text(text, encoding="utf-8")
+    print(f"  saved -> {p}")
+
+
+def _load():
+    p = SAVES / "latest.json"
+    if not p.exists():
+        print("  no save found")
+        return None
+    st = from_json(p.read_text(encoding="utf-8"))
+    print(f"  loaded week {st.week} [{st.phase}]")
+    return st
 
 INTERRUPTS = {"ConfidenceLost", "CoalitionFormed", "PartyFormed", "Defection",
               "PartyDissolved", "Scandal", "ElectionCalled", "ElectionResult", "SeatLost",
               "ScandalBreaks", "Expelled", "Resigned", "MinisterSacked",
               "PressCycle", "OfferMade", "OfferDeclined", "OfferLapsed",
               "LawRepealed", "LawLapsed", "PmChange", "BudgetSet",
-              "AttackLands", "DebtCrisis"}
+              "AttackLands", "DebtCrisis", "AmbitionMet", "AmbitionFailed"}
+
+AMBITION_KINDS = ("pm", "majority", "founder", "survivor", "reformer")
 
 
 def _ask(prompt: str, ok) -> str | None:
@@ -33,16 +57,26 @@ def _ask(prompt: str, ok) -> str | None:
         return None
 
 
-def prompt_actions(state) -> list[Action]:
+def prompt_actions(state) -> tuple[list[Action], "object | None"]:
+    """Returns (picks, loaded_state) — a `load` abandons the pick and the
+    caller swaps in the fresh state without ticking."""
     menu = available_actions(state)
     picks = []
     while len(picks) < 2:
         print("\nActions (pick 2):", ", ".join(f"{i}:{a}" for i, a in enumerate(menu)),
-              "| inspect <mp_id|bench> | why")
+              "| inspect <mp_id|bench> | why | save | load")
         try:
             raw = input(f"action {len(picks) + 1}/2 > ").strip()
         except EOFError:
-            return picks + [Action("nothing")] * (2 - len(picks))
+            return picks + [Action("nothing")] * (2 - len(picks)), None
+        if raw == "save":
+            _save(state)
+            continue
+        if raw == "load":
+            st = _load()
+            if st is not None:
+                return [], st
+            continue
         if raw == "why":
             print(explain_vote(state))
             continue
@@ -172,7 +206,7 @@ def prompt_actions(state) -> list[Action]:
                                 outlet=outlet))
         else:
             print("?")
-    return picks
+    return picks, None
 
 
 def show_poll(state) -> None:
@@ -185,20 +219,77 @@ def show_poll(state) -> None:
         print(f"  {label}:", "  ".join(f"{k} {v}" for k, v in shares.items()))
 
 
-def run(seed: int = 0) -> None:
-    state = new_game(seed)
-    print(f"=== BACKBENCH - seed {seed} ===")
-    print(f"You are {state.mps[state.player_id].name}, MP for district {state.mps[state.player_id].district}.")
+def run(seed: int = 0, load: bool = False, scenario=None,
+        spectate: bool = False) -> None:
+    if load:
+        state = _load()
+        if state is None:
+            return
+    else:
+        state = new_game(seed, scenario)
+    tag = f" [{state.scenario}]" if state.scenario != "standard" else ""
+    print(f"=== BACKBENCH - the Republic of {state.country} - seed {state.seed}{tag} ===")
+    me = state.mps.get(state.player_id)
+    print(f"You are {me.name}, MP for district {me.district}." if me
+          else "Your career is already spent — spectating.")
+    if not load and not spectate and state.ambition is None:
+        from sim.state import Ambition
+        s = _ask(f"ambition? {' | '.join(AMBITION_KINDS)} (blank = open career) > ",
+                 lambda s: s == "" or s in AMBITION_KINDS)
+        if s:
+            state.ambition = Ambition(s)
     while state.phase != "over":
         print(f"\n-- Week {state.week} [{state.phase}] {'-' * 40}")
         show_poll(state)
-        actions = prompt_actions(state)
-        for e in tick(state, actions):
+        if spectate:
+            from sim.bot import auto_actions
+            actions, loaded = auto_actions(state), None
+            print("  bot:", ", ".join(a.kind for a in actions))
+        else:
+            actions, loaded = prompt_actions(state)
+        if loaded is not None:
+            state = loaded
+            continue
+        events = tick(state, actions)
+        echoes = [e for e in events if e.data.get("echo")]
+        called = False
+        for e in (e for e in events if not e.data.get("echo")):
+            if e.type == "DistrictResult":
+                if not called:
+                    called = True
+                    drs = [x for x in events if x.type == "DistrictResult"]
+                    res = next((x for x in events if x.type == "ElectionResult"), None)
+                    if res:
+                        tally = sorted(res.data["seats"].items(),
+                                       key=lambda kv: -kv[1])
+                        names = {pid: pt.name for pid, pt in state.parties.items()}
+                        print(f"   called {len(drs)}/{len(drs)} districts — "
+                              + " · ".join(f"{names.get(p, p)} {n}" for p, n in tally))
+                    flips = [x for x in drs if x.data["flipped"]]
+                    if flips:
+                        print("   flips:", "; ".join(x.text for x in flips[:8])
+                              + (f"; +{len(flips) - 8} more" if len(flips) > 8 else ""))
+                continue
             mark = "***" if e.type in INTERRUPTS else "   "
             print(f" {mark} {e.text}")
+        if echoes:
+            print("   you:", "; ".join(e.text[4].lower() + e.text[5:]
+                                        if e.text.startswith("You ") else e.text
+                                        for e in echoes))
     print(f"\n=== Game over - score {final_score(state)} ===")
+    from sim.career import epilogue
+    for line in epilogue(state):
+        print(" ", line)
     print(explain_mp(state, state.player_id) if state.player_id in state.mps else "You are out of parliament.")
 
 
 if __name__ == "__main__":
-    run(int(sys.argv[1]) if len(sys.argv) > 1 else 0)
+    if "--load" in sys.argv:
+        run(load=True, spectate="--spectate" in sys.argv)
+    else:
+        sc = sys.argv[sys.argv.index("--scenario") + 1] \
+            if "--scenario" in sys.argv else None
+        seed = next((a for a in sys.argv[1:]
+                     if not a.startswith("-") and a != sc), None)
+        run(int(seed) if seed else 0, scenario=sc,
+            spectate="--spectate" in sys.argv)

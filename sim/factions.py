@@ -58,7 +58,7 @@ def _form_wings(state: GameState, pt, members: list[int], positions: np.ndarray)
 def update_factions(state: GameState) -> None:
     """Weekly: wings form on ideological spread, track centroids, dissolve on shrink."""
     for pt in state.parties.values():
-        members = [m for m in pt.members if m in state.mps]
+        members = sorted(m for m in pt.members if m in state.mps)
         if len(members) < 2 * p.FACTION_MIN_SIZE or not members:
             for f in list(pt.factions):
                 _dissolve(state, pt, f)
@@ -83,5 +83,5 @@ def update_factions(state: GameState) -> None:
             if len(f.members) < p.FACTION_MIN_SIZE:
                 _dissolve(state, pt, f)
                 continue
-            f.centroid = tuple(np.mean([state.mps[m].pos for m in f.members], axis=0))
-            f.leader = max(f.members, key=lambda m: state.mps[m].ambition)
+            f.centroid = tuple(np.mean([state.mps[m].pos for m in sorted(f.members)], axis=0))
+            f.leader = max(sorted(f.members), key=lambda m: state.mps[m].ambition)

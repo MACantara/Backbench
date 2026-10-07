@@ -11,8 +11,11 @@ import pygame
 
 from sim.actions import Action
 from sim.career import final_score
+from sim.persist import from_json, to_json
 from sim.tick import tick
 from sim.worldgen import new_game
+
+SAVES = Path(__file__).resolve().parent.parent / "saves"
 
 from driver.pyg_render import (H, INTERRUPTS, W, district_owners, draw,
                                seat_positions)
@@ -25,17 +28,20 @@ SPEEDS = [0.5, 1.0, 2.0, 4.0]
 class Driver:
     """Owns pygame + clock + pause state. Sim interaction is advance() only."""
 
-    def __init__(self, seed: int = 0, headless: bool = False):
+    def __init__(self, seed: int = 0, headless: bool = False, scenario=None,
+                 fullscreen: bool = False):
         if headless:
             import os
             os.environ.setdefault("SDL_VIDEODRIVER", "dummy")
         pygame.init()
-        self.screen = pygame.display.set_mode((W, H))
+        flags = pygame.RESIZABLE | (pygame.FULLSCREEN if fullscreen else 0)
+        self.window = pygame.display.set_mode((W, H), flags)
+        self.screen = pygame.Surface((W, H))   # fixed canvas, scaled to the window
         pygame.display.set_caption("Backbench")
         self.clock = pygame.time.Clock()
         self.font = pygame.font.Font(None, 22)
         self.big = pygame.font.Font(None, 34)
-        self.state = new_game(seed)
+        self.state = new_game(seed, scenario)
         self.running = True
         self.paused = False
         self.speed_i = 1
@@ -71,15 +77,24 @@ class Driver:
     def advance(self, actions: list | None = None) -> None:
         """One week forward; collects events for animation and interrupts."""
         if self.state.phase == "over":
+            from sim.career import epilogue
             self.banner = f"Game over — score {final_score(self.state)}"
+            self.why_text = "\n".join(epilogue(self.state))
             self.paused = True
             return
         self.district_prev = district_owners(self.state)
         self.events = tick(self.state, actions or [])
         if any(e.type == "ElectionResult" for e in self.events):
-            order = list(self.district_prev)
+            drs = [e for e in self.events if e.type == "DistrictResult"]
+            order = [e.data["district"] for e in drs] or list(self.district_prev)
             self.viz_rng.shuffle(order)
-            self.reveal = {"order": order, "t": 0.0}
+            self.reveal = {"order": order, "t": 0.0,
+                           "winners": {e.data["district"]: max(
+                               e.data["winners"].items(), key=lambda kv: kv[1])[0]
+                               for e in drs},
+                           "flips": {e.data["district"]: e.text.split(": ", 1)[-1]
+                                     for e in drs if e.data["flipped"]},
+                           "seats": {}}
             self.view = "map"
         vote = next((e for e in self.events if e.type == "VoteResult"), None)
         if vote and "detail" in vote.data:
@@ -115,7 +130,8 @@ class Driver:
         if self.week_timer >= BASE_WEEK_SECONDS:
             self.week_timer = 0.0
             if self.auto_play:
-                self.advance()
+                from sim.bot import auto_actions
+                self.advance(auto_actions(self.state))
             else:
                 self.action_pause = True   # stop the clock for the weekly decision
                 self.paused = True
@@ -128,6 +144,21 @@ class Driver:
         self.need_law = self.need_judge = self.need_amend = False
         self.need_outlet = False
         self.leak_outlet = None
+
+    def _reset_view(self) -> None:
+        """A loaded state invalidates every per-week visual — drop them all."""
+        self._clear_pending()
+        self.picks = []
+        self.events = []
+        self.vote_anim = None
+        self.vote_flash = {}
+        self.reveal = None
+        self.inspect_mp = None
+        self.why_text = None
+        self.week_timer = 0.0
+        self.action_pause = False
+        self.district_prev = district_owners(self.state)
+        self.chronicle["scroll"] = 0
 
     def on_button(self, bid: str) -> None:
         from sim.inspect import explain_bench, explain_vote
@@ -240,6 +271,9 @@ class Driver:
             self.why_text = explain_bench(self.state)
         elif bid == "auto":
             self.toggle_auto()
+        elif bid.startswith("amb:"):
+            from sim.state import Ambition
+            self.state.ambition = Ambition(bid[4:])
         elif bid.startswith("flt:"):
             f = bid[4:]
             self.chronicle["filter"] = None if f == "all" or f == self.chronicle["filter"] else f
@@ -289,13 +323,29 @@ class Driver:
                 self.speed_i = min(self.speed_i + 1, len(SPEEDS) - 1)
             elif e.key == pygame.K_MINUS:
                 self.speed_i = max(self.speed_i - 1, 0)
+            elif e.key == pygame.K_F5:
+                SAVES.mkdir(exist_ok=True)
+                text = to_json(self.state)
+                (SAVES / f"s{self.state.seed}-w{self.state.week}.json") \
+                    .write_text(text, encoding="utf-8")
+                (SAVES / "latest.json").write_text(text, encoding="utf-8")
+                self.banner = f"Saved — week {self.state.week}"
+                self.paused = True
+            elif e.key == pygame.K_F9:
+                p = SAVES / "latest.json"
+                if p.exists():
+                    self.state = from_json(p.read_text(encoding="utf-8"))
+                    self._reset_view()
+                    self.banner = f"Loaded — week {self.state.week}"
+                    self.paused = True
             elif e.key == pygame.K_F12:
                 Path("shots").mkdir(exist_ok=True)
                 pygame.image.save(self.screen, f"shots/week{self.state.week}.png")
         elif e.type == pygame.MOUSEWHEEL and self.chronicle["open"]:
             self.chronicle["scroll"] += e.y * 3
         elif e.type == pygame.MOUSEBUTTONDOWN:
-            self.on_click(e.pos)
+            wx, wy = self.window.get_size()
+            self.on_click((int(e.pos[0] * W / wx), int(e.pos[1] * H / wy)))
 
     def on_click(self, pos) -> None:
         if self.banner:
@@ -333,13 +383,20 @@ class Driver:
                 self.handle_event(e)
             self.step(dt)
             self.draw()
+            self.window.blit(pygame.transform.scale(self.screen,
+                                                    self.window.get_size()), (0, 0))
             pygame.display.flip()
         pygame.quit()
 
 
-def run(seed: int = 0) -> None:
-    Driver(seed).loop()
+def run(seed: int = 0, scenario=None, fullscreen: bool = False) -> None:
+    Driver(seed, scenario=scenario, fullscreen=fullscreen).loop()
 
 
 if __name__ == "__main__":
-    run(int(sys.argv[1]) if len(sys.argv) > 1 else 0)
+    sc = sys.argv[sys.argv.index("--scenario") + 1] \
+        if "--scenario" in sys.argv else None
+    seed = next((a for a in sys.argv[1:]
+                 if not a.startswith("-") and a != sc), None)
+    run(int(seed) if seed else 0, sc,
+        fullscreen="--fullscreen" in sys.argv)

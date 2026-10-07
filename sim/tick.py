@@ -5,8 +5,9 @@ import numpy as np
 
 from . import params as p
 from .actions import apply_action, evaluate_promises
-from .career import (assign_portfolios, junior_lifecycle, leadership_challenge,
-                     ministerial_lifecycle, mp_lifecycle, update_score)
+from .career import (assign_portfolios, check_ambition, junior_lifecycle,
+                     leadership_challenge, ministerial_lifecycle, mp_lifecycle,
+                     update_score)
 from .conditions import conditions_lifecycle
 from .courts import courts_lifecycle
 from .election import publish_poll, resolve_election
@@ -83,6 +84,7 @@ def tick(state: GameState, actions: list | None = None) -> list[Event]:
         conditions_lifecycle(state)  # the country drifts before the press reads it
         treasury_lifecycle(state)    # the books settle on this week's conditions
         media_lifecycle(state, base)  # the press reads the whole week back
+    check_ambition(state)          # resolves on the fatal week too
     _drift(state)
     return state.log[base:]
 

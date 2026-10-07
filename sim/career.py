@@ -64,7 +64,7 @@ def _passed_over(state: GameState, ranked, post: str) -> None:
 
 def cabinet_cands(state: GameState, pid: int) -> list[int]:
     """Members eligible for a ministry — the inspect rank mirrors this pool."""
-    return [m for m in state.parties[pid].members
+    return [m for m in sorted(state.parties[pid].members)
             if m in state.mps and state.mps[m].portfolio is None
             and m != state.government.pm and m not in state.government.sacked]
 
@@ -101,7 +101,7 @@ def junior_lifecycle(state: GameState) -> None:
         for post in p.JUNIOR_POSTS:
             if post in held:
                 continue
-            cands = [m for m in pt.members
+            cands = [m for m in sorted(pt.members)
                      if m in state.mps and state.mps[m].junior is None
                      and state.mps[m].portfolio is None and m != pt.leader
                      and m not in state.government.sacked]
@@ -167,7 +167,7 @@ def leadership_challenge(state: GameState) -> None:
             continue
         if pt.cohesion >= p.LEADERSHIP_COHESION_MIN:
             continue
-        challengers = [m for m in pt.members
+        challengers = [m for m in sorted(pt.members)
                        if m != pt.leader and state.mps[m].ambition > p.CHALLENGE_AMBITION_MIN]
         if not challengers:
             continue
@@ -198,7 +198,7 @@ def remove_mp(state: GameState, mp) -> None:
     if pt is not None:
         pt.members.discard(mp.id)
         if pt.leader == mp.id:
-            cands = [m for m in pt.members if m in state.mps]
+            cands = [m for m in sorted(pt.members) if m in state.mps]
             pt.leader = max(cands, key=lambda m: state.mps[m].ambition) if cands else None
             if pt.leader is not None:
                 state.emit("CareerEvent",
@@ -243,7 +243,7 @@ def mp_lifecycle(state: GameState) -> None:
         np_rng = np.random.default_rng(int(state.rng.random() * 2**63))
         n_districts = int(state.voters.district.max()) + 1
         state.hopefuls.append(make_hopeful(state.rng, np_rng, state.parties, n_districts,
-                                           age=p.HOPEFUL_AGE[0]))
+                                           age=p.HOPEFUL_AGE[0], pack=state.name_pack))
 
 
 def update_score(state: GameState) -> None:
@@ -261,6 +261,86 @@ def update_score(state: GameState) -> None:
 def final_score(state: GameState) -> int:
     t = state.score_terms
     return (t["mp"] + t["junior"] + 3 * t["minister"] + 5 * t["pm"]
-            + state.legacy_bills)
+            + t.get("ambition", 0) + state.legacy_bills)
+
+
+_AMBITION_LABEL = {
+    "pm": "hold the premiership",
+    "majority": "lead a single-party majority",
+    "founder": "found a party that outlives you",
+    "survivor": f"hold your seat {p.AMBITION_SURVIVOR_TERMS} terms",
+    "reformer": f"author {p.AMBITION_REFORMER_LAWS} laws",
+}
+
+
+def check_ambition(state: GameState) -> None:
+    """Resolve the player's arc. Runs every week including the fatal one —
+    an unmet ambition on a lost seat fails at the boundary."""
+    amb = state.ambition
+    if amb is None or amb.met or amb.failed or amb.kind not in _AMBITION_LABEL:
+        return
+    player = state.mps.get(state.player_id)
+    met = False
+    if amb.kind == "pm":
+        met = state.government.pm == state.player_id
+    elif amb.kind == "majority":
+        pt = state.parties.get(player.party) if player else None
+        met = bool(pt) and len(pt.members) > len(state.mps) / 2
+    elif amb.kind == "founder":
+        if amb.party is None:
+            amb.party = next((pt.id for pt in state.parties.values()
+                              if pt.founded_by == state.player_id), None)
+        if amb.party is not None and amb.party not in state.parties:
+            amb.failed = True          # the vehicle died before it outlived you
+            state.emit("AmbitionFailed",
+                       f"Ambition unmet — {_AMBITION_LABEL[amb.kind]}.",
+                       kind=amb.kind)
+            return
+        if amb.party is not None:
+            pt = state.parties[amb.party]
+            elections = [e.data["week"] for e in state.log
+                         if e.type == "ElectionResult"]
+            met = (pt.members and state.player_id not in pt.members
+                   and elections and max(elections) > pt.founded_week)
+    elif amb.kind == "survivor":
+        met = state.score_terms.get("mp", 0) >= p.AMBITION_SURVIVOR_TERMS
+    elif amb.kind == "reformer":
+        met = state.legacy_bills >= p.AMBITION_REFORMER_LAWS
+    if met:
+        amb.met = True
+        state.score_terms["ambition"] = state.score_terms.get("ambition", 0) \
+            + p.AMBITION_SCORE
+        state.emit("AmbitionMet",
+                   f"Ambition realized — {_AMBITION_LABEL[amb.kind]}.",
+                   kind=amb.kind)
+    elif state.phase == "over":
+        amb.failed = True
+        state.emit("AmbitionFailed",
+                   f"Ambition unmet — {_AMBITION_LABEL[amb.kind]}.",
+                   kind=amb.kind)
+
+
+def epilogue(state: GameState) -> list[str]:
+    """The career retelling at game over — offices, statutes, the bench,
+    the ambition verdict. Reads like an obituary, costs nothing."""
+    me = state.mps.get(state.player_id)
+    name = me.name if me else "The former member"
+    t = state.score_terms
+    lines = [f"{name} served {t.get('mp', 0)} term(s) in parliament."]
+    posts = ([f"{t['junior']} term(s) on the party bench"] if t.get("junior") else []) \
+        + ([f"{t['minister']} in cabinet"] if t.get("minister") else []) \
+        + ([f"{t['pm']} as Prime Minister"] if t.get("pm") else [])
+    if posts:
+        lines.append("High office: " + ", ".join(posts) + ".")
+    if state.legacy_bills:
+        lines.append(f"{state.legacy_bills} law(s) bear your name.")
+    seated = [j for j in state.bench if j.appointed_by == state.player_id]
+    if seated:
+        lines.append(f"{len(seated)} of your justices still sit the bench.")
+    amb = state.ambition
+    if amb is not None and amb.kind in _AMBITION_LABEL:
+        verdict = "realized" if amb.met else "went unmet"
+        lines.append(f"Ambition to {_AMBITION_LABEL[amb.kind]} — {verdict}.")
+    return lines
 
 

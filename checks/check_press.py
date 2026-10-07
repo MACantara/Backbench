@@ -25,7 +25,7 @@ def _governing(seed: int):
 
 def main() -> None:
     # court: warmth accrues toward your party and decays if you stop
-    s = _governing(4)
+    s = _governing(8)
     me = s.mps[s.player_id]
     o = s.outlets[0]
     o.warmth.clear()   # drift may already have warmed it toward the player
@@ -48,7 +48,7 @@ def main() -> None:
 
     # routed leaks: the venue reads its warmth to the SUBJECT party —
     # warm buries the pickup weight, cold leads the knife in
-    s2 = _governing(5)
+    s2 = _governing(9)
     t = next(m for m in s2.mps.values()
              if m.id != s2.player_id and m.party in s2.parties
              and s2.parties[m.party].leader != m.id)
@@ -64,7 +64,7 @@ def main() -> None:
     assert ev.data.get("routed") == warm_o.id, "the venue didn't stamp the story"
 
     # sponsored polls: the published number flatters the sponsor's friends
-    s3 = _governing(9)
+    s3 = _governing(10)
     big = max(s3.parties.values(), key=lambda pt: len(pt.members))
     sponsor = min(s3.outlets,
                   key=lambda x: dist(x.slant, big.platform))

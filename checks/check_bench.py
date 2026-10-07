@@ -54,7 +54,7 @@ def main() -> None:
     # doctrine decides: aligned benches held constant, activism swings verdicts
     outcomes = {}
     for activism, expect in ((0.0, "LawUpheld"), (1.0, "LawStruck")):
-        s = _governing(4)
+        s = _governing(0)
         s.constitution = [Article(0, "the Property Clause", "pos",
                                   axis=0, pole=-1, limit=0.3)]
         s.bench = _bench((-0.8, 0.0), activism)   # temperament on the law's pole
@@ -69,7 +69,7 @@ def main() -> None:
     # ideology swings the middle: same doctrine, an aligned bench holds
     outcomes2 = {}
     for pos, expect in (((-0.8, 0.0), "LawUpheld"), ((0.9, 0.9), "LawStruck")):
-        s = _governing(4)
+        s = _governing(0)
         s.constitution = [Article(0, "the Property Clause", "pos",
                                   axis=0, pole=-1, limit=0.3)]
         s.bench = _bench(pos, 0.0)     # deferential doctrine; only sympathy varies
@@ -80,7 +80,7 @@ def main() -> None:
     assert all(outcomes2.values()), f"ideology didn't decide: {outcomes2}"
 
     # vacancies: a retirement opens a seat; the AI PM fills it and signs it
-    s = _governing(4)
+    s = _governing(0)
     pm = s.government.pm
     s.bench = s.bench[:p.BENCH_SIZE - 1]
     for j in s.bench:
@@ -92,7 +92,7 @@ def main() -> None:
     assert any(e.type == "JusticeAppointed" for e in s.log[n:])
 
     # the player-PM gets a shortlist and their pick takes the seat
-    s = _governing(6)
+    s = _governing(0)
     gov_pid = next(iter(s.government.parties))
     s.player_id = next(iter(s.parties[gov_pid].members))
     s.government.pm = s.player_id
@@ -109,7 +109,7 @@ def main() -> None:
     assert not s.bench_shortlist, "the shortlist didn't clear after the pick"
 
     # caretaker void: no government, no appointments — the seat stays empty
-    s = _governing(4)
+    s = _governing(0)
     s.bench = s.bench[:p.BENCH_SIZE - 1]
     for j in s.bench:
         j.age = 2600

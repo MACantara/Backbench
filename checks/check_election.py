@@ -33,7 +33,7 @@ def main() -> None:
     saved = p.VOTE_NOISE_SD
     p.VOTE_NOISE_SD = 0.0
     try:
-        score, parties = _district_scores(c, mask, cand, None)
+        score, parties = _district_scores(c, mask, cand, [])
     finally:
         p.VOTE_NOISE_SD = saved
     assert (score[:, 0:1] > score[:, 1:]).all()

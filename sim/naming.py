@@ -111,22 +111,29 @@ def revival_name(name: str, taken: set[str]) -> str | None:
     return None
 
 
-def generate_parties(rng: random.Random, np_rng: np.random.Generator) -> list[tuple[str, Vec]]:
+def generate_parties(rng: random.Random, np_rng: np.random.Generator,
+                     party_pool: list[str] | None = None) -> list[tuple[str, Vec]]:
     """A per-seed party system: cleavage salience → archetype draw → jittered
-    platforms with separation → family names. Returns (name, platform) pairs."""
-    n = rng.randint(*p.PARTY_COUNT_RANGE)
-    cleavage = {c: rng.random() for c in CLEAVAGES}
+    platforms with separation → family names. Returns (name, platform) pairs.
+    party_pool pins the draw (scenario presets) — the seed still owns the
+    platforms, the pool owns the cast."""
     keys = list(ARCHETYPES)
-    chosen: list[str] = []
-    while len(chosen) < n:
-        rest = [k for k in keys if k not in chosen]
-        chosen.append(rng.choices(rest, weights=[_weight(k, cleavage) for k in rest])[0])
+    cleavage = {c: rng.random() for c in CLEAVAGES}
+    if party_pool:
+        chosen = [k for k in party_pool if k in ARCHETYPES][:p.PARTY_COUNT_RANGE[1]]
+    else:
+        n = rng.randint(*p.PARTY_COUNT_RANGE)
+        chosen = []
+        while len(chosen) < n:
+            rest = [k for k in keys if k not in chosen]
+            chosen.append(rng.choices(rest, weights=[_weight(k, cleavage) for k in rest])[0])
 
     # coverage: a viable system needs anchors on both flanks of the class axis;
-    # never evict the other flank's only representative
+    # never evict the other flank's only representative. A pinned pool is
+    # honored as-is — the scenario asked for this cast, lopsided or not.
     flanks = {-1: [k for k in keys if ARCHETYPES[k]["anchor"][0] < -p.PARTY_FLANK_EDGE],
               1: [k for k in keys if ARCHETYPES[k]["anchor"][0] > p.PARTY_FLANK_EDGE]}
-    for _ in range(4):
+    for _ in range(0 if party_pool else 4):
         missing = [s for s in (-1, 1)
                    if not any(ARCHETYPES[k]["anchor"][0] * s > p.PARTY_FLANK_EDGE for k in chosen)]
         if not missing:
@@ -218,7 +225,19 @@ def austerity_name(rng: random.Random) -> str:
     return rng.choice(_BILL_AUSTERITY)
 
 
+# --- country ---
+COUNTRIES = ("Aldermoor Brantfoss Carrow Dunverra Esthollow Fenmar Graymarch "
+             "Halloway Islesmark Kestrel Langford Merrowgate Norwick Ostmere "
+             "Pelham Quillbrook Ravenford Stonebridge Thornvale Uffmoor "
+             "Verrenhall Wexley Yarrowgate Zellmark").split()
+
+
+def country_name(rng: random.Random) -> str:
+    return rng.choice(COUNTRIES)
+
+
 # --- people ---
+# regional packs: the seed picks one flavor and names keep to it
 _FIRST = ("Ash Brook Cole Dawn Elm Fern Gale Hale Iris Jade Kite Lark Moss Nell Onyx "
           "Pine Reed Sage Teal Wren Aspen Bay Cedar Cliff Dale Echo Flint Glen Harbor "
           "Isla Jasper Knox Linden Maple North Oakley Pearl Quinn River Stone Thorn "
@@ -227,22 +246,39 @@ _LAST = ("Barton Croft Dale Ellis Frost Grange Holt Ingram Marsh North Pace Quil
          "Rook Shore Vale West York Ashford Blackwood Calder Draper Ellery Fenwick "
          "Gresham Harlow Ives Judd Kerr Loxley Mercer Norwood Oswald Pember Rowan "
          "Stanton Thatcher Underwood Vance Whitfield Yardley").split()
+_FIRST_C = ("Aldo Bastien Cosima Dario Elio Fiore Gilda Hugo Ilsa Jonas Katia Leone "
+            "Mirko Nadia Otto Pia Quirin Renata Silas Tessa Ulric Vera Willem Xenia "
+            "Yves Zora Anton Beatrix Claude Delia Emile Freya Gustav Helga").split()
+_LAST_C = ("Albinet Beaumont Castellan Delacroix Engel Fontaine Girard Hoffman "
+           "Keller Lambert Moreau Navarro Orsini Petit Rousseau Sartre Thibault "
+           "Verdi Wolff Zimmermann Ackermann Bonaventure Carre Dupont Esteve "
+           "Faure Grimaldi Huber Ivaldi Laurent").split()
+_FIRST_N = ("Ansgar Birgit Dag Einar Freya Gunnar Halvor Ingrid Jorunn Kjell Liv "
+            "Magnus Nils Oddrun Peder Ragnhild Sigrun Torsten Ulf Vendla Yngve "
+            "Astrid Bjorn Else Lars Mette Oskar Rune Sanna").split()
+_LAST_N = ("Aasen Berglund Dahl Eklund Fjell Granberg Haug Iversen Jansen "
+           "Knudsen Lindqvist Moe Nyberg Ostlund Pedersen Qvist Ronning "
+           "Strandberg Thorvald Ullman Vik Wergeland Ytter Zetterberg").split()
+NAME_PACKS = {"insular": (_FIRST, _LAST),
+              "continental": (_FIRST_C, _LAST_C),
+              "north": (_FIRST_N, _LAST_N)}
 
 
-def mp_name(rng: random.Random) -> str:
+def mp_name(rng: random.Random, pack: str = "insular") -> str:
     """One MP name; ~5% get a composed double surname."""
-    last = rng.choice(_LAST)
+    first, last_pool = NAME_PACKS.get(pack, NAME_PACKS["insular"])
+    last = rng.choice(last_pool)
     if rng.random() < p.COMPOSED_SURNAME_P:
-        last = f"{last}-{rng.choice(_LAST)}"
-    return f"{rng.choice(_FIRST)} {last}"
+        last = f"{last}-{rng.choice(last_pool)}"
+    return f"{rng.choice(first)} {last}"
 
 
-def mp_names(rng: random.Random, n: int) -> list[str]:
+def mp_names(rng: random.Random, n: int, pack: str = "insular") -> list[str]:
     """n unique names, insertion-ordered — set iteration order is hash-seeded
     per process, so a bare set would break cross-process determinism."""
     out, seen = [], set()
     while len(out) < n:
-        name = mp_name(rng)
+        name = mp_name(rng, pack)
         if name not in seen:
             seen.add(name)
             out.append(name)
