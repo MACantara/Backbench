@@ -100,7 +100,9 @@ def explain_mp(state: GameState, mp_id: int) -> str:
             ladder = ("\n  cabinet candidacy: rank "
                       f"{ranked.index(mp_id) + 1}/{len(ranked)} — "
                       + " ".join(f"{k} {v:+.2f}" for k, v in terms.items()))
-    return (f"{m.name} ({pt.name if pt else 'independent'}{wing}{seen}) — district {m.district}\n"
+    label = (pt.name if pt else
+             "Speaker" if mp_id == state.speaker else "independent")
+    return (f"{m.name} ({label}{wing}{seen}) — district {m.district}\n"
             f"  pos=({m.pos[0]:+.2f},{m.pos[1]:+.2f}) ambition={m.ambition:.2f} "
             f"loyalty={m.loyalty:.2f} competence={m.competence:.2f} integrity={m.integrity:.2f}\n"
             f"  seat_safety={m.seat_safety:.2f} portfolio={m.portfolio or '—'} "
@@ -125,6 +127,48 @@ def explain_bench(state: GameState) -> str:
     for c in state.bench_shortlist:
         lines.append(f"  nominee {c.name:<17} {describe_pos(c.pos):<18} "
                      f"activism {c.activism:.2f}  {c.age // 52}y")
+    return "\n".join(lines)
+
+
+def explain_party(state: GameState, pid: int) -> str:
+    """The party's internal order: who holds the bench, how fractious it is,
+    where the player ranks — and the votes a challenge would cast today."""
+    from .career import appointment_terms, cabinet_cands, challenge_votes
+    pt = state.parties[pid]
+    hold = lambda post: next((state.mps[m] for m in sorted(pt.members)
+                              if m in state.mps and state.mps[m].junior == post), None)
+    fuse = (" — fractious: a challenge could land" if pt.cohesion < p.LEADERSHIP_COHESION_MIN
+            else " — the chair is safe" if pt.cohesion >= p.LEADERSHIP_COHESION_MIN + 0.15 else "")
+    leader = state.mps.get(pt.leader)
+    lines = [f"{pt.name} — {len(pt.members)} members, cohesion {pt.cohesion:.2f}{fuse}",
+             f"  leader: {leader.name if leader else '—'}"]
+    for post in (*p.SENIOR_POSTS, *p.JUNIOR_POSTS):
+        h = hold(post)
+        you = " [YOU]" if h is not None and h.id == state.player_id else ""
+        lines.append(f"  {post.lower()}: {h.name if h else '—'}{you}")
+    for f in pt.factions:
+        heir = state.mps.get(f.leader)
+        lines.append(f"  {f.name}: {len(f.members)} members"
+                     f" — heir {heir.name if heir else '—'}")
+    me = state.mps.get(state.player_id)
+    if state.player_id in pt.members and me is not None and leader is not None:
+        ranked = sorted(cabinet_cands(state, pid), key=lambda c: -sum(
+            appointment_terms(state, state.mps[c], pt.leader).values()))
+        if state.player_id in ranked:
+            terms = appointment_terms(state, me, pt.leader)
+            lines.append(f"  your candidacy: rank {ranked.index(state.player_id) + 1}"
+                         f"/{len(ranked)} — " + " ".join(
+                             f"{k} {v:+.2f}" for k, v in terms.items()))
+        lines.append(f"  the leader's view of you: "
+                     f"{leader.relationships.get(state.player_id, 0.0):+.2f}")
+        if len(pt.members) >= 4:
+            votes = challenge_votes(state, pt)
+            backers = [state.mps[m].name for m in votes.get(state.player_id, [])
+                       if m != state.player_id and m in state.mps]
+            lines.append(f"  if the party fractured today: you'd take "
+                         f"{len(votes.get(state.player_id, []))} of {len(pt.members)} votes"
+                         + (f" — {', '.join(backers[:4])} would back you"
+                            if backers else ""))
     return "\n".join(lines)
 
 

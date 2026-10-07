@@ -465,6 +465,12 @@ class Driver:
             self.why_text = explain_vote(self.state)
         elif bid == "bench":
             self.why_text = explain_bench(self.state)
+        elif bid == "party":
+            from sim.inspect import explain_party
+            me = self.state.mps.get(self.state.player_id)
+            self.why_text = (explain_party(self.state, me.party)
+                             if me is not None and me.party in self.state.parties
+                             else "You hold no party card — the bench isn't yours to read.")
         elif bid == "auto":
             self.toggle_auto()
         elif bid.startswith("amb:"):

@@ -11,7 +11,7 @@ from sim import params as p_mod
 from sim.actions import Action, available_actions, cost_of
 from sim.career import final_score
 from sim.inspect import (explain_action, explain_bench, explain_bill,
-                         explain_mp, explain_vote)
+                         explain_mp, explain_party, explain_vote)
 from sim.persist import from_json, to_json
 from sim.tick import tick
 from sim.worldgen import new_game
@@ -73,7 +73,7 @@ def prompt_actions(state) -> tuple[list[Action], "object | None"]:
         print(f"\nActions ({left} pts left):",
               ", ".join(f"{i}:{a}" + (f"·{cost_of(a)}" if cost_of(a) else "")
                         for i, a in enumerate(menu)),
-              "| inspect <mp_id|bench> | why | forecast | save | load")
+              "| inspect <mp_id|bench|party> | why | forecast | save | load")
         try:
             raw = input("action > ").strip()
         except EOFError:
@@ -96,6 +96,11 @@ def prompt_actions(state) -> tuple[list[Action], "object | None"]:
             parts = raw.split()
             if len(parts) == 2 and parts[1] == "bench":
                 print(explain_bench(state))
+            elif len(parts) == 2 and parts[1] == "party":
+                me = state.mps.get(state.player_id)
+                print(explain_party(state, me.party) if me is not None
+                      and me.party in state.parties
+                      else "you hold no party card — the bench isn't yours to read")
             elif len(parts) == 2 and parts[1].isdigit() and int(parts[1]) in state.mps:
                 print(explain_mp(state, int(parts[1])))
             continue

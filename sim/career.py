@@ -180,6 +180,31 @@ def ministerial_lifecycle(state: GameState) -> None:
             held.add(ministry)
 
 
+def challenge_votes(state: GameState, pt) -> dict[int, list[int]]:
+    """The member-vote a leadership challenge would run today — {candidate:
+    [backers]}. The real contest and the party-card preview read one source."""
+    if pt.leader is None:
+        return {}
+    challengers = [m for m in sorted(pt.members)
+                   if m != pt.leader and (m == state.player_id
+                   or state.mps[m].ambition > p.CHALLENGE_AMBITION_MIN)]
+    candidates = [pt.leader] + challengers
+    fleaders = {f.leader for f in pt.factions}
+    votes: dict[int, list[int]] = {c: [] for c in candidates}
+    for m in pt.members:
+        mp = state.mps[m]
+        best = max(candidates, key=lambda c: (
+            -dist(mp.pos, state.mps[c].pos)
+            + mp.relationships.get(c, 0.0)
+            + 0.3 * state.mps[c].competence
+            + p.LEADERSHIP_STANDING_W * state.mps[c].standing
+            + (p.FACTION_LEADER_BONUS if c in fleaders else 0.0)
+            + (p.DEPUTY_HEIR_BONUS if state.mps[c].junior == "Deputy Leader"
+               else 0.0)))
+        votes[best].append(m)
+    return votes
+
+
 def leadership_challenge(state: GameState) -> None:
     """Weak leaders face ambitious challengers — members vote on utility."""
     for pid, pt in state.parties.items():
@@ -190,26 +215,8 @@ def leadership_challenge(state: GameState) -> None:
         # the player is the careerist by definition — a declared arc
         # qualifies them whenever the chair is weak; their candidacy
         # lives or dies on the relationships they built
-        challengers = [m for m in sorted(pt.members)
-                       if m != pt.leader and (m == state.player_id
-                       or state.mps[m].ambition > p.CHALLENGE_AMBITION_MIN)]
-        if not challengers:
-            continue
-        candidates = [pt.leader] + challengers
-        fleaders = {f.leader for f in pt.factions}
-        votes = {c: 0 for c in candidates}
-        for m in pt.members:
-            mp = state.mps[m]
-            best = max(candidates, key=lambda c: (
-                -dist(mp.pos, state.mps[c].pos)
-                + mp.relationships.get(c, 0.0)
-                + 0.3 * state.mps[c].competence
-                + p.LEADERSHIP_STANDING_W * state.mps[c].standing
-                + (p.FACTION_LEADER_BONUS if c in fleaders else 0.0)
-                + (p.DEPUTY_HEIR_BONUS if state.mps[c].junior == "Deputy Leader"
-                   else 0.0)))
-            votes[best] += 1
-        winner = max(votes, key=votes.get)
+        votes = challenge_votes(state, pt)
+        winner = max(votes, key=lambda c: len(votes[c]))
         if winner != pt.leader:
             old = state.mps[pt.leader].name
             pt.leader = winner
