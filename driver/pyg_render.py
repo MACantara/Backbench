@@ -212,7 +212,7 @@ def draw_parliament(drv, pos) -> None:
             pygame.draw.circle(drv.screen, WHITE, (int(x), int(y)), r + 3, 2)
         if mid == s.government.pm:
             pygame.draw.circle(drv.screen, GOLD, (int(x), int(y) - r - 7), 3)
-    # legend: party, seats
+    # legend: party, seats — independents count alongside the parties
     y = 18
     for pt in sorted(s.parties.values(), key=lambda p: p.platform[0]):
         if not pt.members:
@@ -221,6 +221,10 @@ def draw_parliament(drv, pos) -> None:
         gov = " [gov]" if pt.id in s.government.parties else ""
         _text(drv, f"{pt.name}: {len(pt.members)}{gov}", (40, y))
         y += 20
+    inds = sum(1 for m in s.mps.values() if m.party is None)
+    if inds:
+        pygame.draw.circle(drv.screen, DEFAULT_COLOR, (26, y + 8), 6)
+        _text(drv, f"independent: {inds}", (40, y))
 
 
 def draw_panel(drv) -> None:
