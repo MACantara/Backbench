@@ -30,8 +30,28 @@ class Voters:
     loyalty: np.ndarray    # (N,) stickiness to last-voted party
     betrayal: np.ndarray   # (N,) accumulated broken-promise weight
     salience: np.ndarray   # (N, 2) per-axis attention weights
-    district: np.ndarray   # (N,) int district id
+    district: np.ndarray   # (N,) int district id — fixed at worldgen
     last_party: np.ndarray # (N,) int, -1 = none
+    pos_version: int = 0                       # bumped at every pos write
+    _centroid_cache: tuple = field(default_factory=lambda: (-1, {}))
+    _district_rows: list | None = field(default=None)
+
+
+def district_centroid(v: Voters, d: int) -> np.ndarray:
+    """Mean voter position in district d, memoized on pos_version.
+    Precomputed row indices keep this bitwise-identical to
+    pos[district == d].mean(axis=0): same rows, same order."""
+    if v._district_rows is None:
+        v._district_rows = [np.flatnonzero(v.district == d_)
+                            for d_ in range(int(v.district.max()) + 1)]
+    ver, cache = v._centroid_cache
+    if ver != v.pos_version:
+        cache = {}
+        v._centroid_cache = (v.pos_version, cache)
+    c = cache.get(d)
+    if c is None:
+        c = cache[d] = v.pos[v._district_rows[d]].mean(axis=0)
+    return c
 
 
 @dataclass

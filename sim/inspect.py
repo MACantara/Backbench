@@ -3,7 +3,7 @@ from __future__ import annotations
 
 from . import params as p
 from .conditions import mood
-from .state import GameState, dist
+from .state import GameState, dist, district_centroid
 from .treasury import flow, interest, revenue, upkeep
 
 
@@ -43,11 +43,12 @@ def explain_bill(state: GameState) -> str:
     if bill is None:
         return "no bill pending"
     from .parliament import vote_terms
+    ctx: dict = {}
     rows = []
     for mp in state.mps.values():
         if mp.id == state.speaker:
             continue                # the chair only casts on a tie
-        terms = vote_terms(state, mp, bill, noisy=False)
+        terms = vote_terms(state, mp, bill, noisy=False, ctx=ctx)
         rows.append((sum(terms.values()), mp, terms))
     yes = sum(1 for u, _, _ in rows if u > p.ABSTAIN_MARGIN)
     no = sum(1 for u, _, _ in rows if u < -p.ABSTAIN_MARGIN)
@@ -191,7 +192,7 @@ def explain_party(state: GameState, pid: int) -> str:
 def explain_district(state: GameState, district: int) -> str:
     v = state.voters
     mask = v.district == district
-    centroid = v.pos[mask].mean(axis=0)
+    centroid = district_centroid(v, district)
     mp = next((m for m in state.mps.values() if m.district == district), None)
     holder = "vacant" if mp is None else (
         f"{mp.name} ({state.parties[mp.party].name if mp.party in state.parties else 'ind'}, "
@@ -263,7 +264,7 @@ def explain_action(state: GameState, kind: str,
     if kind == "campaign":
         pt = state.parties.get(me.party)
         plat = pt.platform if pt else me.pos
-        gap = dist(v.pos[mask].mean(axis=0), plat) if mask.any() else 0.0
+        gap = dist(district_centroid(v, me.district), plat) if mask.any() else 0.0
         return (f"the district sits {gap:.2f} from the platform — "
                 f"each knock closes ~0.03 and lifts turnout ~{p.GOTV_LIFT:.0%}")
     if kind == "constituency":
@@ -329,7 +330,7 @@ def explain_action(state: GameState, kind: str,
                          f"(+{p.EVOLVE_BETRAYAL_W * mv:.2f} mistrust)")
         parts = []
         if mask.any():
-            parts.append("district: " + _ev(tuple(v.pos[mask].mean(axis=0)))[1])
+            parts.append("district: " + _ev(tuple(district_centroid(v, me.district)))[1])
         pt = state.parties.get(me.party)
         if pt is not None:
             new, txt = _ev(tuple(pt.platform))

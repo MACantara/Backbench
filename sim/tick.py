@@ -17,7 +17,7 @@ from .media import media_lifecycle
 from .parliament import resolve_vote, table_bill
 from .parties import party_lifecycle
 from .scandals import scandal_lifecycle
-from .state import Event, GameState
+from .state import Event, GameState, district_centroid
 from .treasury import treasury_lifecycle
 
 
@@ -108,6 +108,7 @@ def _drift(state: GameState) -> None:
         v.pos += step * away / np.maximum(
             np.linalg.norm(away, axis=1, keepdims=True), 1e-9)
         np.clip(v.pos, -1, 1, out=v.pos)
+    state.voters.pos_version += 1
     # agenda-setting lifts salience; it must mean-revert
     v.salience += p.SALIENCE_REVERT * (p.SALIENCE_BASE - v.salience)
     np.clip(v.salience, 0.1, None, out=v.salience)
@@ -116,7 +117,7 @@ def _drift(state: GameState) -> None:
         pt.schism_cooldown = max(0, pt.schism_cooldown - 1)
     for mp in state.mps.values():
         if mp.id != state.player_id:  # the player's ideology is theirs to manage
-            dcent = state.voters.pos[state.voters.district == mp.district].mean(axis=0)
+            dcent = district_centroid(state.voters, mp.district)
             mp.pos = tuple(np.clip(np.asarray(mp.pos) + p.MP_DISTRICT_PULL * (dcent - mp.pos), -1, 1))
         for k in mp.relationships:
             mp.relationships[k] *= p.REL_DECAY

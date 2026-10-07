@@ -8,7 +8,7 @@ import numpy as np
 from . import params as p
 from .conditions import mood
 from .naming import bill_name
-from .state import Bill, GameState, dist
+from .state import Bill, GameState, dist, district_centroid
 
 
 @dataclass
@@ -102,9 +102,10 @@ def apply_action(state: GameState, action: Action) -> None:
         pt = state.parties.get(player.party)
         plat = np.asarray(pt.platform if pt else player.pos)
         v.pos[mask] += 0.03 * np.sign(plat - v.pos[mask])
+        v.pos_version += 1
         # the ground game gets your people to the polls — turnout is a lever
         v.turnout[mask] = np.clip(v.turnout[mask] + p.GOTV_LIFT, 0, 1)
-        d = float(np.dot(v.pos[mask].mean(axis=0) - plat,
+        d = float(np.dot(district_centroid(v, player.district) - plat,
                          plat / max(np.linalg.norm(plat), 1e-9)))
         state.emit("CareerEvent",
                    f"You campaign door-to-door — the district sits "
@@ -128,7 +129,8 @@ def apply_action(state: GameState, action: Action) -> None:
         ax = action.axis if action.axis is not None else rng.randrange(2)
         v.salience[mask, ax] += 0.05
         v.pos[mask, ax] += 0.03 * np.sign(player.pos[ax] - v.pos[mask, ax])
-        gap = float(abs(v.pos[mask, ax].mean() - player.pos[ax]))
+        v.pos_version += 1
+        gap = float(abs(district_centroid(v, player.district)[ax] - player.pos[ax]))
         state.emit("CareerEvent",
                    f"You give a speech on the {'economic' if ax == 0 else 'social'} "
                    f"axis — the district is {gap:.2f} from you on it.",
@@ -139,7 +141,7 @@ def apply_action(state: GameState, action: Action) -> None:
         # mistrust per unit covered and the whip's read of the direction
         old = np.asarray(player.pos)
         tgt = np.asarray(action.pos) if action.pos is not None else (
-            v.pos[mask].mean(axis=0) if mask.any() else old)
+            district_centroid(v, player.district) if mask.any() else old)
         new = np.clip(old + p.EVOLVE_STEP * (tgt - old), -1, 1)
         moved = float(np.linalg.norm(new - old))
         if moved < 1e-12:

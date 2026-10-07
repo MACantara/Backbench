@@ -6,7 +6,7 @@ import numpy as np
 
 from . import params as p
 from .naming import party_name_for, revival_name
-from .state import GameState, Party, dist
+from .state import GameState, Party, dist, district_centroid
 
 
 def _district_cells(state: GameState) -> dict[int, tuple[int, int]]:
@@ -17,7 +17,7 @@ def _district_cells(state: GameState) -> dict[int, tuple[int, int]]:
     gx, gy = p.DISTRICT_GRID
     cells = {}
     for d in range(int(v.district.max()) + 1):
-        cent = v.pos[v.district == d].mean(axis=0)
+        cent = district_centroid(v, d)
         cells[d] = (min(int((cent[0] + 1) / 2 * gx), gx - 1),
                     min(int((cent[1] + 1) / 2 * gy), gy - 1))
     return cells
@@ -31,7 +31,7 @@ def _unserved_clusters(state: GameState) -> list[list[int]]:
     by_cell = {cell: d for d, cell in cells.items()}
     plats = [pt.platform for pt in state.parties.values()]
     far = {d for d, cell in cells.items()
-           if min(dist(tuple(v.pos[v.district == d].mean(axis=0)), pl)
+           if min(dist(tuple(district_centroid(v, d)), pl)
                   for pl in plats) >= p.DYNAMIC_GAP_DIST}
     clusters = []
     while far:

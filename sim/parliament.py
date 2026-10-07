@@ -7,7 +7,8 @@ from . import params as p
 from .conditions import enact, mood
 from .naming import austerity_name, bill_name, describe_pos
 from .prose import render
-from .state import Bill, GameState, MP, dist, gov_platform
+from .state import (Bill, GameState, MP, dist, district_centroid,
+                    gov_platform)
 from .treasury import budget_posture, debt_pressure
 
 
@@ -40,7 +41,7 @@ def district_opinion(state: GameState, district: int, bill: Bill) -> float:
     """District's view of the bill relative to the government platform:
     positive when the bill is *closer* to the district than the gov baseline."""
     v = state.voters
-    centroid = tuple(v.pos[v.district == district].mean(axis=0))
+    centroid = tuple(district_centroid(v, district))
     if not state.government.parties:
         return -dist(centroid, bill.pos) * 0.3  # no baseline → weak absolute opinion
     return dist(centroid, gov_platform(state)) - dist(centroid, bill.pos)
@@ -61,27 +62,47 @@ def faction_whip(state: GameState, mp: MP, bill: Bill) -> int | None:
     return -1 if dist(f.centroid, bill.pos) > p.FACTION_REBEL_DIST else None
 
 
+def _memo(ctx: dict | None, key, fn):
+    """Per-division memo: division constants compute once per key.
+    ctx=None computes fresh — inspect and the checks see the same values."""
+    if ctx is None:
+        return fn()
+    if key not in ctx:
+        ctx[key] = fn()
+    return ctx[key]
+
+
 def vote_terms(state: GameState, mp: MP, bill: Bill,
-               noisy: bool = True) -> dict[str, float]:
+               noisy: bool = True, ctx: dict | None = None) -> dict[str, float]:
     """Named utility components — the inspector reads these to explain votes.
-    noisy=False strips the draw so projections stay off the rng stream."""
+    noisy=False strips the draw so projections stay off the rng stream.
+    ctx is a per-division memo resolve_vote shares across MPs — values are
+    identical either way; it only skips recomputing division constants."""
     in_gov = mp.party in state.government.parties
-    whip = whip_direction(state, mp.party, bill) if mp.party is not None else 0
-    fwhip = faction_whip(state, mp, bill)
+    whip = _memo(ctx, ("whip", mp.party),
+                 lambda: whip_direction(state, mp.party, bill)) \
+        if mp.party is not None else 0
+    fwhip = _memo(ctx, ("fwhip", mp.party, mp.faction),
+                  lambda: faction_whip(state, mp, bill))
     terms = {
         "policy": -p.W_POLICY * dist(mp.pos, bill.pos),
-        "whip": p.W_WHIP * whip * mp.loyalty * whip_strength(state, mp.party),
+        "whip": p.W_WHIP * whip * mp.loyalty
+                * _memo(ctx, ("wstr", mp.party),
+                        lambda: whip_strength(state, mp.party)),
         "gov": p.W_GOV * in_gov,
         "rel": p.W_REL * (mp.relationships.get(state.government.pm, 0.0)
                         if in_gov and state.government.pm is not None else 0.0),
-        "district": p.W_SAFETY * (1 - mp.seat_safety) * district_opinion(state, mp.district, bill),
+        "district": p.W_SAFETY * (1 - mp.seat_safety)
+                    * _memo(ctx, ("dop", mp.district),
+                            lambda: district_opinion(state, mp.district, bill)),
         "fiscal": -p.W_FISCAL * (bill.cost / (p.COST_BASE + p.COST_EXTREMITY_W))
-                  * debt_pressure(state),  # stingy house when the books are red
+                  * _memo(ctx, "debt", lambda: debt_pressure(state)),  # stingy house when the books are red
     }
     if noisy:
         terms["noise"] = state.rng.gauss(0, p.VOTE_NOISE)
     if bill.confidence and in_gov:
-        terms["retro"] = p.W_RETRO_CONF * mood(state.conditions)  # the slump votes too
+        terms["retro"] = p.W_RETRO_CONF * _memo(
+            ctx, "mood", lambda: mood(state.conditions))  # the slump votes too
     if fwhip is not None and fwhip != whip:
         terms["fwhip"] = p.W_WHIP * fwhip * mp.loyalty
         terms["whip"] = 0.0  # the wing overrules the party line
@@ -244,17 +265,20 @@ def resolve_vote(state: GameState, bill: Bill, player_vote: int | None = None) -
         return None
     yes, no, abstain, detail = 0, 0, 0, {}
     rebels: dict[int, int] = {}
+    ctx: dict = {}      # per-division memo — constants shared across MPs
     for mp in present:
         if mp.id == state.speaker:
             detail[mp.id] = {"u": 0.0, "cast": 0, "terms": {"chair": 0.0}}
             abstain += 1
             continue                    # the chair never divides the house
-        terms = vote_terms(state, mp, bill)
+        terms = vote_terms(state, mp, bill, ctx=ctx)
         if "fwhip" in terms:
             rebels[mp.faction] = mp.party
         is_player = mp.id == state.player_id and player_vote is not None
         u = float(player_vote) if is_player else sum(terms.values())
-        whip = whip_direction(state, mp.party, bill) if mp.party is not None else 0
+        whip = _memo(ctx, ("whip", mp.party),
+                     lambda: whip_direction(state, mp.party, bill)) \
+            if mp.party is not None else 0
         # confidence divisions are three-line whips — a whipped MP in the
         # deadzone falls in with the line (the player still can abstain:
         # their franchise, rebellion price and all)
@@ -340,6 +364,7 @@ def resolve_vote(state: GameState, bill: Bill, player_vote: int | None = None) -
     if passed:
         ax = bill.beneficiary_axis
         state.voters.pos[:, ax] += p.BILL_PERSUASION * np.sign(bill.pos[ax] - state.voters.pos[:, ax])
+        state.voters.pos_version += 1
         if gov_parties and bill.author is None:
             for i in gov_parties:
                 state.parties[i].brand += p.BILL_PASS_BRAND

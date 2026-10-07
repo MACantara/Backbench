@@ -9,7 +9,7 @@ import numpy as np
 from . import params as p
 from .career import remove_mp, successor
 from .conditions import mood, responsibility
-from .state import GameState, Hopeful, MP, dist
+from .state import GameState, Hopeful, MP, dist, district_centroid
 from .naming import mp_name
 from .prose import render
 
@@ -53,7 +53,7 @@ def _ballot(state: GameState, d: int, incs: list, rnd: random.Random
             "incumbent": inc_p is not None}
     inc_indep = next((i for i in incs if i.party is None), None)
     if inc_indep is not None or rnd.random() < p.INDEPENDENT_P:
-        centroid = state.voters.pos[state.voters.district == d].mean(axis=0)
+        centroid = district_centroid(state.voters, d)
         cand[INDEPENDENT] = (inc_indep.pos if inc_indep is not None else tuple(float(np.clip(
             c + rnd.gauss(0, p.INDEPENDENT_POS_SD), -1, 1)) for c in centroid))
         ballot[INDEPENDENT] = {
@@ -171,12 +171,12 @@ def resolve_election(state: GameState) -> None:
                     won[i.party if i.party is not None else INDEPENDENT] = \
                         won.get(i.party if i.party is not None else INDEPENDENT, 0) + 1
                 while sum(won.values()) < mag:
-                    centroid = v.pos[v.district == d].mean(axis=0)
+                    centroid = district_centroid(v, d)
                     near = min(state.parties.values(),
                                key=lambda pt: float(np.hypot(*(centroid - pt.platform)))).id
                     won[near] = won.get(near, 0) + 1
             else:
-                centroid = v.pos[v.district == d].mean(axis=0)
+                centroid = district_centroid(v, d)
                 winner = min(state.parties.values(),
                              key=lambda pt: float(np.hypot(*(centroid - pt.platform)))).id
                 won = {winner: mag}

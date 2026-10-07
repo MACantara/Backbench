@@ -21,7 +21,7 @@ from .actions import Action, available_actions
 from .conditions import mood
 from .parliament import whip_direction
 from .parties import _stay_utility
-from .state import GameState, dist
+from .state import GameState, dist, district_centroid
 
 
 def bot_pick_ambition(state: GameState) -> str:
@@ -101,7 +101,7 @@ def _r_seat_defense(c: _Ctx) -> None:
         losing = not (lead and lead["name"] == c.player.name
                       and lead["party"] == me_pid)
         if losing:
-            cent = s.voters.pos[s.voters.district == c.player.district].mean(axis=0)
+            cent = district_centroid(s.voters, c.player.district)
             gap = dist(c.player.pos, tuple(cent))
             if gap > p.BOT_EVOLVE_GAP:
                 # the ground, not the ground game — a player repositions
