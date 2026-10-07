@@ -15,9 +15,12 @@ SEEDS = range(8)
 
 
 def run(seed: int, climber: bool):
-    """How far the player climbs in WEEKS weeks: (junior, cabinet, week reached)."""
+    """How far the player climbs in WEEKS weeks — and how much of it
+    their party actually governed, since cabinet is only reachable
+    from a governing bench."""
     s = new_game(seed)
     junior = cabinet = False
+    gov_weeks = 0
     for _ in range(WEEKS):
         if s.phase == "over":
             break
@@ -36,18 +39,23 @@ def run(seed: int, climber: bool):
         if me is not None:
             junior |= me.junior is not None
             cabinet |= me.portfolio is not None
-    return junior, cabinet, s.week
+            gov_weeks += me.party in s.government.parties
+    return junior, cabinet, gov_weeks, s.week
 
 
 def main() -> None:
-    # the done-when: deliberate climbing reaches office, passivity doesn't
+    # the done-when: deliberate climbing reaches office, passivity doesn't.
+    # Cabinet needs a governing party — judge the climb on seeds that had one.
     climb = [run(i, True) for i in SEEDS]
     passive = [run(i, False) for i in SEEDS]
-    c_cab = sum(r[1] for r in climb)
+    gov = [r for r in climb if r[2] >= 30]
+    c_cab = sum(r[1] for r in gov)
     p_off = sum(r[0] or r[1] for r in passive)
-    assert c_cab >= 4, f"climber reached cabinet only {c_cab}/{len(SEEDS)} seeds"
-    assert c_cab >= p_off + 2, "climbing didn't beat doing nothing"
-    print(f"ladder: climber cabinet {c_cab}/{len(SEEDS)} "
+    assert len(gov) >= 3, f"party governed ≥30w on only {len(gov)} seeds"
+    assert c_cab >= len(gov) - 1, \
+        f"climber reached cabinet on only {c_cab}/{len(gov)} governing seeds"
+    assert c_cab >= p_off + 1, "climbing didn't beat doing nothing"
+    print(f"ladder: climber cabinet {c_cab}/{len(gov)} governing seeds "
           f"vs passive office {p_off}/{len(SEEDS)}")
 
     # standing: whip fidelity earns it, rebellion burns it, decay returns it

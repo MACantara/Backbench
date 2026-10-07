@@ -167,8 +167,12 @@ def leadership_challenge(state: GameState) -> None:
             continue
         if pt.cohesion >= p.LEADERSHIP_COHESION_MIN:
             continue
+        # the player is the careerist by definition — a declared arc
+        # qualifies them whenever the chair is weak; their candidacy
+        # lives or dies on the relationships they built
         challengers = [m for m in sorted(pt.members)
-                       if m != pt.leader and state.mps[m].ambition > p.CHALLENGE_AMBITION_MIN]
+                       if m != pt.leader and (m == state.player_id
+                       or state.mps[m].ambition > p.CHALLENGE_AMBITION_MIN)]
         if not challengers:
             continue
         candidates = [pt.leader] + challengers
