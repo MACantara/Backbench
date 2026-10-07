@@ -1,6 +1,7 @@
 """Pygame driver: watch the parliament work. Second driver over the same sim."""
 from __future__ import annotations
 
+import json
 import random
 import sys
 from pathlib import Path
@@ -16,6 +17,7 @@ from sim.tick import tick
 from sim.worldgen import new_game
 
 SAVES = Path(__file__).resolve().parent.parent / "saves"
+SETTINGS = SAVES / "settings.json"
 
 from driver.pyg_render import (H, INTERRUPTS, W, district_owners, draw,
                                seat_positions)
@@ -36,7 +38,9 @@ class Driver:
             import os
             os.environ.setdefault("SDL_VIDEODRIVER", "dummy")
         pygame.init()
-        flags = pygame.RESIZABLE | (pygame.FULLSCREEN if fullscreen else 0)
+        saved = self._load_settings()
+        self.fullscreen = fullscreen or saved.get("fullscreen", False)
+        flags = pygame.RESIZABLE | (pygame.FULLSCREEN if self.fullscreen else 0)
         self.window = pygame.display.set_mode((W, H), flags)
         self.screen = pygame.Surface((W, H))   # fixed canvas, scaled to the window
         pygame.display.set_caption("Backbench")
@@ -46,14 +50,15 @@ class Driver:
         self.mode = "menu" if menu else "game"
         self.seed = seed
         self.save_dir = SAVES
-        self.menu_scenario = scenario if isinstance(scenario, str) else "standard"
+        self.menu_scenario = (scenario if isinstance(scenario, str)
+                              else saved.get("scenario", "standard"))
         self.menu_page = "main"     # main | scenarios | settings
-        self.fullscreen = fullscreen
-        self.autosave_weeks = AUTOSAVE_WEEKS
+        self.autosave_weeks = saved.get("autosave_weeks", AUTOSAVE_WEEKS)
+        self._speed_i_saved = saved.get("speed_i", 1)
         self.state = new_game(seed, scenario) if not menu else None
         self.running = True
         self.paused = False
-        self.speed_i = 1
+        self.speed_i = self._speed_i_saved
         self.week_timer = 0.0
         self.banner = None          # interrupt event text awaiting dismiss
         self.banner_t = 0.0         # seconds the banner has been up
@@ -88,6 +93,22 @@ class Driver:
         self.menu_rect = None       # popup bounds, set by the renderer
         self.auto_play = False      # skip the weekly action pause
         self.autosaved_week = -1    # last week written to autosave.json
+
+    @staticmethod
+    def _load_settings() -> dict:
+        try:
+            return json.loads(SETTINGS.read_text(encoding="utf-8"))
+        except (OSError, ValueError):
+            return {}
+
+    def _save_settings(self) -> None:
+        SAVES.mkdir(exist_ok=True)
+        SETTINGS.write_text(json.dumps({
+            "fullscreen": self.fullscreen,
+            "speed_i": self.speed_i,
+            "autosave_weeks": self.autosave_weeks,
+            "scenario": self.menu_scenario,
+        }), encoding="utf-8")
 
     def _new_game(self) -> None:
         self.state = new_game(self.seed, self.menu_scenario)
@@ -399,6 +420,7 @@ class Driver:
             self.menu_page = bid[3:]
         elif bid.startswith("scn:"):
             self.menu_scenario = bid[4:]
+            self._save_settings()
         elif bid == "start:new":
             self._new_game()
         elif bid == "start:load":
@@ -408,10 +430,13 @@ class Driver:
         elif bid == "set:fullscreen":
             pygame.display.toggle_fullscreen()
             self.fullscreen = not self.fullscreen
+            self._save_settings()
         elif bid == "set:spd":
             self.speed_i = (self.speed_i + 1) % len(SPEEDS)
+            self._save_settings()
         elif bid == "set:auto":
             self.autosave_weeks = {1: 2, 2: 4, 4: 8, 8: 1}[self.autosave_weeks]
+            self._save_settings()
 
     def _after_pick(self) -> None:
         if len(self.picks) >= 2:
