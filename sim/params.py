@@ -178,6 +178,8 @@ DYNAMIC_GAP_DIST = 0.55          # district centroid this far from every platfor
 DYNAMIC_GAP_MIN_SEATS = 6        # contiguous unserved districts needed to support a party
 DYNAMIC_ENTRIES_PER_ELECTION = 2 # cap on niche entries/revivals per campaign
 DYNAMIC_GRACE_WEEKS = 12         # memberless entrants survive until after their first election
+ROOKIE_FRONTIER_P = 0.35         # share of hopefuls arriving from unserved ground
+PLATFORM_BASE_PULL = 0.01        # weekly lerp of opposition platforms toward own base
 GRAVE_WEEKS = 520                # a dissolved party stays revivable for ~10 terms
 GRAVE_MAX = 24                   # the graveyard itself is bounded — most recent kept
 

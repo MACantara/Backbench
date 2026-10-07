@@ -52,10 +52,22 @@ def make_voters(rng: random.Random, np_rng: np.random.Generator,
 def make_hopeful(rng: random.Random, np_rng: np.random.Generator,
                  parties: dict[int, Party], n_districts: int,
                  name: str | None = None, age: int | None = None,
-                 pack: str = "insular") -> Hopeful:
-    """One aspiring politician: stats rolled, leaning toward the nearest platform."""
-    plat = np.asarray(rng.choice(list(parties.values())).platform)
-    hpos = tuple(np.clip(plat + np_rng.normal(0, p.MP_POS_JITTER, 2), -1, 1))
+                 pack: str = "insular", voters=None) -> Hopeful:
+    """One aspiring politician: stats rolled, leaning toward the nearest platform.
+    With voters supplied, some arrive from unserved ground — generational
+    replacement injects ideology the consensus doesn't reach."""
+    hpos = None
+    if voters is not None and rng.random() < p.ROOKIE_FRONTIER_P:
+        plats = np.array([pt.platform for pt in parties.values()])
+        far = [d for d in range(n_districts)
+               if np.linalg.norm(plats - voters.pos[voters.district == d].mean(axis=0),
+                                 axis=1).min() >= p.DYNAMIC_GAP_DIST]
+        if far:
+            base = voters.pos[voters.district == rng.choice(far)].mean(axis=0)
+            hpos = tuple(np.clip(base + np_rng.normal(0, p.MP_POS_JITTER, 2), -1, 1))
+    if hpos is None:
+        plat = np.asarray(rng.choice(list(parties.values())).platform)
+        hpos = tuple(np.clip(plat + np_rng.normal(0, p.MP_POS_JITTER, 2), -1, 1))
     stat = lambda k: min(1, max(0, rng.gauss(p.MP_STAT_MEANS[k], p.MP_STAT_SD)))
     return Hopeful(
         name=name or mp_name(rng, pack), pos=hpos,
