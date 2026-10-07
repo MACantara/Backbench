@@ -496,6 +496,36 @@ def draw_burger(drv) -> None:
                 pygame.Rect(bx + 10 + col * 138, 54 + row * 36, 128, 30))
 
 
+def draw_saves(drv) -> None:
+    """File-picker modal — save slot or load target. Lightbox: outside closes."""
+    if not drv.save_picker:
+        drv.picker_rect = None
+        return
+    import datetime as _dt
+    files = sorted((q for q in drv.save_dir.glob("*.json")
+                    if q.name != "settings.json"),
+                   key=lambda q: -q.stat().st_mtime)[:12]
+    rows = (1 if drv.save_picker == "save" else 0) + len(files)
+    bh = 56 + 30 * max(rows, 1) + 16
+    box = pygame.Rect(W // 2 - 220, 160, 440, bh)
+    drv.picker_rect = box
+    pygame.draw.rect(drv.screen, PANEL, box)
+    pygame.draw.rect(drv.screen, GOLD, box, 1)
+    _text(drv, f"{drv.save_picker} game", (box.x + 16, box.y + 12), font=drv.big)
+    _close(drv, "pk:close", box.right - 30, box.y + 12)
+    y = box.y + 52
+    if drv.save_picker == "save":
+        _button(drv, "file:new", "+ new save", pygame.Rect(box.x + 16, y, 408, 26))
+        y += 30
+    if not files:
+        _text(drv, "no save files yet", (box.x + 16, y + 6), DIM)
+    for i, q in enumerate(files):
+        when = _dt.datetime.fromtimestamp(q.stat().st_mtime)
+        lab = _fit(drv, f"{q.stem}   {when:%Y-%m-%d %H:%M}", 380)
+        _button(drv, f"file:{i}", lab, pygame.Rect(box.x + 16, y, 408, 26))
+        y += 30
+
+
 def draw_banner(drv) -> None:
     if not drv.banner:
         return
@@ -560,6 +590,7 @@ def draw_menu(drv) -> None:
             "scenarios": "enter: start · esc: back",
             "settings": "esc: back"}[page]
     _text(drv, hint, (cx - drv.font.size(hint)[0] // 2, H - 40), DIM)
+    draw_saves(drv)
 
 
 def draw(drv) -> None:
@@ -584,4 +615,5 @@ def draw(drv) -> None:
     draw_why(drv)
     draw_chronicle(drv)
     draw_burger(drv)
+    draw_saves(drv)
     draw_banner(drv)

@@ -91,6 +91,8 @@ class Driver:
         self.chronicle = {"open": False, "scroll": 0, "filter": None}
         self.menu_open = False      # hamburger dropdown
         self.menu_rect = None       # popup bounds, set by the renderer
+        self.save_picker = None     # "save" | "load" — file-picker modal
+        self.picker_rect = None     # its bounds, set by the renderer
         self.auto_play = False      # skip the weekly action pause
         self.autosaved_week = -1    # last week written to autosave.json
 
@@ -212,23 +214,28 @@ class Driver:
         if c["open"]:
             c["scroll"] = 10 ** 9      # pin to latest; draw clamps
 
-    def _save(self) -> None:
+    def _save_to(self, path: Path) -> None:
         SAVES.mkdir(exist_ok=True)
-        text = to_json(self.state)
-        (SAVES / f"s{self.state.seed}-w{self.state.week}.json") \
-            .write_text(text, encoding="utf-8")
-        (SAVES / "latest.json").write_text(text, encoding="utf-8")
-        self._show_banner(f"Saved — week {self.state.week}")
+        path.write_text(to_json(self.state), encoding="utf-8")
+        self._show_banner(f"Saved — {path.stem} (week {self.state.week})")
 
-    def _load(self) -> None:
-        saves = [q for q in (SAVES / "latest.json",
-                             SAVES / "autosave.json") if q.exists()]
-        if saves:
-            p = max(saves, key=lambda q: q.stat().st_mtime)
-            self.state = from_json(p.read_text(encoding="utf-8"))
-            self._reset_view()
-            self.autosaved_week = self.state.week
-            self._show_banner(f"Loaded — week {self.state.week}")
+    def _save(self) -> None:
+        """Quicksave: the named slot for this week plus latest.json."""
+        self._save_to(SAVES / f"s{self.state.seed}-w{self.state.week}.json")
+        (SAVES / "latest.json").write_text(to_json(self.state),
+                                         encoding="utf-8")
+
+    def _load(self, path: Path | None = None) -> None:
+        if path is None:
+            saves = [q for q in (SAVES / "latest.json",
+                                 SAVES / "autosave.json") if q.exists()]
+            if not saves:
+                return
+            path = max(saves, key=lambda q: q.stat().st_mtime)
+        self.state = from_json(path.read_text(encoding="utf-8"))
+        self._reset_view()
+        self.autosaved_week = self.state.week
+        self._show_banner(f"Loaded — week {self.state.week}")
 
     def _shot(self) -> None:
         Path("shots").mkdir(exist_ok=True)
@@ -407,9 +414,9 @@ class Driver:
         elif bid == "menu:chr":
             self._toggle_chronicle()
         elif bid == "menu:save":
-            self._save()
+            self.save_picker = "save"
         elif bid == "menu:load":
-            self._load()
+            self.save_picker = "load"
         elif bid == "menu:shot":
             self._shot()
         elif bid == "menu:quit":
@@ -424,9 +431,26 @@ class Driver:
         elif bid == "start:new":
             self._new_game()
         elif bid == "start:load":
-            self._load()
-            if self.state is not None:
-                self.mode = "game"
+            self.save_picker = "load"
+        elif bid == "pk:close":
+            self.save_picker = None
+        elif bid == "file:new" and self.save_picker == "save" and self.state:
+            self.save_picker = None
+            self._save_to(SAVES / f"s{self.state.seed}-w{self.state.week}.json")
+        elif bid.startswith("file:") and self.save_picker:
+            files = sorted((q for q in SAVES.glob("*.json")
+                            if q.name != "settings.json"),
+                           key=lambda q: -q.stat().st_mtime)[:12]
+            i = int(bid[5:])
+            if 0 <= i < len(files):
+                mode = self.save_picker
+                self.save_picker = None
+                if mode == "save":
+                    self._save_to(files[i])
+                else:
+                    self._load(files[i])
+                    if self.state is not None:
+                        self.mode = "game"
         elif bid == "set:fullscreen":
             pygame.display.toggle_fullscreen()
             self.fullscreen = not self.fullscreen
@@ -469,8 +493,16 @@ class Driver:
                 pos = (int(e.pos[0] * W / wx), int(e.pos[1] * H / wy))
                 for bid, rect in self.buttons.items():
                     if rect.collidepoint(pos):
+                        if self.save_picker and not (
+                                bid.startswith("file:") or bid == "pk:close"):
+                            if not (self.picker_rect
+                                    and self.picker_rect.collidepoint(pos)):
+                                self.save_picker = None
+                            return
                         self.on_button(bid)
                         return
+                if self.save_picker:
+                    self.save_picker = None
             return
         if e.type == pygame.QUIT:
             self.running = False
@@ -482,6 +514,8 @@ class Driver:
                     self.chronicle["open"] = False
                 elif self.menu_open:
                     self.menu_open = False
+                elif self.save_picker:
+                    self.save_picker = None
                 elif self.why_text:
                     self.why_text = None
                 elif self.inspect_mp is not None:
@@ -509,7 +543,7 @@ class Driver:
             elif e.key == pygame.K_F5:
                 self._save()
             elif e.key == pygame.K_F9:
-                self._load()
+                self.save_picker = "load"
             elif e.key == pygame.K_F12:
                 self._shot()
         elif e.type == pygame.MOUSEWHEEL and self.chronicle["open"]:
@@ -532,6 +566,15 @@ class Driver:
                     self.menu_open = False   # dropdown closes on selection
             elif not (self.menu_rect and self.menu_rect.collidepoint(pos)):
                 self.menu_open = False       # lightbox: click outside dismisses
+            return
+        if self.save_picker:
+            hit = next((bid for bid, rect in self.buttons.items()
+                        if rect.collidepoint(pos)
+                        and (bid.startswith("file:") or bid == "pk:close")), None)
+            if hit:
+                self.on_button(hit)
+            elif not (self.picker_rect and self.picker_rect.collidepoint(pos)):
+                self.save_picker = None      # lightbox again
             return
         for bid, rect in self.buttons.items():
             if rect.collidepoint(pos):
