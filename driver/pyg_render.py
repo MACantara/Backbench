@@ -129,7 +129,7 @@ def draw_map(drv) -> None:
     sx, sy, sz = 565, 60, 395
     pygame.draw.rect(drv.screen, PANEL, (sx - 12, sy - 12, sz + 24, sz + 24))
     pygame.draw.rect(drv.screen, DIM, (sx - 12, sy - 12, sz + 24, sz + 24), 1)
-    for x_, y_ in v.pos[::7]:                    # ~1400 sampled voters
+    for x_, y_ in v.pos[::3]:                    # ~10k sampled voters
         px = int(sx + (x_ + 1) / 2 * sz)
         py = int(sy + (1 - (y_ + 1) / 2) * sz)
         drv.screen.set_at((px, py), (95, 95, 108))

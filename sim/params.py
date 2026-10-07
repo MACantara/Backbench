@@ -1,7 +1,7 @@
 """Every tunable constant in the game. Tuning is the game — touch this file, not logic."""
 
 # --- world ---
-N_VOTERS = 10_000
+N_VOTERS = 30_000
 N_DISTRICTS = 120
 DISTRICT_GRID = (12, 10)  # cells tiling the [-1,1]^2 ideology square → district ids
 # --- party generation (per-seed cleavage-anchored systems; see sim/naming.py) ---
