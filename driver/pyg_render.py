@@ -484,16 +484,18 @@ def draw_burger(drv) -> None:
         ("menu:save", "save"), ("menu:load", "load"),
         ("menu:shot", "shot"), ("menu:quit", "quit"),
     ]
-    bw, bx = 288, PANEL_X + 4
-    bh = 16 + ((len(items) + 1) // 2) * 36 + 10
-    box = pygame.Rect(bx, 44, bw, bh)
+    bw = 320
+    bh = 56 + ((len(items) + 1) // 2) * 40 + 16
+    box = pygame.Rect(W // 2 - bw // 2, H // 2 - bh // 2, bw, bh)
     drv.menu_rect = box
     pygame.draw.rect(drv.screen, PANEL, box)
-    pygame.draw.rect(drv.screen, DIM, box, 1)
+    pygame.draw.rect(drv.screen, GOLD, box, 1)
+    _text(drv, "menu", (box.x + 16, box.y + 14), font=drv.big)
+    _close(drv, "burger", box.right - 30, box.y + 12)
     for i, (bid, lab) in enumerate(items):
         col, row = divmod(i, 2)
         _button(drv, bid, lab,
-                pygame.Rect(bx + 10 + col * 138, 54 + row * 36, 128, 30))
+                pygame.Rect(box.x + 16 + col * 146, box.y + 52 + row * 40, 136, 32))
 
 
 def draw_saves(drv) -> None:
