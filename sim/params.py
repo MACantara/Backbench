@@ -333,6 +333,7 @@ SCORE_W = {
     "junior": 1,      # terms in junior office
     "minister": 3,    # terms in cabinet
     "pm": 5,          # terms as prime minister
+    "speaker": 4,     # terms in the chair — the exit office
     "laws": 1,        # statutes bearing your name
     "founded": 3,     # parties you founded that outlived you
     "struck": 1,      # statutes the court killed on your filing

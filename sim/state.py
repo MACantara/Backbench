@@ -285,6 +285,7 @@ class GameState:
     constructive_confidence: bool = False  # a lost confidence vote needs a successor slate
     district_magnitude: int = 1         # seats per district; >1 = largest remainder
     government: Government = field(default_factory=Government)
+    speaker: int | None = None        # the chair — elected by the house, above the whip
     current_bill: Bill | None = None
     offers: list = field(default_factory=list)  # coalition slates on the table (formation week)
     weeks_to_election: int = 0
@@ -292,7 +293,8 @@ class GameState:
     deals: list[Deal] = field(default_factory=list)     # vote promises to MPs
     log: list[Event] = field(default_factory=list)
     score_terms: dict[str, int] = field(default_factory=lambda: {"mp": 0, "junior": 0,
-                                                               "minister": 0, "pm": 0})
+                                                               "minister": 0, "pm": 0,
+                                                               "speaker": 0})
     legacy_bills: int = 0
 
     def emit(self, type_: str, text: str, **data) -> Event:

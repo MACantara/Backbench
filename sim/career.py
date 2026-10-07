@@ -219,6 +219,41 @@ def leadership_challenge(state: GameState) -> None:
                        party=pid, new_leader=winner)
 
 
+def speaker_election(state: GameState) -> None:
+    """A vacant chair goes to a house vote: every MP casts for the candidate
+    they regard most — relationships + standing + the seniority weight.
+    The winner renounces party and post; the office is the career."""
+    if state.speaker is not None:
+        return
+    leaders = {pt.leader for pt in state.parties.values()}
+    cands = [m for m in sorted(state.mps)
+             if m not in leaders and m != state.government.pm]
+    if len(cands) < 2:
+        return
+    votes = {c: 0 for c in cands}
+    for mp in state.mps.values():
+        best = max(cands, key=lambda c: (
+            mp.relationships.get(c, 0.0)
+            + state.mps[c].standing
+            + 0.5 * state.mps[c].competence
+            + p.SENIORITY_W * min(state.mps[c].seniority / p.SENIORITY_CAP_WEEKS, 1)))
+        votes[best] += 1
+    winner = max(votes, key=votes.get)
+    mp = state.mps[winner]
+    pt = state.parties.get(mp.party)
+    if pt is not None:
+        pt.members.discard(mp.id)
+    old = pt.name if pt is not None else "independent"
+    mp.party, mp.faction = None, None
+    mp.junior, mp.junior_weeks = None, 0
+    mp.portfolio, mp.portfolio_weeks = None, 0
+    state.speaker = mp.id
+    dragged = ", dragged to the chair," if mp.id == state.player_id else ""
+    state.emit("Elected", f"{mp.name}{dragged} takes the Speaker's chair — "
+                          f"leaves {old}, beyond the whip.",
+               mp=mp.id, votes=votes[winner])
+
+
 def remove_mp(state: GameState, mp) -> None:
     """Take an MP out of parliament: membership, leadership, premiership handoffs."""
     del state.mps[mp.id]
@@ -238,6 +273,8 @@ def remove_mp(state: GameState, mp) -> None:
                 state.emit("CareerEvent",
                            f"{state.mps[pt.leader].name} succeeds {mp.name} as {pt.name} leader.",
                            party=pt.id, new_leader=pt.leader)
+    if state.speaker == mp.id:
+        state.speaker = None      # the chair falls vacant — the house re-elects
     if state.government.pm == mp.id:
         succ = pt.leader if pt is not None and pt.members else None
         state.government.pm = succ
@@ -290,6 +327,8 @@ def update_score(state: GameState) -> None:
         state.score_terms["minister"] += 1
     if state.government.pm == state.player_id:
         state.score_terms["pm"] += 1
+    if state.speaker == state.player_id:
+        state.score_terms["speaker"] += 1
 
 
 def score_breakdown(state: GameState) -> list[tuple[str, int, int, int]]:
@@ -310,6 +349,7 @@ def score_breakdown(state: GameState) -> list[tuple[str, int, int, int]]:
         ("terms in junior office", t.get("junior", 0), w["junior"]),
         ("terms in cabinet", t.get("minister", 0), w["minister"]),
         ("terms as prime minister", t.get("pm", 0), w["pm"]),
+        ("terms in the Speaker's chair", t.get("speaker", 0), w["speaker"]),
         ("laws bearing your name", state.legacy_bills, w["laws"]),
         ("parties founded, still standing", founded, w["founded"]),
         ("statutes struck on your filing", struck, w["struck"]),

@@ -36,6 +36,12 @@ def _ballot(state: GameState, d: int, incs: list, rnd: random.Random
     """Who stands in a district: cand positions + the named roster voters see."""
     cand: dict[int, tuple] = {}
     ballot: dict[int, dict] = {}
+    spk = next((i for i in incs if i.id == state.speaker), None)
+    if spk is not None:
+        # the chair stands unopposed by convention — a seat for life
+        cand[INDEPENDENT] = spk.pos
+        ballot[INDEPENDENT] = {"name": spk.name, "incumbent": True}
+        return cand, ballot
     for pid in state.parties:
         inc_p = next((i for i in incs if i.party == pid), None)
         pos, hopeful = _candidate(state, d, pid, inc_p, rnd)

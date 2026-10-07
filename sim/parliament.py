@@ -245,6 +245,10 @@ def resolve_vote(state: GameState, bill: Bill, player_vote: int | None = None) -
     yes, no, abstain, detail = 0, 0, 0, {}
     rebels: dict[int, int] = {}
     for mp in present:
+        if mp.id == state.speaker:
+            detail[mp.id] = {"u": 0.0, "cast": 0, "terms": {"chair": 0.0}}
+            abstain += 1
+            continue                    # the chair never divides the house
         terms = vote_terms(state, mp, bill)
         if "fwhip" in terms:
             rebels[mp.faction] = mp.party
