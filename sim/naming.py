@@ -111,22 +111,29 @@ def revival_name(name: str, taken: set[str]) -> str | None:
     return None
 
 
-def generate_parties(rng: random.Random, np_rng: np.random.Generator) -> list[tuple[str, Vec]]:
+def generate_parties(rng: random.Random, np_rng: np.random.Generator,
+                     party_pool: list[str] | None = None) -> list[tuple[str, Vec]]:
     """A per-seed party system: cleavage salience → archetype draw → jittered
-    platforms with separation → family names. Returns (name, platform) pairs."""
-    n = rng.randint(*p.PARTY_COUNT_RANGE)
-    cleavage = {c: rng.random() for c in CLEAVAGES}
+    platforms with separation → family names. Returns (name, platform) pairs.
+    party_pool pins the draw (scenario presets) — the seed still owns the
+    platforms, the pool owns the cast."""
     keys = list(ARCHETYPES)
-    chosen: list[str] = []
-    while len(chosen) < n:
-        rest = [k for k in keys if k not in chosen]
-        chosen.append(rng.choices(rest, weights=[_weight(k, cleavage) for k in rest])[0])
+    cleavage = {c: rng.random() for c in CLEAVAGES}
+    if party_pool:
+        chosen = [k for k in party_pool if k in ARCHETYPES][:p.PARTY_COUNT_RANGE[1]]
+    else:
+        n = rng.randint(*p.PARTY_COUNT_RANGE)
+        chosen = []
+        while len(chosen) < n:
+            rest = [k for k in keys if k not in chosen]
+            chosen.append(rng.choices(rest, weights=[_weight(k, cleavage) for k in rest])[0])
 
     # coverage: a viable system needs anchors on both flanks of the class axis;
-    # never evict the other flank's only representative
+    # never evict the other flank's only representative. A pinned pool is
+    # honored as-is — the scenario asked for this cast, lopsided or not.
     flanks = {-1: [k for k in keys if ARCHETYPES[k]["anchor"][0] < -p.PARTY_FLANK_EDGE],
               1: [k for k in keys if ARCHETYPES[k]["anchor"][0] > p.PARTY_FLANK_EDGE]}
-    for _ in range(4):
+    for _ in range(0 if party_pool else 4):
         missing = [s for s in (-1, 1)
                    if not any(ARCHETYPES[k]["anchor"][0] * s > p.PARTY_FLANK_EDGE for k in chosen)]
         if not missing:

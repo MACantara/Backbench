@@ -236,15 +236,32 @@ def collapse(state: GameState, cause: str = "confidence") -> None:
     majority exists, else it dissolves. cause: 'confidence' | 'supply'."""
     pm_party = state.mps[state.government.pm].party \
         if state.government.pm in state.mps else None
+    fallen_largest = max(state.government.parties,
+                         key=lambda pid: len(state.parties[pid].members), default=None)
+    alt = _best_coalition(state, exclude_parties={fallen_largest})
+    if state.constructive_confidence and cause in ("confidence", "supply") \
+            and alt is None \
+            and state.government.collapses + 1 < p.SNAP_COLLAPSE_MAX:
+        # constructive no-confidence: a lost division falls the government
+        # only when a successor slate exists — no slate, no dissolution; the
+        # wounded PM limps on, brand bleeding, pending business dead
+        state.government.collapses += 1
+        for pid in state.government.parties:
+            if pid in state.parties:
+                state.parties[pid].brand -= p.CONFIDENCE_WOUND_BRAND
+        state.current_bill = None
+        state.deals = []
+        state.emit("ConfidenceHeld",
+                   "The government loses the division — but no successor "
+                   "slate exists, so it limps on wounded.",
+                   parties=sorted(state.government.parties))
+        return
     text = {"supply": "Government loses supply — the budget is dead.",
             "defection": "The Prime Minister's defection brings the government down.",
             }.get(cause, "Government loses confidence of the house.")
     state.emit("ConfidenceLost", text,
                party=pm_party, parties=sorted(state.government.parties))
     state.government.collapses += 1
-    fallen_largest = max(state.government.parties,
-                         key=lambda pid: len(state.parties[pid].members), default=None)
-    alt = _best_coalition(state, exclude_parties={fallen_largest})
     state.government.parties = set()
     state.government.pm = None
     state.government.platform = None   # the agreement dies with the government

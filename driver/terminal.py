@@ -219,14 +219,15 @@ def show_poll(state) -> None:
         print(f"  {label}:", "  ".join(f"{k} {v}" for k, v in shares.items()))
 
 
-def run(seed: int = 0, load: bool = False) -> None:
+def run(seed: int = 0, load: bool = False, scenario=None) -> None:
     if load:
         state = _load()
         if state is None:
             return
     else:
-        state = new_game(seed)
-    print(f"=== BACKBENCH - the Republic of {state.country} - seed {state.seed} ===")
+        state = new_game(seed, scenario)
+    tag = f" [{state.scenario}]" if state.scenario != "standard" else ""
+    print(f"=== BACKBENCH - the Republic of {state.country} - seed {state.seed}{tag} ===")
     print(f"You are {state.mps[state.player_id].name}, MP for district {state.mps[state.player_id].district}.")
     if not load and state.ambition is None:
         from sim.state import Ambition
@@ -261,4 +262,8 @@ if __name__ == "__main__":
     if "--load" in sys.argv:
         run(load=True)
     else:
-        run(int(sys.argv[1]) if len(sys.argv) > 1 else 0)
+        sc = sys.argv[sys.argv.index("--scenario") + 1] \
+            if "--scenario" in sys.argv else None
+        seed = next((a for a in sys.argv[1:]
+                     if not a.startswith("-") and a != sc), None)
+        run(int(seed) if seed else 0, scenario=sc)

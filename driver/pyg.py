@@ -28,7 +28,7 @@ SPEEDS = [0.5, 1.0, 2.0, 4.0]
 class Driver:
     """Owns pygame + clock + pause state. Sim interaction is advance() only."""
 
-    def __init__(self, seed: int = 0, headless: bool = False):
+    def __init__(self, seed: int = 0, headless: bool = False, scenario=None):
         if headless:
             import os
             os.environ.setdefault("SDL_VIDEODRIVER", "dummy")
@@ -38,7 +38,7 @@ class Driver:
         self.clock = pygame.time.Clock()
         self.font = pygame.font.Font(None, 22)
         self.big = pygame.font.Font(None, 34)
-        self.state = new_game(seed)
+        self.state = new_game(seed, scenario)
         self.running = True
         self.paused = False
         self.speed_i = 1
@@ -375,9 +375,13 @@ class Driver:
         pygame.quit()
 
 
-def run(seed: int = 0) -> None:
-    Driver(seed).loop()
+def run(seed: int = 0, scenario=None) -> None:
+    Driver(seed, scenario=scenario).loop()
 
 
 if __name__ == "__main__":
-    run(int(sys.argv[1]) if len(sys.argv) > 1 else 0)
+    sc = sys.argv[sys.argv.index("--scenario") + 1] \
+        if "--scenario" in sys.argv else None
+    seed = next((a for a in sys.argv[1:]
+                 if not a.startswith("-") and a != sc), None)
+    run(int(seed) if seed else 0, sc)

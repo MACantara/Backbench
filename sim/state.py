@@ -280,6 +280,9 @@ class GameState:
     press_weeks: int = 0              # consecutive weeks that subject has led
     last_poll: dict | None = None     # the *published* poll — sponsored, biased, dated
     ambition: "Ambition | None" = None  # the player's chosen arc; None = sandbox
+    scenario: str = ""                  # the scenario name, if this world was dealt one
+    constructive_confidence: bool = False  # a lost confidence vote needs a successor slate
+    district_magnitude: int = 1         # seats per district; >1 = largest remainder
     government: Government = field(default_factory=Government)
     current_bill: Bill | None = None
     offers: list = field(default_factory=list)  # coalition slates on the table (formation week)
