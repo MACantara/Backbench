@@ -236,24 +236,7 @@ def draw_panel(drv) -> None:
     speed = ["0.5x", "1x", "2x", "4x"][drv.speed_i]
     mode = "AUTO" if drv.auto_play else ("PAUSED" if drv.paused else "running")
     _text(drv, f"{mode} {speed}", (x, y), DIM)
-    y += 22
-    # toolbar — every command a visible button; keys still work
-    rows = [
-        [("menu:pause", "resume" if drv.paused else "pause"),
-         ("menu:auto", "auto on" if drv.auto_play else "auto"),
-         ("menu:spd-", "slower"), ("menu:spd+", "faster")],
-        [("menu:view", "map" if drv.view == "parliament" else "house"),
-         ("menu:chr", "log"), ("menu:save", "save"), ("menu:load", "load")],
-        [("menu:shot", "shot"), ("menu:quit", "quit")],
-    ]
-    for row in rows:
-        bx = x
-        for bid, lab in row:
-            w = 10 + 9 * len(lab)
-            _button(drv, bid, lab, pygame.Rect(bx, y, w, 22))
-            bx += w + 4
-        y += 26
-    y += 8
+    y += 28
     last = next((e for e in reversed(s.log) if e.type == "PollShift"), None)
     if last:
         _text(drv, "Polls", (x, y), DIM)
@@ -480,6 +463,39 @@ def draw_chronicle(drv) -> None:
     _text(drv, f"{len(events)} events — scroll {c['scroll']} back", (28, H - 30), DIM)
 
 
+def draw_burger(drv) -> None:
+    """The hamburger — always top-right of the panel; opens the command menu."""
+    r = pygame.Rect(W - 46, 10, 34, 26)
+    pygame.draw.rect(drv.screen, (50, 55, 70), r)
+    pygame.draw.rect(drv.screen, DIM, r, 1)
+    for i in range(3):
+        pygame.draw.line(drv.screen, FG, (r.x + 8, r.y + 7 + i * 6),
+                         (r.x + 26, r.y + 7 + i * 6), 2)
+    drv.buttons["burger"] = r
+    drv.menu_rect = None
+    if not drv.menu_open:
+        return
+    items = [
+        ("menu:pause", "resume" if drv.paused else "pause"),
+        ("menu:auto", "auto on" if drv.auto_play else "auto"),
+        ("menu:spd-", "slower"), ("menu:spd+", "faster"),
+        ("menu:view", "map" if drv.view == "parliament" else "house"),
+        ("menu:chr", "log"),
+        ("menu:save", "save"), ("menu:load", "load"),
+        ("menu:shot", "shot"), ("menu:quit", "quit"),
+    ]
+    bw, bx = 288, PANEL_X + 4
+    bh = 16 + ((len(items) + 1) // 2) * 36 + 10
+    box = pygame.Rect(bx, 44, bw, bh)
+    drv.menu_rect = box
+    pygame.draw.rect(drv.screen, PANEL, box)
+    pygame.draw.rect(drv.screen, DIM, box, 1)
+    for i, (bid, lab) in enumerate(items):
+        col, row = divmod(i, 2)
+        _button(drv, bid, lab,
+                pygame.Rect(bx + 10 + col * 138, 54 + row * 36, 128, 30))
+
+
 def draw_banner(drv) -> None:
     if not drv.banner:
         return
@@ -547,4 +563,5 @@ def draw(drv) -> None:
         draw_action_panel(drv)
     draw_why(drv)
     draw_chronicle(drv)
+    draw_burger(drv)
     draw_banner(drv)

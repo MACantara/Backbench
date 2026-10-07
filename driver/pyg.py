@@ -81,6 +81,8 @@ class Driver:
         self.reveal = None          # {"order": [districts], "t": s} election reveal
         self.results = None         # {"seats", "prev"} — seat-change card
         self.chronicle = {"open": False, "scroll": 0, "filter": None}
+        self.menu_open = False      # hamburger dropdown
+        self.menu_rect = None       # popup bounds, set by the renderer
         self.auto_play = False      # skip the weekly action pause
         self.autosaved_week = -1    # last week written to autosave.json
 
@@ -241,6 +243,7 @@ class Driver:
         self.action_pause = False
         self.district_prev = district_owners(self.state)
         self.chronicle["scroll"] = 0
+        self.menu_open = False
 
     def on_button(self, bid: str) -> None:
         from sim.inspect import explain_bench, explain_vote
@@ -387,6 +390,8 @@ class Driver:
             self._shot()
         elif bid == "menu:quit":
             self.running = False
+        elif bid == "burger":
+            self.menu_open = not self.menu_open
         elif bid.startswith("scn:"):
             self.menu_scenario = bid[4:]
         elif bid == "start:new":
@@ -430,6 +435,8 @@ class Driver:
                     self._dismiss_banner()
                 elif self.chronicle["open"]:
                     self.chronicle["open"] = False
+                elif self.menu_open:
+                    self.menu_open = False
                 elif self.why_text:
                     self.why_text = None
                 elif self.inspect_mp is not None:
@@ -469,6 +476,17 @@ class Driver:
     def on_click(self, pos) -> None:
         if self.banner:
             self._dismiss_banner()
+            return
+        if self.menu_open:
+            hit = next((bid for bid, rect in self.buttons.items()
+                        if rect.collidepoint(pos)
+                        and (bid == "burger" or bid.startswith("menu:"))), None)
+            if hit:
+                self.on_button(hit)
+                if hit.startswith("menu:"):
+                    self.menu_open = False   # dropdown closes on selection
+            elif not (self.menu_rect and self.menu_rect.collidepoint(pos)):
+                self.menu_open = False       # lightbox: click outside dismisses
             return
         for bid, rect in self.buttons.items():
             if rect.collidepoint(pos):
