@@ -90,6 +90,7 @@ class Driver:
         self.results = None         # {"seats", "prev"} — seat-change card
         self.chronicle = {"open": False, "scroll": 0, "filter": None}
         self.menu_open = False      # hamburger dropdown
+        self.menu_sub = "main"      # main | settings — which page it shows
         self.menu_rect = None       # popup bounds, set by the renderer
         self.save_picker = None     # "save" | "load" — file-picker modal
         self.picker_rect = None     # its bounds, set by the renderer
@@ -423,6 +424,10 @@ class Driver:
             self.running = False
         elif bid == "burger":
             self.menu_open = not self.menu_open
+            if self.menu_open:
+                self.menu_sub = "main"
+        elif bid.startswith("gm:"):
+            self.menu_sub = bid[3:]
         elif bid.startswith("pg:"):
             self.menu_page = bid[3:]
         elif bid.startswith("scn:"):
