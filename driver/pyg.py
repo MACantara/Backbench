@@ -154,6 +154,10 @@ class Driver:
             drs = [e for e in self.events if e.type == "DistrictResult"]
             order = [e.data["district"] for e in drs] or list(self.district_prev)
             self.viz_rng.shuffle(order)
+            if self.player_district in order:
+                # your race calls near the end — suspense is a design tool
+                order.remove(self.player_district)
+                order.insert(int(len(order) * 0.85), self.player_district)
             self.reveal = {"order": order, "t": 0.0,
                            "data": {e.data["district"]: e.data for e in drs},
                            "winners": {e.data["district"]: max(

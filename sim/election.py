@@ -82,14 +82,15 @@ def _seat_alloc(tally: np.ndarray, parties: list, mag: int
             continue
         won[pid] = won.get(pid, 0) + 1
         rem -= 1
-    margin = float(exact.max() - np.sort(exact)[-2] if len(parties) > 1 else 0)
+    margin = (float(exact.max() - np.sort(exact)[-2]) / mag
+              if len(parties) > 1 else 0.0)
     share = {pid: float(exact[i]) / mag for i, pid in enumerate(parties)}
     return won, margin, share
 
 
 def _district_scores(state: GameState, mask: np.ndarray, cand_pos: dict,
-                     incumbents: list, rnd: random.Random | None = None
-                     ) -> tuple[np.ndarray, list]:
+                     incumbents: list, rnd: random.Random | None = None,
+                     noise: bool = True) -> tuple[np.ndarray, list]:
     """score[voter, party] = -salience-weighted dist to perceived pos + brand + loyalty - betrayal + noise."""
     v = state.voters
     dpos, dsal = v.pos[mask], v.salience[mask]
@@ -109,6 +110,7 @@ def _district_scores(state: GameState, mask: np.ndarray, cand_pos: dict,
             if None in inc_parties:
                 score[:, j] += p.INCUMBENT_BONUS
                 score[:, j] -= v.betrayal[mask]  # betrayal sticks to the person too
+            # polls never name independents — they pay the full desertion floor
             score[:, j] += viable(pid)
             continue
         pt = state.parties[pid]
@@ -124,8 +126,10 @@ def _district_scores(state: GameState, mask: np.ndarray, cand_pos: dict,
         if pid in inc_parties:
             score[:, j] += p.INCUMBENT_BONUS  # the personal vote — a known name
             score[:, j] -= v.betrayal[mask]   # broken promises bite the incumbent's party
-    rnd = rnd if rnd is not None else state.rng
-    score += np.random.default_rng(int(rnd.random() * 2**63)).normal(0, p.VOTE_NOISE_SD, score.shape)
+    if noise:
+        rnd = rnd if rnd is not None else state.rng
+        score += np.random.default_rng(
+            int(rnd.random() * 2**63)).normal(0, p.VOTE_NOISE_SD, score.shape)
     return score, parties
 
 
@@ -296,7 +300,8 @@ def district_forecast(state: GameState, d: int) -> dict:
     won: dict[int, int] = {}
     margin = 0.0
     if mask.any():
-        score, parties = _district_scores(state, mask, cand, incs, rnd)
+        score, parties = _district_scores(state, mask, cand, incs, rnd,
+                                          noise=False)
         picks = score.argmax(axis=1)
         tally = np.bincount(picks, minlength=len(parties))
         votes = {parties[i]: int(tally[i]) for i in range(len(parties))}

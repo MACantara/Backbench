@@ -6,8 +6,10 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
+from sim import params as P
 from sim.bot import auto_actions
-from sim.election import INDEPENDENT, battleground, district_forecast
+from sim.election import (INDEPENDENT, battleground, district_forecast,
+                          publish_poll)
 from sim.tick import tick
 from sim.worldgen import new_game
 
@@ -40,8 +42,9 @@ def ballot_arith(seed: int) -> None:
         if tot:
             assert abs(sum(c["share"] for c in cands) - 1.0) < 1e-6
             top = max(cands, key=lambda c: c["votes"])
-            if s.district_magnitude == 1:
-                assert top["won"], "FPTP: highest vote-getter must win"
+            tied = [c for c in cands if c["votes"] == top["votes"]]
+            if s.district_magnitude == 1 and len(tied) == 1:
+                assert top["won"], "FPTP: a clear top vote-getter must win"
                 assert top is cands[0], "candidates sorted by votes"
         for c in cands:
             nat[c["party"]] = nat.get(c["party"], 0) + c["votes"]
@@ -69,6 +72,43 @@ def forecast_safety(seed: int) -> None:
     assert me.name in names, "the incumbent stands in their own forecast"
 
 
+def terms_move(seed: int) -> None:
+    """The named scoring terms must be measurable: zeroing incumbency or
+    polling a party to death must move its voters' scores."""
+    from sim.election import _district_scores
+    s = new_game(seed)
+    publish_poll(s)   # the viability term reads the published number
+    me = s.mps[s.player_id]
+    me_pid = me.party if me.party is not None else INDEPENDENT
+    d = me.district
+    incs = [m for m in s.mps.values() if m.district == d]
+    mask = s.voters.district == d
+    cand = {pid: tuple(pt.platform) for pid, pt in s.parties.items()}
+    sc1, parties = _district_scores(s, mask, cand, incs, noise=False)
+    j = parties.index(me_pid)
+    old = P.INCUMBENT_BONUS
+    P.INCUMBENT_BONUS = 0.0
+    try:
+        sc2, _ = _district_scores(s, mask, cand, incs, noise=False)
+    finally:
+        P.INCUMBENT_BONUS = old
+    assert ((sc1[:, j] - sc2[:, j]) > 0).all(), \
+        "incumbency must add to the incumbent's score"
+
+    # viability: a party the poll counts out scores strictly worse
+    dead = next(pid for pid in parties if pid != me_pid
+                and pid != INDEPENDENT)
+    shares = {pid: 0.5 for pid in s.parties}
+    s.last_poll = {"shares": shares, "week": s.week, "outlet": None}
+    sa, _ = _district_scores(s, mask, cand, incs, noise=False)
+    shares[dead] = 0.0
+    s.last_poll = {"shares": shares, "week": s.week, "outlet": None}
+    sb, _ = _district_scores(s, mask, cand, incs, noise=False)
+    jd = parties.index(dead)
+    assert (sb[:, jd] < sa[:, jd]).all(), \
+        "a hopeless poll must cost a party score"
+
+
 def determinism(seed: int) -> None:
     def first_district(s):
         while s.phase != "over":
@@ -90,4 +130,5 @@ if __name__ == "__main__":
     for seed in (7, 23):
         forecast_safety(seed)
         determinism(seed)
+        terms_move(seed)
     print("check_elections ok")

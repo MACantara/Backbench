@@ -122,20 +122,6 @@ def draw_map(drv) -> None:
                   (ox, oy + gy * (cell + 2) + 6), WHITE)
     _text(drv, _fit(drv, title, 540), (ox, oy - 28), DIM)
 
-    if drv.results and not drv.reveal:  # election-night card: seats vs last parliament
-        seats, prev = drv.results["seats"], drv.results["prev"]
-        ry = oy + gy * (cell + 2) + 34
-        _text(drv, "The new parliament", (ox, ry - 20), DIM)
-        for i, pid in enumerate(sorted({*seats, *prev},
-                                       key=lambda k: -seats.get(k, 0))):
-            n, was = seats.get(pid, 0), prev.get(pid, 0)
-            delta = f"  ({'+' if n - was >= 0 else ''}{n - was})" if n != was else ""
-            name = s.parties[pid].name[:18] if pid in s.parties else "independent"
-            cx = ox + (i % 3) * 190
-            cy = ry + (i // 3) * 20
-            pygame.draw.circle(drv.screen, party_color(s, pid), (cx + 5, cy + 7), 5)
-            _text(drv, f"{name} {n}{delta}", (cx + 14, cy), FG)
-
     if drv.reveal:
         draw_election_night(drv)
         return
@@ -270,8 +256,9 @@ def draw_election_night(drv) -> None:
         a = dd["candidates"][0] if dd["candidates"] else None
         held = any(m.district == player_d and m.id == s.player_id
                    for m in s.mps.values())
-        line = (f"your seat d{player_d}: held — {a['name']} by "
-                f"{a['votes'] - dd['candidates'][1]['votes']} votes"
+        b = dd["candidates"][1] if len(dd["candidates"]) > 1 else None
+        line = (f"your seat d{player_d}: held — {a['name']}"
+                + (f" by {a['votes'] - b['votes']} votes" if b else "")
                 if held and a else f"your seat d{player_d}: LOST")
         _text(drv, _fit(drv, line, w, drv.small), (x0, y),
               GREEN if held else RED, drv.small)
@@ -279,12 +266,13 @@ def draw_election_night(drv) -> None:
     if data:
         close = min(data.items(), key=lambda kv: kv[1]["margin"])
         ca = close[1]["candidates"]
-        _text(drv, _fit(drv,
-                        f"closest race: d{close[0]} — "
-                        f"{ca[0]['name']} over {ca[1]['name']} "
-                        f"by {ca[0]['votes'] - ca[1]['votes']}",
-                        w, drv.small), (x0, y), DIM, drv.small)
-        y += 18
+        if len(ca) >= 2:
+            _text(drv, _fit(drv,
+                            f"closest race: d{close[0]} — "
+                            f"{ca[0]['name']} over {ca[1]['name']} "
+                            f"by {ca[0]['votes'] - ca[1]['votes']}",
+                            w, drv.small), (x0, y), DIM, drv.small)
+            y += 18
         flips = [d for d, dd in data.items() if dd["flipped"]]
         _text(drv, f"{len(flips)} districts changed hands", (x0, y), DIM,
               drv.small)
@@ -392,6 +380,7 @@ def draw_panel(drv) -> None:
         key = (s.week, mp.district)
         fc = drv.forecast_cache.get(key)
         if fc is None:
+            drv.forecast_cache.clear()       # single-slot — one week, one district
             fc = district_forecast(s, mp.district)
             drv.forecast_cache[key] = fc
         _text(drv, f"d{mp.district} — the race as it stands", (x, y), DIM)
@@ -399,7 +388,8 @@ def draw_panel(drv) -> None:
         for c in fc["candidates"][:3]:
             pid = c["party"]
             pygame.draw.circle(drv.screen, party_color(s, pid), (x + 4, y + 6), 4)
-            you = "*" if c["name"] == mp.name else ""
+            me_pid = mp.party if mp.party is not None else -1
+            you = "*" if c["name"] == mp.name and c["party"] == me_pid else ""
             _text(drv, f"{c['name'][:16]}  {c['share']:.0%}{you}",
                   (x + 12, y), GOLD if c["won"] else DIM, drv.small)
             y += 15

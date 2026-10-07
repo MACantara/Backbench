@@ -247,7 +247,9 @@ def show_forecast(state) -> str:
         for c in f["candidates"]:
             name = (state.parties[c["party"]].name
                     if c["party"] in state.parties else "independent")
-            mark = "*" if c["name"] == me.name else " "
+            me_pid = me.party if me.party is not None else -1
+            mark = "*" if (c["name"] == me.name
+                           and c["party"] == me_pid) else " "
             won = "+" if c["won"] else " "
             lines.append(f"   {mark}{won}{c['name']:<22} {name[:18]:<18} "
                          f"{c['share']:.0%}")
@@ -258,7 +260,7 @@ def show_forecast(state) -> str:
                             + ("*" if r["you"] else "") for r in tight))
     proj = sorted(bg["seats"].items(), key=lambda kv: -kv[1])
     lines.append("  projected seats: " + " · ".join(
-        f"{state.parties[q].name if q in state.parties else 'ind'} {n}"
+        f"{state.parties[q].name if q in state.parties else 'independent'} {n}"
         for q, n in proj))
     return "\n".join(lines)
 
@@ -294,10 +296,13 @@ def run(seed: int = 0, load: bool = False, scenario=None,
             from sim.election import district_forecast
             me = state.mps[state.player_id]
             f = district_forecast(state, me.district)
-            a, b = f["candidates"][0], f["candidates"][1]
-            you = " (you)" if a["name"] == me.name else ""
-            print(f"  d{me.district} projection: {a['name']} {a['share']:.0%}{you} "
-                  f"vs {b['name']} {b['share']:.0%} — 'forecast' for the full race")
+            a = f["candidates"][0]
+            b = f["candidates"][1] if len(f["candidates"]) > 1 else None
+            me_pid = me.party if me.party is not None else -1
+            you = " (you)" if a["name"] == me.name and a["party"] == me_pid else ""
+            print(f"  d{me.district} projection: {a['name']} {a['share']:.0%}{you}"
+                  + (f" vs {b['name']} {b['share']:.0%}" if b else " — uncontested")
+                  + " — 'forecast' for the full race")
         if spectate:
             from sim.bot import auto_actions
             actions, loaded = auto_actions(state), None
