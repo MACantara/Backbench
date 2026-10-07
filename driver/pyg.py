@@ -531,7 +531,7 @@ class Driver:
                 elif self.inspect_mp is not None:
                     self.inspect_mp = None
                 else:
-                    self.running = False
+                    self.menu_open, self.menu_sub = True, "main"
             elif e.key == pygame.K_q and not self.chronicle["open"]:
                 self.running = False
             elif e.key in (pygame.K_c, pygame.K_l):
