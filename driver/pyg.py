@@ -92,7 +92,11 @@ class Driver:
         self.viz_rng = random.Random(1)  # visuals only — never touches sim rng
         self.district_prev = {}     # district -> party before the latest tick
         self.reveal = None          # {"order": [districts], "t": s} election reveal
-        self.results = None         # {"seats", "prev"} — seat-change card
+        self.results = None         # {"seats", "votes", "prev"} — parliament card
+        self.election_call = None   # {"snap", "reason"} — how this election was called
+        self.night_final = False    # all districts called — the summary phase
+        self.night_done_t = 0.0     # seconds in the summary (auto-dismiss timer)
+        self.player_district = None # where you stood — survives losing the seat
         self.chronicle = {"open": False, "scroll": 0, "filter": None}
         self.menu_open = False      # hamburger popup
         self.menu_sub = "main"      # main | settings — which page it shows
@@ -126,6 +130,9 @@ class Driver:
     def advance(self, actions: list | None = None) -> None:
         """One week forward; collects events for animation and interrupts."""
         self.results = None
+        self.reveal = None            # a new week closes the broadcast
+        self.night_final = False
+        self.night_done_t = 0.0
         if self.state.phase == "over":
             self._autosave()        # the career's final state survives a crash
             if not self.fame_recorded:
@@ -135,21 +142,31 @@ class Driver:
             self.gameover = True    # the career record takes the screen
             return
         self.district_prev = district_owners(self.state)
+        if self.state.player_id in self.state.mps:
+            self.player_district = self.state.mps[self.state.player_id].district
         self.events = tick(self.state, actions or [])
+        call = next((e for e in self.events if e.type == "ElectionCalled"), None)
+        if call:
+            self.election_call = {"snap": call.data.get("snap", False),
+                                  "reason": call.data.get("reason", "")}
         if any(e.type == "ElectionResult" for e in self.events):
             drs = [e for e in self.events if e.type == "DistrictResult"]
             order = [e.data["district"] for e in drs] or list(self.district_prev)
             self.viz_rng.shuffle(order)
             self.reveal = {"order": order, "t": 0.0,
+                           "data": {e.data["district"]: e.data for e in drs},
                            "winners": {e.data["district"]: max(
                                e.data["winners"].items(), key=lambda kv: kv[1])[0]
                                for e in drs},
-                           "flips": {e.data["district"]: e.text.split(": ", 1)[-1]
+                           "flips": {e.data["district"]: self._flip_text(e.data)
                                      for e in drs if e.data["flipped"]},
                            "seats": {}}
             res = next(e for e in self.events if e.type == "ElectionResult")
             self.results = {"seats": res.data["seats"],
+                            "votes": res.data.get("votes", {}),
                             "prev": res.data.get("prev", {})}
+            self.night_final = False
+            self.night_done_t = 0.0
             self.view = "map"
         vote = next((e for e in self.events if e.type == "VoteResult"), None)
         if vote and "detail" in vote.data:
@@ -173,7 +190,11 @@ class Driver:
         if self.reveal:
             self.reveal["t"] += dt
             if self.reveal["t"] > 4.5:
-                self.reveal = None
+                self.night_final = True   # districts all called — summary phase
+        if self.night_final:
+            self.night_done_t += dt
+            if self.auto_play and self.night_done_t > 5.0:
+                self._dismiss_night()      # spectators keep watching
         if self.vote_anim:
             self.vote_anim["t"] += dt
             k = int(self.vote_anim["t"] / 0.007)
@@ -201,6 +222,20 @@ class Driver:
             else:
                 self.action_pause = True   # stop the clock for the weekly decision
                 self.paused = True
+
+    def _flip_text(self, data: dict) -> str:
+        """Short flip callout for the ticker: 'Labour gains d41'."""
+        w = max(data["winners"].items(), key=lambda kv: kv[1])[0]
+        name = (self.state.parties[w].name if w in self.state.parties
+                else "independent")
+        return f"{name} gains d{data['district']}"
+
+    def _dismiss_night(self) -> None:
+        """Election night ends — map back to normal, results card stays in the log."""
+        self.reveal = None
+        self.results = None
+        self.night_final = False
+        self.night_done_t = 0.0
 
     def _show_banner(self, text: str) -> None:
         """Interrupt the clock — remembers the pause state to restore on dismiss."""
@@ -299,11 +334,16 @@ class Driver:
         self.vote_flash = {}
         self.reveal = None
         self.results = None
+        self.election_call = None
+        self.night_final = False
+        self.night_done_t = 0.0
         self.inspect_mp = None
         self.why_text = None
         self.week_timer = 0.0
         self.action_pause = False
         self.district_prev = district_owners(self.state)
+        self.player_district = (self.state.mps[self.state.player_id].district
+                                if self.state.player_id in self.state.mps else None)
         self.chronicle["scroll"] = 0
         self.menu_open = False
         self.gameover = False
@@ -567,6 +607,11 @@ class Driver:
                     self._to_menu()
                 elif self.banner:
                     self._dismiss_banner()
+                elif self.reveal:
+                    if self.night_final:
+                        self._dismiss_night()
+                    else:
+                        self.reveal["t"] = 9.0   # call the remaining districts now
                 elif self.chronicle["open"]:
                     self.chronicle["open"] = False
                 elif self.menu_open:
@@ -623,6 +668,14 @@ class Driver:
             return
         if self.banner:
             self._dismiss_banner()
+            return
+        if self.reveal:
+            # election night swallows clicks: during the calls it fast-forwards,
+            # on the summary it closes the broadcast
+            if self.night_final:
+                self._dismiss_night()
+            else:
+                self.reveal["t"] = 9.0
             return
         if self.menu_open:
             inside = self.menu_rect and self.menu_rect.collidepoint(pos)
