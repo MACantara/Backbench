@@ -6,7 +6,7 @@ import numpy as np
 from . import params as p
 from .career import remove_mp
 from .conditions import mood, responsibility
-from .state import GameState, Hopeful, MP
+from .state import GameState, Hopeful, MP, dist
 from .naming import mp_name
 from .prose import render
 
@@ -208,8 +208,8 @@ def resolve_election(state: GameState) -> None:
 
 def poll(state: GameState, outlet=None) -> dict[int, float]:
     """Weekly poll: national vote share of decided voters, turnout-weighted.
-    With an outlet, the sample is the outlet's audience — readers near its
-    slant over-report, so its polls flatter the parties its slant likes.
+    With an outlet, a bounded house effect tilts the result toward parties
+    near its slant — a sponsor leans a few points, it doesn't re-elect.
     The ground-truth oracle is `poll(state)` with no outlet."""
     v = state.voters
     decided = v.turnout > 0.3
@@ -223,14 +223,21 @@ def poll(state: GameState, outlet=None) -> dict[int, float]:
         score[:, j] += p.BRAND_WEIGHT * state.parties[pid].brand
         score[:, j] += p.LOYALTY_WEIGHT * v.loyalty[decided] * (v.last_party[decided] == pid)
         score[:, j] += p.RETRO_WEIGHT * mood(state.conditions) * responsibility(state, pid)
-    weights = None
-    if outlet is not None:
-        weights = np.exp(-((dpos - np.asarray(outlet.slant)) ** 2).sum(axis=1)
-                         / (2 * p.AUDIENCE_AFFINITY_SD ** 2))
-    pick = np.bincount(score.argmax(axis=1), minlength=len(parties),
-                       weights=weights)
-    total = max(weights.sum() if weights is not None else decided.sum(), 1e-9)
-    return {pid: float(pick[i] / total) for i, pid in enumerate(parties)}
+    pick = np.bincount(score.argmax(axis=1), minlength=len(parties))
+    total = max(int(decided.sum()), 1)
+    shares = {pid: float(pick[i] / total) for i, pid in enumerate(parties)}
+    if outlet is None:
+        return shares
+    # house effect: the tilt direction is slant-affinity, the magnitude is a
+    # few points — the number still tracks the real electorate underneath
+    aff = {pid: float(np.exp(-float(dist(outlet.slant, ppos[pid])) ** 2
+                             / (2 * p.AUDIENCE_AFFINITY_SD ** 2)))
+           for pid in parties}
+    c = sum(aff.values()) / len(aff)
+    tilted = {pid: max(shares[pid] + p.POLL_HOUSE_BIAS * (aff[pid] - c), 0.0)
+              for pid in parties}
+    t = sum(tilted.values()) or 1.0
+    return {pid: s_ / t for pid, s_ in tilted.items()}
 
 
 def publish_poll(state: GameState) -> None:

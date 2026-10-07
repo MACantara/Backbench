@@ -153,9 +153,9 @@ The outlet landscape becomes playable. `Outlet` gains mutable warmth:
   current behavior.
 - **Sponsored polls** — the biased-samples half of the roadmap item:
   `PollShift` gains `outlet=`; a rotating outlet publishes each week and
-  the printed shares re-weight voters by audience affinity (`aff`) — a
-  friendly outlet's poll flatters you because its readers over-represent
-  your voters. The driver names the sponsor ("The Sentinel poll"). The
+  applies a bounded house effect (`POLL_HOUSE_BIAS`, a few points) toward
+  parties near its slant — a sponsor leans, it doesn't re-elect. The
+  driver names the sponsor ("The Sentinel poll"). The
   sim's oracle stays `poll()` — but the AI snap-call reads
   `state.last_poll`, the *published* number, so a flattered government can
   call a doomed early election on its own press. That's not a bug; that's
