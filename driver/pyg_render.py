@@ -521,7 +521,7 @@ def draw_menu(drv) -> None:
     _text(drv, "starting situation:", (cx - 240, 230), DIM)
     names = list(SCENARIOS)
     for i, name in enumerate(names):
-        col, row = divmod(i, 4)
+        row, col = divmod(i, 4)
         rect = pygame.Rect(cx - 240 + col * 124, 256 + row * 34, 116, 28)
         _button(drv, f"scn:{name}", name, rect)
         if name == drv.menu_scenario:
