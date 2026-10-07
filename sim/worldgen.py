@@ -132,6 +132,7 @@ class Scenario:
     worldgen-scoped — applied to sim.params while new_game runs, restored
     after, so a scenario can't leak tunables into the next run."""
     name: str
+    desc: str = ""                    # menu blurb — what the deal means
     player_seat: str = "median"       # "safe" | "marginal" | "median"
     player_party: str | None = None   # "largest" | "smallest" | "outsider"
     party_pool: list | None = None    # pins generate_parties' archetype draw
@@ -141,17 +142,25 @@ class Scenario:
 
 
 SCENARIOS = {
-    "standard": Scenario("standard"),
-    "safe_seat": Scenario("safe_seat", player_seat="safe"),
-    "marginal": Scenario("marginal", player_seat="marginal"),
+    "standard": Scenario("standard",
+        desc="the classic deal — a median seat in a generated parliament"),
+    "safe_seat": Scenario("safe_seat", player_seat="safe",
+        desc="your party's safest district — the seat is yours to lose"),
+    "marginal": Scenario("marginal", player_seat="marginal",
+        desc="the thinnest margin in the country — every election is a fight"),
     "outsider": Scenario("outsider", player_party="outsider",
-                         player_seat="marginal"),
+                         player_seat="marginal",
+        desc="no party, no whip — the seat belongs to your name alone"),
     "duopoly": Scenario("duopoly",
-                        party_pool=["social_democrat", "conservative"]),
+        party_pool=["social_democrat", "conservative"],
+        desc="two parties only — government or opposition, nothing between"),
     "fragmented": Scenario("fragmented",
-                           party_pool=["social_democrat", "liberal", "conservative",
-                                       "green", "nationalist", "agrarian"]),
-    "constructive": Scenario("constructive", constructive_confidence=True),
+        party_pool=["social_democrat", "liberal", "conservative",
+                    "green", "nationalist", "agrarian"],
+        desc="six parties, no majority — every coalition is a negotiation"),
+    "constructive": Scenario("constructive", constructive_confidence=True,
+        desc="German-model confidence — a government falls only when "
+             "a successor is ready"),
 }
 
 
