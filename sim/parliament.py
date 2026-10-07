@@ -264,6 +264,19 @@ def resolve_vote(state: GameState, bill: Bill, player_vote: int | None = None) -
             else:
                 delta = -p.STANDING_WHIP_ABSTAIN
             mp.standing = float(np.clip(mp.standing + delta, -1, 1))
+            # the payroll binds: an office-holder who votes against the line
+            # loses the post. The whips office enforces — it doesn't pay.
+            if cast == -whip and mp.junior not in p.WHIP_POSTS:
+                post = mp.junior or mp.portfolio
+                if post is not None:
+                    mp.junior, mp.junior_weeks = None, 0
+                    if mp.portfolio is not None:
+                        mp.portfolio, mp.portfolio_weeks = None, 0
+                        state.government.sacked.add(mp.id)
+                    who = ("You rebelled the whip" if mp.id == state.player_id
+                           else f"{mp.name} rebelled the {state.parties[mp.party].name} whip")
+                    state.emit("PayrollFall", f"{who} — the {post} post is gone.",
+                               mp=mp.id, post=post, bill=bill.name)
     is_amendment = bill.amends is not None or bill.entrenches is not None
     # amendments need two-thirds of votes cast — the constitution is hard
     # to move on purpose; abstentions waste the mover

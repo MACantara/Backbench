@@ -55,6 +55,13 @@ def explain_bill(state: GameState) -> str:
         else yes > no
     lines = [f"{bill.name} — projected {yes}-{no} +{abstain} abstain "
              f"({'pass' if passes else 'fail'})"]
+    from .parliament import whip_direction
+    me = state.mps.get(state.player_id)
+    post = (me.junior or me.portfolio) if me is not None else None
+    if me is not None and me.party is not None and post is not None \
+            and me.junior not in p.WHIP_POSTS \
+            and whip_direction(state, me.party, bill):
+        lines.append(f"  the payroll binds: rebelling the whip costs your {post}")
     if is_amendment:
         what = (f"repeal {bill.amends.name}" if bill.amends
                 else f"entrench {bill.entrenches.name}")
