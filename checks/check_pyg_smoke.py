@@ -43,8 +43,11 @@ d.toggle_auto()                    # the 'a' key — flushes any pending action 
 w0 = d.state.week
 for _ in range(6):
     d.step(5.0)
-    if d.banner and d.state.phase != "over":
+    b0 = d.banner
+    if b0 and d.state.phase != "over":
         d.step(3.0)                  # past AUTO_BANNER_SECONDS
-        assert d.banner is None, "auto_play left a banner blocking the run"
+        # the banner that was up must dismiss itself — a fresh interrupt
+        # from the advancing week may legitimately replace it
+        assert d.banner != b0, "auto_play left a banner blocking the run"
 assert d.state.week > w0 and not d.action_pause, "auto_play didn't advance"
 print(f"pyg smoke ok: week={d.state.week} phase={d.state.phase} events={len(d.state.log)}")

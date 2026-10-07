@@ -4,7 +4,8 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
-from sim.actions import available_actions
+from sim import params as p
+from sim.actions import available_actions, cost_of
 from sim.bot import auto_actions
 from sim.tick import tick
 from sim.worldgen import new_game
@@ -14,7 +15,9 @@ def _drive(s, weeks: int) -> None:
     for _ in range(weeks):
         menu = available_actions(s)
         acts = auto_actions(s)
-        assert 1 <= len(acts) <= 2, f"week {s.week}: bot picked {len(acts)}"
+        spent = sum(cost_of(a.kind) for a in acts)
+        assert 1 <= len(acts) and spent <= p.ACTION_POINTS, \
+            f"week {s.week}: bot spent {spent} on {[a.kind for a in acts]}"
         for a in acts:
             assert a.kind == "nothing" or a.kind in menu, \
                 f"week {s.week}: bot picked {a.kind!r} not in menu"
@@ -39,6 +42,7 @@ def main() -> None:
     # the PM's desk: force the office, give a vacancy, expect duties picked
     s = new_game(1)
     _drive(s, 20)
+    acts = auto_actions(s)
     if s.phase == "governing":
         s.government.pm = s.player_id
         acts = auto_actions(s)
