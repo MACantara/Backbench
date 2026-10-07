@@ -88,6 +88,21 @@ def main() -> None:
     assert np.array_equal(new_game(3, "fragmented").voters.pos,
                           new_game(3, "fragmented").voters.pos)
 
+    # district magnitude: mag=3 seats 3 members per district by largest remainder
+    mm = new_game(0, Scenario("mm", district_magnitude=3))
+    mm.phase = "governing"
+    from sim.election import resolve_election
+    resolve_election(mm)
+    per_d = {}
+    for m in mm.mps.values():
+        per_d[m.district] = per_d.get(m.district, 0) + 1
+    assert set(per_d.values()) == {3}, f"districts not all at magnitude 3"
+    assert sum(mm.log[-1].data["seats"].values()) == len(mm.mps) == 360
+    # proportionality: some district splits its 3 seats across parties
+    mixed = any(len({m.party for m in mm.mps.values() if m.district == d}) > 1
+                for d in per_d)
+    assert mixed, "every district swept by one party — allocation broken"
+
     print("scenarios check OK")
 
 
