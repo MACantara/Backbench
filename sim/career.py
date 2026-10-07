@@ -258,10 +258,42 @@ def update_score(state: GameState) -> None:
         state.score_terms["pm"] += 1
 
 
-def final_score(state: GameState) -> int:
+def score_breakdown(state: GameState) -> list[tuple[str, int, int, int]]:
+    """The career's accounting — (label, count, weight, points) per row.
+    Counts the run's feats from the log: this is the only place the score
+    exists, and final_score just sums it."""
     t = state.score_terms
-    return (t["mp"] + t["junior"] + 3 * t["minister"] + 5 * t["pm"]
-            + t.get("ambition", 0) + state.legacy_bills)
+    w = p.SCORE_W
+    pid = state.player_id
+    founded = sum(1 for pt in state.parties.values() if pt.founded_by == pid)
+    struck = sum(1 for e in state.log
+                 if e.type == "LawStruck" and e.data.get("by_player"))
+    kept = sum(1 for e in state.log
+               if e.type == "CareerEvent" and e.data.get("kept") is True)
+    leader = any(pt.leader == pid for pt in state.parties.values())
+    rows = [
+        ("terms in parliament", t.get("mp", 0), w["mp"]),
+        ("terms in junior office", t.get("junior", 0), w["junior"]),
+        ("terms in cabinet", t.get("minister", 0), w["minister"]),
+        ("terms as prime minister", t.get("pm", 0), w["pm"]),
+        ("laws bearing your name", state.legacy_bills, w["laws"]),
+        ("parties founded, still standing", founded, w["founded"]),
+        ("statutes struck on your filing", struck, w["struck"]),
+        ("promises the voters judged kept", kept, w["promises"]),
+        ("ended leading a party", int(leader), w["leader"]),
+        ("ambition realized", t.get("ambition", 0) // w["ambition"],
+         w["ambition"]),
+    ]
+    return [(lab, n, wt, n * wt) for lab, n, wt in rows if n]
+
+
+def final_score(state: GameState) -> int:
+    return sum(pts for _, _, _, pts in score_breakdown(state))
+
+
+def score_title(score: int) -> str:
+    """The career's verdict word — first band the score clears."""
+    return next(t for floor, t in p.SCORE_TITLES if score >= floor)
 
 
 _AMBITION_LABEL = {

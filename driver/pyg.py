@@ -11,7 +11,6 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 import pygame
 
 from sim.actions import Action
-from sim.career import final_score
 from sim.persist import from_json, to_json
 from sim.tick import tick
 from sim.worldgen import new_game
@@ -71,6 +70,9 @@ class Driver:
         self.seat_rects = {}        # mp_id -> Rect, rebuilt each draw for hit tests
         self.hover_bid = None       # button under the cursor — drives previews
         self.hover_mp = None        # seat under the cursor — target previews
+        self.gameover = False       # the career-record end screen is up
+        self.fame = []              # hall of fame table after recording
+        self.fame_recorded = False  # one scores.json entry per run
         self.buttons = {}           # button id -> Rect, rebuilt each draw
         self.inspect_mp = None      # mp_id shown in inspect card
         self.action_pause = False   # modal: waiting for weekly action picks
@@ -126,9 +128,11 @@ class Driver:
         self.results = None
         if self.state.phase == "over":
             self._autosave()        # the career's final state survives a crash
-            from sim.career import epilogue
-            self._show_banner(f"Game over — score {final_score(self.state)}")
-            self.why_text = "\n".join(epilogue(self.state))
+            if not self.fame_recorded:
+                from driver.fame import record_fame
+                self.fame = record_fame(self.state)
+                self.fame_recorded = True
+            self.gameover = True    # the career record takes the screen
             return
         self.district_prev = district_owners(self.state)
         self.events = tick(self.state, actions or [])
@@ -298,6 +302,8 @@ class Driver:
         self.district_prev = district_owners(self.state)
         self.chronicle["scroll"] = 0
         self.menu_open = False
+        self.gameover = False
+        self.fame_recorded = False   # a fresh run earns its own entry
 
     def on_button(self, bid: str) -> None:
         from sim.actions import cost_of
@@ -553,7 +559,9 @@ class Driver:
             self.running = False
         elif e.type == pygame.KEYDOWN:
             if e.key == pygame.K_ESCAPE:
-                if self.banner:
+                if self.gameover:
+                    self._to_menu()
+                elif self.banner:
                     self._dismiss_banner()
                 elif self.chronicle["open"]:
                     self.chronicle["open"] = False
@@ -606,6 +614,9 @@ class Driver:
                                   if r.collidepoint(pos)), None)
 
     def on_click(self, pos) -> None:
+        if self.gameover:
+            self._to_menu()          # any click closes the career record
+            return
         if self.banner:
             self._dismiss_banner()
             return

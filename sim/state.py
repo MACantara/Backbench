@@ -184,6 +184,7 @@ class CourtCase:
     due_week: int
     challenger: int | None          # party id of the filer; None = an independent MP
     risk: float = 0.0               # the statute's risk as challenged — verdicts use this
+    by_player: bool = False         # the player filed it — the strike credits them
 
 
 @dataclass

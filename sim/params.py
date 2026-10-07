@@ -315,6 +315,24 @@ PROSE_SEED_KEY = 0x5EED  # prose_rng fork — wording draws never touch state.rn
 AMBITION_SURVIVOR_TERMS = 4    # hold your seat through this many elections
 AMBITION_REFORMER_LAWS  = 3    # authored statutes on the book
 AMBITION_SCORE          = 2    # score_terms entry a met arc banks
+
+# the career's final accounting — score_breakdown reads this table
+SCORE_W = {
+    "mp": 1,          # terms survived in parliament
+    "junior": 1,      # terms in junior office
+    "minister": 3,    # terms in cabinet
+    "pm": 5,          # terms as prime minister
+    "laws": 1,        # statutes bearing your name
+    "founded": 3,     # parties you founded that outlived you
+    "struck": 1,      # statutes the court killed on your filing
+    "promises": 1,    # pledges the electorate judged kept
+    "leader": 2,      # ended the run leading a party
+    "ambition": AMBITION_SCORE,
+}
+SCORE_TITLES = [                  # (floor, title) — first band the score clears
+    (28, "statesman"), (20, "kingmaker"), (14, "cabinet climber"),
+    (8, "party faithful"), (4, "backbencher"), (0, "footnote"),
+]
 CONFIDENCE_WOUND_BRAND = 0.25   # constructive-confidence survival tax
 
 # --- spectator bot ---

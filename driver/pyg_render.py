@@ -675,3 +675,55 @@ def draw(drv) -> None:
     draw_burger(drv)
     draw_saves(drv)
     draw_banner(drv)
+    draw_gameover(drv)
+
+
+def draw_gameover(drv) -> None:
+    """The career record — scorecard, verdict, hall of fame. Replaces the
+    old one-line banner; any click hands off to the title menu."""
+    if not drv.gameover:
+        return
+    from sim.career import epilogue, final_score, score_breakdown, score_title
+    from driver.fame import same_run
+    s = drv.state
+    me = s.mps.get(s.player_id)
+    name = me.name if me else "the former member"
+    score = final_score(s)
+    rows = score_breakdown(s)
+    obit = epilogue(s)
+    this = {"name": name, "seed": s.seed, "week": s.week}
+
+    _scrim(drv)
+    bw = 660
+    bh = 190 + 17 * len(rows) + 15 * len(obit) + 90
+    box = pygame.Rect(W // 2 - bw // 2, H // 2 - bh // 2, bw, bh)
+    pygame.draw.rect(drv.screen, PANEL, box)
+    pygame.draw.rect(drv.screen, GOLD, box, 1)
+    _text(drv, f"{name} — {score_title(score)}",
+          (box.x + 24, box.y + 16), GOLD, drv.big)
+    _text(drv, "career record", (box.x + 24, box.y + 50), DIM)
+    y = box.y + 74
+    for lab, n, wt, pts in rows:
+        _text(drv, lab, (box.x + 32, y), font=drv.small)
+        _text(drv, f"{n} x{wt}", (box.x + 440, y), DIM, drv.small)
+        _text(drv, f"{pts:>4}", (box.x + 560, y), font=drv.small)
+        y += 17
+    pygame.draw.line(drv.screen, DIM, (box.x + 32, y + 2), (box.right - 32, y + 2))
+    _text(drv, "final score", (box.x + 32, y + 8), GOLD, drv.small)
+    _text(drv, f"{score:>4}", (box.x + 560, y + 8), GOLD, drv.small)
+    y += 34
+    for ln in obit:
+        _text(drv, _fit(drv, ln, bw - 56, drv.small), (box.x + 24, y),
+              DIM, drv.small)
+        y += 15
+    y += 10
+    _text(drv, "hall of fame", (box.x + 24, y), DIM)
+    y += 18
+    for i, e in enumerate(drv.fame[:3]):
+        you = " <- you" if same_run(e, this) else ""
+        _text(drv, _fit(drv, f"{i+1}. {e['name']} — {e['score']} "
+                        f"({e['title']}){you}", bw - 56, drv.small),
+              (box.x + 32, y), FG if you else DIM, drv.small)
+        y += 15
+    _button(drv, "menu:home", "main menu >>",
+            pygame.Rect(box.centerx - 70, box.bottom - 40, 140, 28))
