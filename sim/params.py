@@ -311,5 +311,5 @@ BOT_MARGINAL_SAFETY = 0.10   # seat_safety below this gets district defense
 BOT_FREE_VOTE_DIST  = 0.6    # free votes: aye inside this ideological range
 BOT_AMEND_DIST      = 0.5    # bills farther than this earn an amend
 BOT_COURT_WARMTH    = 0.5    # court outlets colder than this
-BOT_AUSTERITY_FLOOR = 0.0    # treasury below this → austere budget
+BOT_AUSTERITY_FLOOR = 0.1    # debt above this → austere budget
 BOT_STIMULUS_MOOD   = -0.2   # national mood below this → stimulus

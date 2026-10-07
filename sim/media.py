@@ -56,7 +56,7 @@ def _subjects(state: GameState, e) -> list[int]:
     mp = state.mps.get(e.data.get("mp", -1))
     if mp is not None:
         return [mp.party] if mp.party in state.parties else []
-    return [i for i in state.government.parties if i in state.parties]
+    return sorted(i for i in state.government.parties if i in state.parties)
 
 
 def media_lifecycle(state: GameState, base: int) -> None:

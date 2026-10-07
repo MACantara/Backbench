@@ -229,7 +229,9 @@ def run(seed: int = 0, load: bool = False, scenario=None,
         state = new_game(seed, scenario)
     tag = f" [{state.scenario}]" if state.scenario != "standard" else ""
     print(f"=== BACKBENCH - the Republic of {state.country} - seed {state.seed}{tag} ===")
-    print(f"You are {state.mps[state.player_id].name}, MP for district {state.mps[state.player_id].district}.")
+    me = state.mps.get(state.player_id)
+    print(f"You are {me.name}, MP for district {me.district}." if me
+          else "Your career is already spent — spectating.")
     if not load and not spectate and state.ambition is None:
         from sim.state import Ambition
         s = _ask(f"ambition? {' | '.join(AMBITION_KINDS)} (blank = open career) > ",

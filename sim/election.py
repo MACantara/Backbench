@@ -122,7 +122,7 @@ def resolve_election(state: GameState) -> None:
                     base[INDEPENDENT] = min(base[INDEPENDENT], 1)  # one person, one seat
                 won = {k: n for k, n in base.items() if n}
                 rem = mag - sum(won.values())
-                order = np.argsort(-(exact - np.floor(exact)))
+                order = np.argsort(-(exact - np.floor(exact)), kind="stable")
                 for i in order:
                     if rem <= 0:
                         break
@@ -138,6 +138,7 @@ def resolve_election(state: GameState) -> None:
             v.last_party[mask] = np.asarray(parties)[picks]
 
         unseated = list(incs)
+        unseated.sort(key=lambda i: i.id != state.player_id)  # your seat defends first
         for winner, k in won.items():
             seat_counts[winner] = seat_counts.get(winner, 0) + k
             safety = share.get(winner, margin)
@@ -185,7 +186,7 @@ def resolve_election(state: GameState) -> None:
                        f"{state.parties[w].name if w != INDEPENDENT else 'independent'} {k}"
                        for w, k in won.items()),
                    district=d, winners=dict(won),
-                   prev={i.party if i.party is not None else "ind" for i in incs},
+                   prev=[i.party if i.party is not None else "ind" for i in incs],
                    flipped=len(kept_ids) < len(incs), margin=float(margin),
                    retained=kept_ids)
 
@@ -199,7 +200,7 @@ def resolve_election(state: GameState) -> None:
     state.government.sacked = set()   # a fresh cabinet may bring anyone back
     for pt in state.parties.values():  # leaders who lost their seat leave a dead reference
         if pt.leader not in state.mps:
-            pt.leader = max(pt.members, key=lambda m: state.mps[m].ambition) if pt.members else None
+            pt.leader = max(sorted(pt.members), key=lambda m: state.mps[m].ambition) if pt.members else None
     state.emit("ElectionResult",
                render(state, "ElectionResult", country=state.country),
                seats={"ind" if k == INDEPENDENT else k: n for k, n in seat_counts.items()})

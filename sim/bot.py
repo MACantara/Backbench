@@ -3,8 +3,9 @@
 `auto_actions` returns the two weekly picks an engaged backbencher would
 make: answer the coalition question, vote the whip line, defend a
 marginal seat, build the relationships a career is made of, and run the
-PM's desk when the office is yours. Draws ride `state.rng` deliberately —
-the bot IS a player; its choices belong in the deterministic stream.
+PM's desk when the office is yours. The rules are draw-free today; if a
+draw ever joins, it rides `state.rng` — the bot IS a player, its choices
+belong in the deterministic stream, never on `prose_rng`.
 No mutation: the rules read state and emit Actions.
 """
 from __future__ import annotations
@@ -63,7 +64,7 @@ def auto_actions(state: GameState) -> list[Action]:
                 range(len(state.bench_shortlist)),
                 key=lambda i: dist(state.bench_shortlist[i].pos, player.pos)))
         if "budget" in menu:
-            stance = 0 if state.treasury < p.BOT_AUSTERITY_FLOOR else (
+            stance = 0 if state.treasury.debt > p.BOT_AUSTERITY_FLOOR else (
                 2 if mood(state.conditions) < p.BOT_STIMULUS_MOOD else 1)
             take("budget", axis=stance)
         if "amendment" in menu and state.government.amend_move is None \

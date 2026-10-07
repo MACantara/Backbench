@@ -9,7 +9,8 @@ from .prose import render
 from .state import Bill, GameState, dist, gov_platform
 from .parliament import describe_pos, resolve_vote
 
-MAJORITY = 61  # of 120 seats
+def _majority(state: GameState) -> int:
+    return len(state.mps) // 2 + 1
 
 _ELECTION_TEXT = {
     "scheduled": "Term ends — election called.",
@@ -41,12 +42,13 @@ def _viable_offers(state: GameState, exclude_parties: set[int] | None = None) ->
     seats = _seats(state)
     for pid in (exclude_parties or ()):
         seats.pop(pid, None)
+    majority = _majority(state)
     offers = []
     for proposer in sorted(seats, key=seats.get, reverse=True):
         coalition, bloc, price = {proposer}, seats[proposer], {}
         for partner in sorted(seats, key=lambda pid: dist(state.parties[pid].platform,
                                                           state.parties[proposer].platform)):
-            if bloc >= MAJORITY:
+            if bloc >= majority:
                 break
             if partner == proposer:
                 continue
@@ -55,7 +57,7 @@ def _viable_offers(state: GameState, exclude_parties: set[int] | None = None) ->
                 coalition.add(partner)
                 bloc += seats[partner]
                 price[partner] = pr
-        if bloc >= MAJORITY:
+        if bloc >= majority:
             offers.append({"proposer": proposer, "coalition": coalition,
                            "bloc": bloc, "price": price})
     return offers
@@ -236,10 +238,10 @@ def collapse(state: GameState, cause: str = "confidence") -> None:
     majority exists, else it dissolves. cause: 'confidence' | 'supply'."""
     pm_party = state.mps[state.government.pm].party \
         if state.government.pm in state.mps else None
-    fallen_largest = max(state.government.parties,
+    fallen_largest = max(sorted(state.government.parties),
                          key=lambda pid: len(state.parties[pid].members), default=None)
     alt = _best_coalition(state, exclude_parties={fallen_largest})
-    if state.constructive_confidence and cause in ("confidence", "supply") \
+    if state.constructive_confidence and cause == "confidence" \
             and alt is None \
             and state.government.collapses + 1 < p.SNAP_COLLAPSE_MAX:
         # constructive no-confidence: a lost division falls the government

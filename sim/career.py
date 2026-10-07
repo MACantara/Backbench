@@ -64,7 +64,7 @@ def _passed_over(state: GameState, ranked, post: str) -> None:
 
 def cabinet_cands(state: GameState, pid: int) -> list[int]:
     """Members eligible for a ministry — the inspect rank mirrors this pool."""
-    return [m for m in state.parties[pid].members
+    return [m for m in sorted(state.parties[pid].members)
             if m in state.mps and state.mps[m].portfolio is None
             and m != state.government.pm and m not in state.government.sacked]
 
@@ -101,7 +101,7 @@ def junior_lifecycle(state: GameState) -> None:
         for post in p.JUNIOR_POSTS:
             if post in held:
                 continue
-            cands = [m for m in pt.members
+            cands = [m for m in sorted(pt.members)
                      if m in state.mps and state.mps[m].junior is None
                      and state.mps[m].portfolio is None and m != pt.leader
                      and m not in state.government.sacked]
@@ -167,7 +167,7 @@ def leadership_challenge(state: GameState) -> None:
             continue
         if pt.cohesion >= p.LEADERSHIP_COHESION_MIN:
             continue
-        challengers = [m for m in pt.members
+        challengers = [m for m in sorted(pt.members)
                        if m != pt.leader and state.mps[m].ambition > p.CHALLENGE_AMBITION_MIN]
         if not challengers:
             continue
@@ -198,7 +198,7 @@ def remove_mp(state: GameState, mp) -> None:
     if pt is not None:
         pt.members.discard(mp.id)
         if pt.leader == mp.id:
-            cands = [m for m in pt.members if m in state.mps]
+            cands = [m for m in sorted(pt.members) if m in state.mps]
             pt.leader = max(cands, key=lambda m: state.mps[m].ambition) if cands else None
             if pt.leader is not None:
                 state.emit("CareerEvent",

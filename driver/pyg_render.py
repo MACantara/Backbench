@@ -43,11 +43,12 @@ def seat_positions(state) -> dict[int, tuple[float, float]]:
     ordered = sorted(state.parties.values(), key=lambda pt: pt.platform[0])
     mps = [state.mps[i] for pt in ordered for i in sorted(pt.members)]
     mps += [m for m in sorted(state.mps.values(), key=lambda m: m.id) if m.party is None]
-    mps = mps[:120]
     n = len(mps)
     if n == 0:
         return {}
-    rows, radii = 5, [150 + i * 48 for i in range(5)]
+    # a bigger house gets more arcs packed into the same span
+    rows = min(9, max(5, math.ceil(n / 40)))
+    radii = [150 + i * (192 / (rows - 1)) for i in range(rows)]
     weights = [r / sum(radii) for r in radii]
     counts = [round(n * w) for w in weights]
     counts[-1] += n - sum(counts)     # rounding residue lands in the outermost row
@@ -153,17 +154,18 @@ def _text(drv, s, xy, color=FG, font=None) -> None:
 
 def draw_parliament(drv, pos) -> None:
     s = drv.state
+    r = min(SEAT_R, max(2, int(SEAT_R * 160 / max(len(pos), 1))))
     for mid, (x, y) in pos.items():
         mp = s.mps[mid]
         col = party_color(s, mp.party) if mp.party is not None else DEFAULT_COLOR
         vote = drv.vote_flash.get(mid)  # "yes"/"no"/"abs" during vote cascade
         if vote:
             col = GREEN if vote == "yes" else RED if vote == "no" else DIM
-        pygame.draw.circle(drv.screen, col, (int(x), int(y)), SEAT_R)
+        pygame.draw.circle(drv.screen, col, (int(x), int(y)), r)
         if mid == s.player_id:
-            pygame.draw.circle(drv.screen, WHITE, (int(x), int(y)), SEAT_R + 3, 2)
+            pygame.draw.circle(drv.screen, WHITE, (int(x), int(y)), r + 3, 2)
         if mid == s.government.pm:
-            pygame.draw.circle(drv.screen, GOLD, (int(x), int(y) - 14), 3)
+            pygame.draw.circle(drv.screen, GOLD, (int(x), int(y) - r - 7), 3)
     # legend: party, seats
     y = 18
     for pt in sorted(s.parties.values(), key=lambda p: p.platform[0]):

@@ -185,6 +185,9 @@ def _player_district(voters, parties, mps, n_districts: int,
 
 
 def new_game(seed: int, scenario: "Scenario | str | None" = None) -> GameState:
+    if isinstance(scenario, str) and scenario not in SCENARIOS:
+        raise ValueError(f"unknown scenario {scenario!r} — "
+                         f"choices: {', '.join(SCENARIOS)}")
     sc = (SCENARIOS[scenario] if isinstance(scenario, str)
           else scenario or SCENARIOS["standard"])
     saved = {k: getattr(p, k) for k in sc.params if hasattr(p, k)}
@@ -248,6 +251,9 @@ def _worldgen(seed: int, sc: Scenario) -> GameState:
         old = mps[med].party
         if old in parties:
             parties[old].members.discard(med)
+            if parties[old].leader == med:  # the chair can't leave with you
+                parties[old].leader = max(sorted(parties[old].members),
+                                          key=lambda m: mps[m].ambition, default=None)
         mps[med].party = None
     conds = {f: float(np.clip(v + np_rng.normal(0, p.COND_JITTER_SD), -1, 1))
              for f, v in p.COND_BASE.items()}

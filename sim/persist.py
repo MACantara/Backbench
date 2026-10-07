@@ -44,7 +44,11 @@ def _enc(v, ctx: dict):
     if isinstance(v, random.Random):
         return {"$rng": [list(v.getstate()[1]), v.getstate()[2]]}
     if isinstance(v, Bill):
-        return {"#bill": ctx["bills"][id(v)]}
+        i = ctx["bills"].get(id(v))
+        if i is None:
+            raise TypeError("live Bill ref outside the table — "
+                            "add its owner to keep() in to_json")
+        return {"#bill": i}
     if isinstance(v, Law):
         i = ctx["laws"].get(id(v))
         return {"#law": i} if i is not None else _enc_body(v, ctx)
@@ -54,7 +58,7 @@ def _enc(v, ctx: dict):
     if is_dataclass(v):
         return _enc_body(v, ctx)
     if isinstance(v, set):
-        return {"$set": [_enc(x, ctx) for x in sorted(v)]}
+        return {"$set": [_enc(x, ctx) for x in sorted(v, key=repr)]}
     if isinstance(v, tuple):
         return {"$tup": [_enc(x, ctx) for x in v]}
     if isinstance(v, list):

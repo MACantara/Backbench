@@ -154,7 +154,7 @@ retained seats. One new emit inside the loop:
 
 ```python
 state.emit("DistrictResult", "...",
-           district=d, winners=dict(won), prev={incumbent parties},
+           district=d, winners=dict(won), prev=[incumbent parties],
            flipped=any_unseated, margin=margin, retained=[kept mp ids])
 ```
 
@@ -165,9 +165,10 @@ single-winner shape.)
 Then drivers dramatize: the election tick's `DistrictResult`s buffer and
 reveal sequentially — pyg steps them on a timer (map seats fill as calls
 land, a running seat bar, callouts on flips and "projection: plurality
-likely X" once a fraction is in); terminal already prints events in
-order — a live "called: N/113 seats — X leads 40" running line replaces
-the current dump. The sim's truth doesn't change; only the telling.
+likely X" once a fraction is in); terminal collapses the per-district
+dump into a one-shot summary — a called-line with the seat tally plus
+the flips worth naming. The sim's truth doesn't change; only the
+telling.
 
 ## 6. Spectator mode — a player worth watching
 
@@ -212,15 +213,21 @@ coordinated AI rebellion, AI-initiated deals.
 ## Params
 
 ```
-AMBITION_TERMS     = 8     # "survivor": terms to hold the seat
-AMBITION_LAWS      = 3     # "reformer": authored laws to pass
-AMBITION_SCORE     = 10    # a met arc's bonus on the final tally
-CONSTRUCTIVE_CONF  = False # scenario flag: falls need a named successor
-DISTRICT_MAGNITUDE = 1     # seats per district; >1 = largest remainder
-PROSE_SEED_KEY     = 0x5EED# cosmetic rng salt — never the mechanical stream
-BOT_LOBBY_W        = 0.6   # the bot's hunger for promotion
-BOT_MARGINAL       = 0.55  # seat-safety below this triggers defending
+AMBITION_SURVIVOR_TERMS = 4     # hold your seat through this many elections
+AMBITION_REFORMER_LAWS  = 3     # authored statutes on the book
+AMBITION_SCORE          = 2     # score_terms entry a met arc banks
+CONFIDENCE_WOUND_BRAND  = 0.25  # constructive-confidence survival tax
+PROSE_SEED_KEY = 0x5EED  # prose_rng fork — wording draws never touch state.rng
+BOT_MARGINAL_SAFETY = 0.10   # seat_safety below this gets district defense
+BOT_FREE_VOTE_DIST  = 0.6    # free votes: aye inside this ideological range
+BOT_AMEND_DIST      = 0.5    # bills farther than this earn an amend
+BOT_COURT_WARMTH    = 0.5    # court outlets colder than this
+BOT_AUSTERITY_FLOOR = 0.1    # debt above this → austere budget
+BOT_STIMULUS_MOOD   = -0.2   # national mood below this → stimulus
 ```
+
+(`constructive_confidence`, `district_magnitude`, `scenario` are
+`GameState` fields set by the `Scenario` — per-run settings, not globals.)
 
 ## Success criteria
 

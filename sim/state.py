@@ -18,7 +18,7 @@ def gov_platform(state: "GameState") -> Vec:
     formation, or the plain coalition mean when none was bargained."""
     if state.government is not None and state.government.platform is not None:
         return state.government.platform
-    gov = [state.parties[i].platform for i in state.government.parties
+    gov = [state.parties[i].platform for i in sorted(state.government.parties)
            if i in state.parties] if state.government is not None else []
     return tuple(np.mean(gov, axis=0)) if gov else (0.0, 0.0)
 
@@ -295,7 +295,7 @@ class GameState:
     legacy_bills: int = 0
 
     def emit(self, type_: str, text: str, **data) -> Event:
-        if text.startswith("You"):
+        if "action" in data:
             data.setdefault("echo", True)   # player-action echoes — digestible tier
         e = Event(type_, text, {"week": self.week, **data})
         self.log.append(e)
