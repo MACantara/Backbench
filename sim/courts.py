@@ -45,7 +45,7 @@ def file_case(state: GameState, law: Law, challenger: int | None,
     too (party id, or None for an independent)."""
     risk = legal_risk(state, law)
     case = CourtCase(law=law, due_week=state.week + p.REVIEW_WEEKS,
-                     challenger=challenger, risk=risk)
+                     challenger=challenger, risk=risk, by_player=by_player)
     state.docket.append(case)
     clause = worst_breach(state, law)
     plead = f" under {clause.name}" if clause else ""
@@ -103,7 +103,8 @@ def _verdict(state: GameState, case: CourtCase) -> None:
                    law=case.law.name, risk=risk,
                    article=clause.id if clause else None,
                    bench=votes,
-                   parties=sorted(case.law.enacted_by))
+                   parties=sorted(case.law.enacted_by),
+                   by_player=case.by_player)
     else:
         state.emit("LawUpheld",
                    f"The court upholds the {case.law.name} {strikes}-"
