@@ -127,7 +127,8 @@ class Driver:
         if self.week_timer >= BASE_WEEK_SECONDS:
             self.week_timer = 0.0
             if self.auto_play:
-                self.advance()
+                from sim.bot import auto_actions
+                self.advance(auto_actions(self.state))
             else:
                 self.action_pause = True   # stop the clock for the weekly decision
                 self.paused = True

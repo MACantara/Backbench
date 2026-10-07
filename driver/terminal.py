@@ -219,7 +219,8 @@ def show_poll(state) -> None:
         print(f"  {label}:", "  ".join(f"{k} {v}" for k, v in shares.items()))
 
 
-def run(seed: int = 0, load: bool = False, scenario=None) -> None:
+def run(seed: int = 0, load: bool = False, scenario=None,
+        spectate: bool = False) -> None:
     if load:
         state = _load()
         if state is None:
@@ -229,7 +230,7 @@ def run(seed: int = 0, load: bool = False, scenario=None) -> None:
     tag = f" [{state.scenario}]" if state.scenario != "standard" else ""
     print(f"=== BACKBENCH - the Republic of {state.country} - seed {state.seed}{tag} ===")
     print(f"You are {state.mps[state.player_id].name}, MP for district {state.mps[state.player_id].district}.")
-    if not load and state.ambition is None:
+    if not load and not spectate and state.ambition is None:
         from sim.state import Ambition
         s = _ask(f"ambition? {' | '.join(AMBITION_KINDS)} (blank = open career) > ",
                  lambda s: s == "" or s in AMBITION_KINDS)
@@ -238,7 +239,12 @@ def run(seed: int = 0, load: bool = False, scenario=None) -> None:
     while state.phase != "over":
         print(f"\n-- Week {state.week} [{state.phase}] {'-' * 40}")
         show_poll(state)
-        actions, loaded = prompt_actions(state)
+        if spectate:
+            from sim.bot import auto_actions
+            actions, loaded = auto_actions(state), None
+            print("  bot:", ", ".join(a.kind for a in actions))
+        else:
+            actions, loaded = prompt_actions(state)
         if loaded is not None:
             state = loaded
             continue
@@ -277,10 +283,11 @@ def run(seed: int = 0, load: bool = False, scenario=None) -> None:
 
 if __name__ == "__main__":
     if "--load" in sys.argv:
-        run(load=True)
+        run(load=True, spectate="--spectate" in sys.argv)
     else:
         sc = sys.argv[sys.argv.index("--scenario") + 1] \
             if "--scenario" in sys.argv else None
         seed = next((a for a in sys.argv[1:]
                      if not a.startswith("-") and a != sc), None)
-        run(int(seed) if seed else 0, scenario=sc)
+        run(int(seed) if seed else 0, scenario=sc,
+            spectate="--spectate" in sys.argv)
