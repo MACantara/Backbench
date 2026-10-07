@@ -21,6 +21,7 @@ from driver.pyg_render import (H, INTERRUPTS, W, district_owners, draw,
                                seat_positions)
 
 BASE_WEEK_SECONDS = 1.5
+AUTO_BANNER_SECONDS = 1.5     # auto-play dismisses interrupts itself
 
 SPEEDS = [0.5, 1.0, 2.0, 4.0]
 
@@ -47,6 +48,7 @@ class Driver:
         self.speed_i = 1
         self.week_timer = 0.0
         self.banner = None          # interrupt event text awaiting dismiss
+        self.banner_t = 0.0         # seconds the banner has been up
         self.events = []            # events from latest tick, for animation
         self.view = "parliament"    # or "map" (Tab)
         self.vote_flash = {}        # mp_id -> "yes"/"no" during vote cascade
@@ -124,6 +126,10 @@ class Driver:
             else:
                 self.vote_flash = {m: self.vote_anim["votes"][m]
                                    for m in self.vote_anim["order"][:k]}
+        self.banner_t = self.banner_t + dt if self.banner else 0.0
+        if (self.banner and self.auto_play and self.state.phase != "over"
+                and self.banner_t > AUTO_BANNER_SECONDS):
+            self.banner, self.paused = None, False   # spectators keep watching
         if self.paused or self.banner:
             return
         self.week_timer += dt * SPEEDS[self.speed_i]
