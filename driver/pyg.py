@@ -192,7 +192,11 @@ class Driver:
         if self.week_timer >= BASE_WEEK_SECONDS:
             self.week_timer = 0.0
             if self.auto_play:
-                from sim.bot import auto_actions
+                from sim.bot import auto_actions, bot_pick_ambition
+                if self.state.ambition is None:
+                    from sim.state import Ambition
+                    self.state.ambition = Ambition(
+                        bot_pick_ambition(self.state))
                 self.advance(auto_actions(self.state))
             else:
                 self.action_pause = True   # stop the clock for the weekly decision

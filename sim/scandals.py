@@ -46,7 +46,8 @@ def scandal_lifecycle(state: GameState) -> None:
     player = state.player_id
 
     for mp in state.mps.values():
-        mp.dossier += p.DIRTY_GROWTH * (1 - mp.integrity)
+        mp.dossier = mp.dossier * (1 - p.DOSSIER_FADE) \
+            + p.DIRTY_GROWTH * (1 - mp.integrity)
 
     # leaks: dossier surfaces into an active scandal (worse near elections)
     near_election = (state.phase == "campaign"
@@ -74,7 +75,10 @@ def scandal_lifecycle(state: GameState) -> None:
             bleed[mp.party] = bleed.get(mp.party, 0.0) + p.SCANDAL_BRAND_HIT * (
                 p.MINISTER_BRAND_MULT if mp.portfolio else 1.0)
         v.betrayal[v.district == mp.district] += p.SCANDAL_BETRAYAL
-        if rng.random() < p.RESIGN_BASE_P + mp.dossier * p.RESIGN_DOSSIER_W:
+        # only serious dirt adds resignation pressure — an embarrassing
+        # clip costs standing and brand, not the career
+        if rng.random() < p.RESIGN_BASE_P \
+                + max(0.0, mp.dossier - p.SEVERITY_SERIOUS) * p.RESIGN_DOSSIER_W:
             if mp.id == player:
                 _game_over(state, "you resign")
             else:

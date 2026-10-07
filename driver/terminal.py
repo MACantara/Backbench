@@ -245,12 +245,17 @@ def run(seed: int = 0, load: bool = False, scenario=None,
     me = state.mps.get(state.player_id)
     print(f"You are {me.name}, MP for district {me.district}." if me
           else "Your career is already spent — spectating.")
-    if not load and not spectate and state.ambition is None:
+    if not load and state.ambition is None:
         from sim.state import Ambition
-        s = _ask(f"ambition? {' | '.join(AMBITION_KINDS)} (blank = open career) > ",
-                 lambda s: s == "" or s in AMBITION_KINDS)
-        if s:
-            state.ambition = Ambition(s)
+        if spectate:
+            from sim.bot import bot_pick_ambition
+            state.ambition = Ambition(bot_pick_ambition(state))
+            print(f"  bot declares: {state.ambition.kind}")
+        else:
+            s = _ask(f"ambition? {' | '.join(AMBITION_KINDS)} (blank = open career) > ",
+                     lambda s: s == "" or s in AMBITION_KINDS)
+            if s:
+                state.ambition = Ambition(s)
     while state.phase != "over":
         print(f"\n-- Week {state.week} [{state.phase}] {'-' * 40}")
         show_poll(state)

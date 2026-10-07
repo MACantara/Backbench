@@ -60,6 +60,7 @@ python checks/check_persist.py      # save/load round-trip, reference identity
 python checks/check_prose.py        # cosmetic prose never touches the sim rng
 python checks/check_scenarios.py    # scenario presets, param isolation
 python checks/check_spectate.py     # the bot plays legal weeks and survives
+python checks/check_bot.py          # player-bot box score + rule gates
 python checks/check_e2e.py          # 200-week full cycle
 python checks/check_sweep.py        # 50-seed tuning sweep (~1 min)
 ```
@@ -80,7 +81,7 @@ sim/        pure state machine — no I/O, no prints
   parties.py    cohesion, defections, schisms, dissolutions
   actions.py    the player's weekly actions — costed in action points
   career.py     portfolios, challenges, scoring, ambitions, epilogue
-  bot.py        spectator policy — a legible rule list
+  bot.py        player-bot — ambition-driven rule pipeline, decision trace
   inspect.py    explainability: why did an MP vote that way
   tick.py       the weekly pipeline: tick(state, actions) -> events
 driver/

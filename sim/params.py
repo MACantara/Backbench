@@ -181,6 +181,7 @@ CHALLENGE_AMBITION_MIN = 0.6     # challengers need this much combined ambition
 
 # --- scandal lifecycle ---
 DIRTY_GROWTH = 0.002             # weekly dossier growth per unit of (1 - integrity)
+DOSSIER_FADE = 0.01              # dirt goes stale ~1%/week — clean living shrinks the file
 LEAK_BASE_P = 0.015              # weekly leak probability per unit of dossier
 LEAK_MIN_DOSSIER = 0.1           # below this, dirt never leaks
 LEAK_MAX_P = 0.25                # cap on the base rate (election multiplier applies after)
@@ -188,8 +189,8 @@ SEVERITY_SERIOUS = 0.5           # dossier separating "embarrassing" from "serio
 LEAK_ELECTION_MULT = 3.0         # October-surprise multiplier near elections
 ELECTION_LEAK_WINDOW = 6         # weeks before an election the multiplier applies
 SCANDAL_WEEKS = (3, 6)           # active-scandal duration range
-RESIGN_BASE_P = 0.02             # weekly resignation probability while burning
-RESIGN_DOSSIER_W = 0.15          # added resignation probability per unit of dossier
+RESIGN_BASE_P = 0.015            # weekly resignation probability while burning
+RESIGN_DOSSIER_W = 0.10          # added resignation probability per unit of dossier
 SACK_THRESHOLD = 1.5             # leader expels members past this dossier size
 MINISTER_SACK_FRAC = 0.6         # ministers sacked past this fraction of the threshold
 
@@ -342,3 +343,15 @@ BOT_AMEND_DIST      = 0.5    # bills farther than this earn an amend
 BOT_COURT_WARMTH    = 0.5    # court outlets colder than this
 BOT_AUSTERITY_FLOOR = 0.1    # debt above this → austere budget
 BOT_STIMULUS_MOOD   = -0.2   # national mood below this → stimulus
+BOT_DIRTY_CEILING   = 0.25   # dirty ops pause above this dossier heat
+BOT_ATTACK_MIN      = 0.15   # scrutiny below this land-chance wastes the week
+BOT_ATTACK_SURE     = 0.5    # odds worth spending even under heat
+BOT_STAY_UTILITY    = 0.45   # a party scoring below this is a bad home
+BOT_DEFECT_MAX_DIST = 0.8    # never cross to a party farther than this
+BOT_FOUND_MIN_WALK  = 2      # walk out only with a bloc this size
+BOT_OFFER_MAX_DIST  = 0.8    # decline a hung parliament farther than this
+BOT_MEDIA_FRIEND    = 0.5    # friendliness that makes a media hit worth it
+BOT_PLATFORM_DIST   = 0.3    # as leader, pull a platform farther than this
+BOT_TABLE_DIST      = 0.5    # table when the party sits this far off your ground
+BOT_DIG_STANDING    = 0.3    # a rival worth dirt needs at least this standing
+BOT_PROMISE_SAFETY  = 0.3    # promise only when the seat needs the help
