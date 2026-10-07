@@ -213,7 +213,7 @@ def draw_parliament(drv, pos) -> None:
         if mid == s.government.pm:
             pygame.draw.circle(drv.screen, GOLD, (int(x), int(y) - r - 7), 3)
     # legend: party, seats — independents count alongside the parties
-    y = 18
+    y = 44                            # clear of the tab strip
     for pt in sorted(s.parties.values(), key=lambda p: p.platform[0]):
         if not pt.members:
             continue
@@ -463,37 +463,35 @@ def draw_chronicle(drv) -> None:
     _text(drv, f"{len(events)} events — scroll {c['scroll']} back", (28, H - 30), DIM)
 
 
+def draw_tabs(drv) -> None:
+    """Always-visible command tabs across the top edge of the canvas."""
+    tabs = [
+        ("menu:pause", "resume" if drv.paused else "pause"),
+        ("menu:auto", "auto on" if drv.auto_play else "auto"),
+        ("menu:view", "map" if drv.view == "parliament" else "house"),
+        ("menu:chr", "log"), ("menu:save", "save"), ("menu:load", "load"),
+        ("menu:shot", "shot"), ("menu:settings", "settings"),
+        ("menu:quit", "quit"),
+    ]
+    x = 16
+    for bid, lab in tabs:
+        w = 14 + 9 * len(lab)
+        _button(drv, bid, lab, pygame.Rect(x, 6, w, 24))
+        x += w + 6
+
+
 def draw_burger(drv) -> None:
-    """The hamburger — always top-right of the panel; opens the command menu."""
-    r = pygame.Rect(W - 46, 10, 34, 26)
-    pygame.draw.rect(drv.screen, (50, 55, 70), r)
-    pygame.draw.rect(drv.screen, DIM, r, 1)
-    for i in range(3):
-        pygame.draw.line(drv.screen, FG, (r.x + 8, r.y + 7 + i * 6),
-                         (r.x + 26, r.y + 7 + i * 6), 2)
-    drv.buttons["burger"] = r
+    """The settings popup — opened from the settings tab."""
     drv.menu_rect = None
     if not drv.menu_open:
         return
-    if drv.menu_sub == "settings":
-        speed = ["0.5x", "1x", "2x", "4x"][drv.speed_i]
-        items = [
-            ("set:spd", f"speed: {speed}"),
-            ("set:fullscreen",
-             f"fullscreen: {'on' if drv.fullscreen else 'off'}"),
-            ("set:auto", f"autosave: every {drv.autosave_weeks}w"),
-            ("gm:main", "back"),
-        ]
-    else:
-        items = [
-            ("gm:settings", "settings"),
-            ("menu:pause", "resume" if drv.paused else "pause"),
-            ("menu:auto", "auto on" if drv.auto_play else "auto"),
-            ("menu:view", "map" if drv.view == "parliament" else "house"),
-            ("menu:chr", "log"), ("menu:shot", "shot"),
-            ("menu:save", "save"), ("menu:load", "load"),
-            ("menu:quit", "quit"),
-        ]
+    speed = ["0.5x", "1x", "2x", "4x"][drv.speed_i]
+    items = [
+        ("set:spd", f"speed: {speed}"),
+        ("set:fullscreen",
+         f"fullscreen: {'on' if drv.fullscreen else 'off'}"),
+        ("set:auto", f"autosave: every {drv.autosave_weeks}w"),
+    ]
     _scrim(drv)
     bw = 320
     bh = 56 + ((len(items) + 1) // 2) * 40 + 16
@@ -501,8 +499,8 @@ def draw_burger(drv) -> None:
     drv.menu_rect = box
     pygame.draw.rect(drv.screen, PANEL, box)
     pygame.draw.rect(drv.screen, GOLD, box, 1)
-    _text(drv, drv.menu_sub, (box.x + 16, box.y + 14), font=drv.big)
-    _close(drv, "burger", box.right - 30, box.y + 12)
+    _text(drv, "settings", (box.x + 16, box.y + 14), font=drv.big)
+    _close(drv, "menu:close", box.right - 30, box.y + 12)
     for i, (bid, lab) in enumerate(items):
         row, col = divmod(i, 2)
         _button(drv, bid, lab,
@@ -636,6 +634,7 @@ def draw(drv) -> None:
         draw_action_panel(drv)
     draw_why(drv)
     draw_chronicle(drv)
+    draw_tabs(drv)
     draw_burger(drv)
     draw_saves(drv)
     draw_banner(drv)
