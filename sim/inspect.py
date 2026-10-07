@@ -221,6 +221,7 @@ ACTION_INFO: dict[str, str] = {
     "attack": "go for the government — lands only when it's weak",
     "table": "write and divide your own bill — your name on the book",
     "platform": "pull the party platform toward you — a leader's prerogative",
+    "evolve": "reposition — the voters price the slide, the whip reads the direction",
     "budget": "signal the next budget's posture — the treasury reads it",
     "defect": "cross the floor — your district remembers betrayal",
     "found": "walk out and name a vehicle — whoever loves you walks too",
@@ -306,6 +307,23 @@ def explain_action(state: GameState, kind: str,
             return blurb + " — pick a colleague"
         r = t.relationships.get(me.id, 0.0)
         return f"{t.name}'s regard {r:.2f} -> {r + 0.2:.2f} — careers run on this ledger"
+    if kind == "evolve":
+        # same expressions apply_action prices: clip, moved, betrayal, standing
+        def _ev(a):
+            new = tuple(min(1.0, max(-1.0, me.pos[i] + p.EVOLVE_STEP * (a[i] - me.pos[i])))
+                        for i in (0, 1))
+            mv = dist(me.pos, new)
+            return new, (f"{dist(me.pos, a):.2f} away, moves {mv:.2f} "
+                         f"(+{p.EVOLVE_BETRAYAL_W * mv:.2f} mistrust)")
+        parts = []
+        if mask.any():
+            parts.append("district: " + _ev(tuple(v.pos[mask].mean(axis=0)))[1])
+        pt = state.parties.get(me.party)
+        if pt is not None:
+            new, txt = _ev(tuple(pt.platform))
+            sd = p.EVOLVE_STANDING_W * (dist(me.pos, pt.platform) - dist(new, pt.platform))
+            parts.append(f"party: {txt}, standing {sd:+.2f}")
+        return " | ".join(parts) or "no anchor to read"
     if kind == "scheme":
         pt = state.parties.get(me.party)
         n = max(0, min(8, len(pt.members) - 1)) if pt else 0

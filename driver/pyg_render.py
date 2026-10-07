@@ -484,6 +484,14 @@ def draw_action_panel(drv) -> None:
         _text(drv, "the posture you signal:", (34, H - 114), GOLD)
         for i, lab in enumerate(("austerity", "balanced", "stimulus")):
             _button(drv, f"bud:{i}", lab, pygame.Rect(34 + i * 120, H - 88, 110, 28))
+    elif drv.need_evolve:
+        _text(drv, "reposition toward:", (34, H - 114), GOLD)
+        me = drv.state.mps.get(drv.state.player_id)
+        x = 34
+        _button(drv, "evo:d", "the district", pygame.Rect(x, H - 88, 110, 28))
+        x += 118
+        if me is not None and me.party is not None:
+            _button(drv, "evo:p", "the party", pygame.Rect(x, H - 88, 110, 28))
     elif drv.need_defect:
         _text(drv, "cross the floor to:", (34, H - 114), GOLD)
         me = drv.state.mps.get(drv.state.player_id)

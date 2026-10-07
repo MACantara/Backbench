@@ -111,7 +111,7 @@ def prompt_actions(state) -> tuple[list[Action], "object | None"]:
                 continue
             print(f"  {explain_action(state, kind)}")
             target = axis = vote = offer = law = judge = None
-            article = entrench = outlet = None
+            article = entrench = outlet = pos = None
             if kind in ("lobby", "dig_dirt", "deal", "leak"):
                 s = _ask("target mp id > ",
                          lambda s: s.isdigit() and int(s) in state.mps
@@ -157,6 +157,18 @@ def prompt_actions(state) -> tuple[list[Action], "object | None"]:
                 if s is None:
                     continue
                 axis = int(s)
+            if kind == "evolve":
+                me = state.mps[state.player_id]
+                pt = state.parties.get(me.party)
+                s = _ask("toward (d=district | p=party) > ",
+                         lambda s: s in ("d", "p") and (s != "p" or pt is not None))
+                if s is None:
+                    continue
+                if s == "d":
+                    c = state.voters.pos[state.voters.district == me.district].mean(axis=0)
+                    pos = (float(c[0]), float(c[1]))
+                else:
+                    pos = tuple(pt.platform)
             if kind in ("speech", "promise", "table"):
                 s = _ask("axis 0=economic 1=social > ", lambda s: s in ("0", "1"))
                 if s is None:
@@ -224,7 +236,7 @@ def prompt_actions(state) -> tuple[list[Action], "object | None"]:
             picks.append(Action(kind, target=target, axis=axis, vote=vote,
                                 offer=offer, law=law, judge=judge,
                                 article=article, entrench=entrench,
-                                outlet=outlet))
+                                outlet=outlet, pos=pos))
         else:
             print("?")
     return picks, None

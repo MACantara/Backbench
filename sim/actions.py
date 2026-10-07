@@ -21,7 +21,7 @@ class Action:
     target: int | None = None    # MP id for lobby/dig_dirt/leak; party id for
                                  # defect; outlet id for court
     axis: int | None = None      # 0/1 for speech/promise/table; 0-2 stance for budget
-    pos: tuple[float, float] | None = None  # for promise
+    pos: tuple[float, float] | None = None  # for promise/evolve
     vote: int | None = None      # +1/-1/0 on the pending division
     offer: int | None = None     # pick_offer: index into state.offers
     law: int | None = None       # challenge: index into state.laws
@@ -48,7 +48,7 @@ def available_actions(state: GameState) -> list[str]:
         if challengeable(state):
             menu.append("challenge")
         return menu
-    base = ["scheme", "lobby", "media", "dig_dirt", "leak"]
+    base = ["scheme", "lobby", "media", "dig_dirt", "leak", "evolve"]
     if player is not None and player.party is not None:
         base.append("court")         # cultivate an editorial board
     if state.offers:
@@ -90,7 +90,7 @@ def apply_action(state: GameState, action: Action) -> None:
     if player.id == state.speaker and action.kind in (
             "found", "defect", "table", "attack", "deal", "amend", "vote",
             "promise", "platform", "budget", "appoint", "amendment",
-            "pick_offer"):
+            "pick_offer", "evolve"):
         return      # the chair doesn't do politics — the menu gates, this walls
     v = state.voters
     mask = v.district == player.district
@@ -133,6 +133,33 @@ def apply_action(state: GameState, action: Action) -> None:
                    f"You give a speech on the {'economic' if ax == 0 else 'social'} "
                    f"axis — the district is {gap:.2f} from you on it.",
                    action="speech")
+
+    elif action.kind == "evolve":
+        # reposition — a lerp toward the anchor, priced in the district's
+        # mistrust per unit covered and the whip's read of the direction
+        old = np.asarray(player.pos)
+        tgt = np.asarray(action.pos) if action.pos is not None else (
+            v.pos[mask].mean(axis=0) if mask.any() else old)
+        new = np.clip(old + p.EVOLVE_STEP * (tgt - old), -1, 1)
+        moved = float(np.linalg.norm(new - old))
+        if moved < 1e-12:
+            return      # standing still isn't a news event
+        player.pos = (float(new[0]), float(new[1]))
+        v.betrayal[mask] += p.EVOLVE_BETRAYAL_W * moved
+        pt = state.parties.get(player.party)
+        trim = ""
+        if pt is not None:
+            d_old, d_new = dist(tuple(old), pt.platform), dist(tuple(new), pt.platform)
+            player.standing = float(np.clip(
+                player.standing + p.EVOLVE_STANDING_W * (d_old - d_new), -1, 1))
+            if d_new < d_old:
+                trim = ", the whip notes the trim"
+            elif d_new > d_old:
+                trim = ", the whip notes the wobble"
+        state.emit("CareerEvent",
+                   f"You edge to ({new[0]:+.2f},{new[1]:+.2f}) — moved {moved:.2f}; "
+                   f"the voters notice (+{p.EVOLVE_BETRAYAL_W * moved:.2f} mistrust){trim}.",
+                   action="evolve", moved=moved)
 
     elif action.kind == "promise":
         pt = state.parties.get(player.party)
