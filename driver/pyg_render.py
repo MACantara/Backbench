@@ -484,6 +484,7 @@ def draw_burger(drv) -> None:
         ("menu:save", "save"), ("menu:load", "load"),
         ("menu:shot", "shot"), ("menu:quit", "quit"),
     ]
+    _scrim(drv)
     bw = 320
     bh = 56 + ((len(items) + 1) // 2) * 40 + 16
     box = pygame.Rect(W // 2 - bw // 2, H // 2 - bh // 2, bw, bh)
@@ -493,9 +494,16 @@ def draw_burger(drv) -> None:
     _text(drv, "menu", (box.x + 16, box.y + 14), font=drv.big)
     _close(drv, "burger", box.right - 30, box.y + 12)
     for i, (bid, lab) in enumerate(items):
-        col, row = divmod(i, 2)
+        row, col = divmod(i, 2)
         _button(drv, bid, lab,
                 pygame.Rect(box.x + 16 + col * 146, box.y + 52 + row * 40, 136, 32))
+
+
+def _scrim(drv, alpha: int = 170) -> None:
+    """Dim everything under a modal so the popup owns the focus."""
+    s = pygame.Surface((W, H), pygame.SRCALPHA)
+    s.fill((0, 0, 0, alpha))
+    drv.screen.blit(s, (0, 0))
 
 
 def draw_saves(drv) -> None:
@@ -504,6 +512,7 @@ def draw_saves(drv) -> None:
         drv.picker_rect = None
         return
     import datetime as _dt
+    _scrim(drv)
     files = sorted((q for q in drv.save_dir.glob("*.json")
                     if q.name != "settings.json"),
                    key=lambda q: -q.stat().st_mtime)[:12]
@@ -531,6 +540,7 @@ def draw_saves(drv) -> None:
 def draw_banner(drv) -> None:
     if not drv.banner:
         return
+    _scrim(drv, 140)
     lines = _wrap(drv, drv.banner, 820, drv.big)
     h = 76 + 30 * len(lines)
     pygame.draw.rect(drv.screen, PANEL, (200, 300, 880, h))
